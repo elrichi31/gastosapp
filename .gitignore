@@ -1,0 +1,22 @@
+# Configuración local: apunta al backend de cada quien.
+# Copia LocalAPIConfig.example.swift a esta ruta y pon tu URL.
+gastosapp/Configuration/LocalAPIConfig.swift
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
