@@ -25,9 +25,9 @@ struct LoginSubmitSection: View {
             }
             .foregroundStyle(canSubmit ? AppTheme.onAccent : AppTheme.tertiaryText)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .frame(height: 54)
             .background(buttonBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous))
         }
         .disabled(!canSubmit)
     }
@@ -40,22 +40,23 @@ struct LoginSubmitSection: View {
                     .foregroundStyle(AppTheme.warning)
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.72))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(AppTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(AppTheme.warning.opacity(0.10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(AppTheme.warning.opacity(0.25), lineWidth: 1)
+                    )
+            )
         }
     }
 
-    private var buttonBackground: LinearGradient {
-        LinearGradient(
-            colors: canSubmit
-                ? [AppTheme.accent, AppTheme.accent]
-                : [AppTheme.disabledFill, AppTheme.disabledFill],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+    private var buttonBackground: Color {
+        canSubmit ? AppTheme.accent : AppTheme.disabledFill
     }
 }

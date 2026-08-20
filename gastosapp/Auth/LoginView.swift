@@ -20,194 +20,202 @@ struct LoginView: View {
     }
 
     var body: some View {
-        ZStack {
-            AppTheme.screenBackground.ignoresSafeArea()
-
+        GeometryReader { proxy in
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 22) {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 24)
                     encabezado
+                    capacidades
+                        .padding(.top, 24)
                     card
+                        .padding(.top, 28)
                     footer
+                        .padding(.top, 24)
+                    Spacer(minLength: 24)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 28)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: proxy.size.height)
+                .padding(.horizontal, 24)
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .tint(AppTheme.accent)
+        .background(AppTheme.screenBackground.ignoresSafeArea())
     }
 
     private var encabezado: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.accent.opacity(0.18))
-                    .frame(width: 58, height: 58)
-                    .overlay(
-                        Image(systemName: "wallet.pass.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(AppTheme.accent)
-                    )
+        VStack(spacing: 14) {
+            Image("BrandMark")
+                .resizable()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Zenlor")
-                        .font(.system(size: 34, weight: .bold, design: .default))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text("Tu dinero, claro y simple")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.5))
-                }
+            VStack(spacing: 5) {
+                Text("Zenlor")
+                    .font(AppTheme.number(30, .bold))
+                    .kerning(-0.5)
+                    .foregroundStyle(AppTheme.primaryText)
+                Text("Tu dinero, claro y simple")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
-
-            Text("Inicia sesión para ver tus movimientos, registrar gastos y mantener todo en un solo lugar.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.60))
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 18)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Qué hace la app, en tres palabras. Reemplaza al párrafo de introducción:
+    /// decía lo mismo y competía con el formulario por la atención.
+    private var capacidades: some View {
+        HStack(spacing: 8) {
+            capacidad(icon: "chart.bar.fill", text: "Resumen")
+            capacidad(icon: "plus.circle.fill", text: "Registrar")
+            capacidad(icon: "repeat", text: "Control")
+        }
+    }
+
+    private func capacidad(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(AppTheme.accent)
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.secondaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 30)
+        .background(Capsule().fill(AppTheme.controlSurface))
     }
 
     private var card: some View {
-        VStack(spacing: 18) {
-            quickHighlights
-
-            campo(
-                titulo: "Correo electronico",
-                icono: "at",
-                content: {
-                    TextField(
-                        "tu@correo.com",
-                        text: $email,
-                        prompt: Text("tu@correo.com").foregroundStyle(AppTheme.primaryText.opacity(0.24))
-                    )
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled(true)
-                    .textContentType(.username)
-                    .submitLabel(.next)
-                    .focused($focusedField, equals: .email)
-                    .foregroundStyle(AppTheme.primaryText)
-                    .onSubmit {
-                        focusedField = .password
-                    }
+        VStack(spacing: 16) {
+            campo(titulo: "Correo electrónico", field: .email) {
+                marcador("tu@correo.com", visible: email.isEmpty) {
+                    TextField("", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .autocorrectionDisabled(true)
+                        .textContentType(.username)
+                        .tint(AppTheme.accent)
+                        .submitLabel(.next)
+                        .focused($focusedField, equals: .email)
+                        .foregroundStyle(AppTheme.primaryText)
+                        .accessibilityLabel("Correo electrónico")
+                        .onSubmit { focusedField = .password }
                 }
-            )
+            }
 
-            campo(
-                titulo: "Contrasena",
-                icono: "lock.fill",
-                content: {
-                    HStack(spacing: 10) {
+            campo(titulo: "Contraseña", field: .password) {
+                HStack(spacing: 10) {
+                    marcador("Tu contraseña", visible: password.isEmpty) {
                         Group {
                             if showPassword {
-                                TextField(
-                                    "Ingresa tu contrasena",
-                                    text: $password,
-                                    prompt: Text("Ingresa tu contrasena").foregroundStyle(AppTheme.primaryText.opacity(0.24))
-                                )
+                                TextField("", text: $password)
                             } else {
-                                SecureField(
-                                    "Ingresa tu contrasena",
-                                    text: $password,
-                                    prompt: Text("Ingresa tu contrasena").foregroundStyle(AppTheme.primaryText.opacity(0.24))
-                                )
+                                SecureField("", text: $password)
                             }
                         }
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .textContentType(.password)
-                        .submitLabel(.go)
-                        .focused($focusedField, equals: .password)
-                        .foregroundStyle(AppTheme.primaryText)
-                        .onSubmit {
-                            guard canSubmit else { return }
-                            Task {
-                                await iniciarSesion()
-                            }
-                        }
-
-                        Button {
-                            showPassword.toggle()
-                        } label: {
-                            Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-                        }
-                        .accessibilityLabel(showPassword ? "Ocultar contrasena" : "Mostrar contrasena")
-                        .accessibilityHint("Alterna la visibilidad de la contrasena")
+                        .accessibilityLabel("Contraseña")
                     }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .textContentType(.password)
+                    .tint(AppTheme.accent)
+                    .submitLabel(.go)
+                    .focused($focusedField, equals: .password)
+                    .foregroundStyle(AppTheme.primaryText)
+                    .onSubmit {
+                        guard canSubmit else { return }
+                        Task { await iniciarSesion() }
+                    }
+
+                    Button {
+                        showPassword.toggle()
+                    } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppTheme.tertiaryText)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showPassword ? "Ocultar contraseña" : "Mostrar contraseña")
                 }
-            )
+            }
 
             LoginSubmitSection(
                 isAuthenticating: store.isAuthenticating,
                 canSubmit: canSubmit,
                 errorMessage: store.authErrorMessage
             ) {
-                Task {
-                    await iniciarSesion()
-                }
+                Task { await iniciarSesion() }
             }
+            .padding(.top, 4)
         }
         .padding(22)
-        .background(AppTheme.cardBackground(cornerRadius: 28))
+        .background(AppTheme.cardBackground(cornerRadius: 26))
     }
 
     private var footer: some View {
-        VStack(spacing: 6) {
-            Text("Tus datos se mantienen disponibles para que entres sin complicarte.")
-                .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.46))
-                .multilineTextAlignment(.center)
-
+        HStack(spacing: 5) {
+            Text("¿No tienes cuenta?")
+                .foregroundStyle(AppTheme.secondaryText)
             Link("Crear cuenta", destination: LocalAPIConfig.registerURL)
-                .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.accent)
+                .fontWeight(.semibold)
         }
-        .padding(.bottom, 18)
+        .font(.footnote)
     }
 
-    private var quickHighlights: some View {
-        HStack(spacing: 10) {
-            highlightPill(icon: "chart.bar.fill", text: "Resumen")
-            highlightPill(icon: "plus.circle.fill", text: "Registrar")
-            highlightPill(icon: "repeat.circle.fill", text: "Control")
-        }
-    }
-
-    private func highlightPill(icon: String, text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-            Text(text)
-                .lineLimit(1)
-        }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(AppTheme.primaryText.opacity(0.72))
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(
-            Capsule()
-                .fill(AppTheme.primaryText.opacity(0.05))
-        )
-    }
-
-    private func campo<Content: View>(titulo: String, icono: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(titulo)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.48))
-                .tracking(1.1)
-
-            HStack(spacing: 12) {
-                Image(systemName: icono)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 28, height: 28)
-                    .background(AppTheme.primaryText.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                content()
+    /// Placeholder propio en lugar de `prompt:`.
+    ///
+    /// El `foregroundStyle` de un `Text` pasado como `prompt` se ignora y el
+    /// campo de correo lo pintaba con el azul del sistema, fuera del tema.
+    private func marcador<Content: View>(
+        _ text: String,
+        visible: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ZStack(alignment: .leading) {
+            if visible {
+                Text(text)
+                    .foregroundStyle(AppTheme.tertiaryText)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            .padding(14)
-            .background(AppTheme.primaryText.opacity(0.05), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            content()
+        }
+    }
+
+    private func campo<Content: View>(
+        titulo: String,
+        field: FocusField,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let isFocused = focusedField == field
+
+        return VStack(alignment: .leading, spacing: 8) {
+            AppSectionLabel(text: titulo, size: 10)
+
+            content()
+                .padding(.horizontal, 16)
+                .frame(height: 52)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                        .fill(AppTheme.insetSurface)
+                )
+                .overlay(
+                    // El foco se marca con el borde, no con un icono decorativo.
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
+                        .strokeBorder(
+                            isFocused ? AppTheme.accent : AppTheme.border,
+                            lineWidth: isFocused ? 1.5 : 1
+                        )
+                )
+                .animation(.easeOut(duration: 0.15), value: isFocused)
+                .contentShape(Rectangle())
+                .onTapGesture { focusedField = field }
         }
     }
 
