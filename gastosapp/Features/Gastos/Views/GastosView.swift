@@ -16,7 +16,7 @@ struct GastosView: View {
 
                 if let toastMessage {
                     TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                         .padding(.bottom, 92)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -38,9 +38,10 @@ struct GastosView: View {
                     sectionMode: $sectionMode,
                     onAddTap: { path.append(.addExpense) }
                 )
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
-                .padding(.bottom, 12)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 18)
+                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
             }
         }
     }

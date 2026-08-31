@@ -10,22 +10,13 @@ struct RecurringExpenseCard: View {
             Spacer(minLength: 10)
             amountPill
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(AppTheme.cardBackground())
+        .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Desliza hacia la izquierda para editar o eliminar")
     }
 
     private var icon: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(item.categoria.color.opacity(0.85))
-            .frame(width: 42, height: 42)
-            .overlay(
-                Image(systemName: item.categoria.icono)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
-            )
+        CategoryGlyph(categoria: item.categoria, size: 42)
     }
 
     private var details: some View {
@@ -33,7 +24,7 @@ struct RecurringExpenseCard: View {
             titleRow
             Text(item.scheduleLabel)
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                .foregroundStyle(AppTheme.secondaryText)
             metadataRow
         }
     }
@@ -53,14 +44,14 @@ struct RecurringExpenseCard: View {
             metaPill(
                 icon: item.categoria.icono,
                 text: item.categoria.nombre,
-                tint: item.categoria.color.opacity(0.16),
-                foreground: AppTheme.primaryText.opacity(0.72)
+                tint: AppTheme.controlSurface,
+                foreground: AppTheme.primaryText
             )
             metaPill(
                 icon: item.metodoPago.icono,
                 text: item.metodoPago.shortLabel,
                 tint: AppTheme.surface,
-                foreground: AppTheme.primaryText.opacity(0.62)
+                foreground: AppTheme.secondaryText
             )
         }
     }
@@ -70,9 +61,6 @@ struct RecurringExpenseCard: View {
             .font(.system(size: 15, weight: .bold, design: .default))
             .foregroundStyle(AppTheme.primaryText)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            .background(AppTheme.capsuleBackground())
     }
 
     private var typePill: some View {

@@ -34,22 +34,32 @@ struct GastosHeaderBar: View {
     let onAddTap: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Tu dinero")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Text("Gastos")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(AppTheme.primaryText)
+                }
+
+                Spacer()
+                addButton
+            }
+
             sectionSelector
-            Spacer()
-            addButton
         }
-        .padding(.leading, 18)
-        .padding(.trailing, 8)
-        .padding(.vertical, 8)
-        .background(GastosCapsuleBackground())
+        .frame(maxWidth: .infinity)
     }
 
     private var sectionSelector: some View {
         HStack(spacing: 6) {
             ForEach(GastosSectionMode.allCases, id: \.self, content: modeButton)
         }
-        .padding(4)
+        .padding(5)
+        .frame(maxWidth: .infinity)
         .background(SelectorBackground())
     }
 
@@ -62,17 +72,14 @@ struct GastosHeaderBar: View {
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 16, weight: .bold))
-                if isSelected {
-                    Text(mode.title)
-                        .font(.caption.weight(.bold))
-                        .lineLimit(1)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
-                }
+                    .font(.system(size: 14, weight: .bold))
+                Text(mode.title)
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
             }
             .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.secondaryText)
-            .padding(.horizontal, isSelected ? 13 : 0)
-            .frame(width: isSelected ? nil : 42, height: 38)
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
             .background(Capsule().fill(isSelected ? AppTheme.accent : .clear))
         }
         .buttonStyle(.plain)
@@ -86,7 +93,6 @@ struct GastosHeaderBar: View {
                 .foregroundStyle(AppTheme.onAccent)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(AppTheme.accent))
-                .shadow(color: AppTheme.accent.opacity(0.35), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Agregar gasto")
@@ -97,7 +103,7 @@ private struct SelectorBackground: View {
     var body: some View {
         Capsule()
             .fill(AppTheme.controlSurface)
-            .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
+            .overlay(Capsule().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
     }
 }
 

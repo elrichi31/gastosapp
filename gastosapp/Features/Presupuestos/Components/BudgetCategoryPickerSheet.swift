@@ -50,8 +50,8 @@ struct BudgetCategoryPickerSheet: View {
         BudgetEditorHeader(
             title: "Nueva categoría",
             subtitle: selectedCategory?.nombre ?? "Elige una categoría",
-            icon: selectedCategory?.icono ?? "square.grid.2x2.fill",
-            tint: selectedCategory?.color ?? AppTheme.accent,
+            icon: selectedCategory?.icono ?? "circle.grid.2x2.fill",
+            tint: AppTheme.accent,
             onClose: dismiss.callAsFunction
         )
     }
@@ -76,11 +76,7 @@ struct BudgetCategoryPickerSheet: View {
             selectedCategoryID = category.id
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: category.icono)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 42, height: 42)
-                    .background(category.color, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                CategoryGlyph(categoria: category, size: 42)
 
                 Text(category.nombre)
                     .font(.subheadline.weight(.bold))
@@ -91,15 +87,15 @@ struct BudgetCategoryPickerSheet: View {
 
                 Image(systemName: selectedCategoryID == category.id ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(selectedCategoryID == category.id ? AppTheme.accent : AppTheme.primaryText.opacity(0.32))
+                    .foregroundStyle(selectedCategoryID == category.id ? AppTheme.accent : AppTheme.placeholderText)
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(AppTheme.primaryText.opacity(selectedCategoryID == category.id ? 0.09 : 0.055))
+                    .fill(selectedCategoryID == category.id ? AppTheme.insetSurface : AppTheme.controlSurface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(selectedCategoryID == category.id ? AppTheme.accent.opacity(0.38) : AppTheme.primaryText.opacity(0.08), lineWidth: 1)
+                            .stroke(selectedCategoryID == category.id ? AppTheme.accent.opacity(0.38) : AppTheme.controlSurface, lineWidth: 1)
                     )
             )
         }
@@ -112,11 +108,11 @@ struct BudgetCategoryPickerSheet: View {
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(AppTheme.accent)
             Text(title)
-                .font(.headline.weight(.bold))
+                .font(.headline)
                 .foregroundStyle(AppTheme.primaryText)
             Text(message)
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -124,8 +120,8 @@ struct BudgetCategoryPickerSheet: View {
         .padding(.horizontal, 18)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(AppTheme.primaryText.opacity(0.06))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1))
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(AppTheme.border, lineWidth: 1))
         )
     }
 

@@ -14,17 +14,13 @@ struct HomeView: View {
     @State private var budgetDetailStore = BudgetDetailStore()
     @State private var selectedCategory: Categoria?
     @State private var presentedQuickAction: QuickActionSheet?
+    @State private var selectedRecentBar: DailyExpenseBar?
     @State private var isLoadingHomeData = true
     @State private var dashboardSnapshot = HomeDashboardSnapshot.placeholder()
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
 
     private let cal = Calendar.current
-    private static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
     private static let spanishShortMonthSymbols: [String] = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "es")
@@ -129,9 +125,17 @@ struct HomeView: View {
             fondo.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 30) {
                     homeDecisionHero(snapshot)
                     quickActionsCard
+                    HomeRecent30DaysSection(
+                        bars: snapshot.recent30DayBars,
+                        totalValue: snapshot.monthTotal.budgetCurrency,
+                        selectedBar: $selectedRecentBar,
+                        dayLabel: compactDayLabel,
+                        accessibilityLabel: recentBarAccessibilityLabel
+                    )
+                    HomeRecentActivitySection(expenses: Array(snapshot.monthExpenses.prefix(4)))
                     upcomingChargesCard(snapshot)
                     categoriasCard(snapshot)
                     if objetivoAhorroConfigurado {
@@ -140,16 +144,16 @@ struct HomeView: View {
                     smartInsightsCard(snapshot)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
                 .padding(.bottom, 18)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             barraSuperior
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
-                .padding(.bottom, 12)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 18)
                 .background {
                     AppTheme.backgroundTop
                         .overlay(alignment: .bottom) {
@@ -209,7 +213,7 @@ struct HomeView: View {
         .overlay(alignment: .bottom) {
             if let toastMessage {
                 TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                     .padding(.bottom, 92)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -217,43 +221,48 @@ struct HomeView: View {
     }
 
     private var barraSuperior: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
+            Image(systemName: "wallet.bifold.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 50, height: 50)
+                .background(AppTheme.accent.opacity(0.16), in: Circle())
+                .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.28), lineWidth: 1))
+                .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 3) {
-                AppSectionLabel(text: saludo, size: 10)
-                Text("Resumen")
-                    .font(AppTheme.number(26, .bold))
+                Text(Self.headerDateFormatter.string(from: Date()).capitalized)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppTheme.secondaryText)
+                Text("Hola, \(firstName)")
+                    .font(.title2.bold())
                     .foregroundStyle(AppTheme.primaryText)
             }
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Circle()
                     .fill(store.isAuthenticated ? AppTheme.accent : AppTheme.warning)
                     .frame(width: 6, height: 6)
-                Text(nombreMesActual.capitalized)
-                    .font(AppTheme.number(13, .semibold))
+                Image(systemName: "bell")
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(AppTheme.controlSurface)
-                    .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
-            )
-            .accessibilityLabel(store.isAuthenticated ? "Sesión activa, \(nombreMesActual)" : "Sin sesión, \(nombreMesActual)")
+            .accessibilityLabel(store.isAuthenticated ? "Sesión activa" : "Sin sesión")
         }
-        .padding(.vertical, 2)
     }
 
-    private var saludo: String {
-        let hora = cal.component(.hour, from: Date())
-        switch hora {
-        case 5..<12: return "Buenos días"
-        case 12..<19: return "Buenas tardes"
-        default: return "Buenas noches"
-        }
+    private static let headerDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es")
+        formatter.dateFormat = "EEEE, d 'de' MMMM"
+        return formatter
+    }()
+
+    private var firstName: String {
+        let name = store.currentUser?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.split(separator: " ").first.map(String.init) ?? "bienvenido"
     }
 
     private func homeDecisionHero(_ snapshot: HomeDashboardSnapshot) -> some View {
@@ -339,26 +348,16 @@ struct HomeView: View {
     }
 
     private var fondo: some View {
-        LinearGradient(
-            colors: [
-                AppTheme.backgroundTop,
-                AppTheme.backgroundBottom
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        AppTheme.screenBackground
     }
 
-    private var nombreMesActual: String {
-        let components = cal.dateComponents([.year, .month], from: Date())
-        guard
-            let year = components.year,
-            let month = components.month,
-            Self.spanishMonthSymbols.indices.contains(month - 1)
-        else {
-            return ""
-        }
-        return "\(Self.spanishMonthSymbols[month - 1]) \(year)"
+    private func compactDayLabel(_ date: Date?) -> String {
+        guard let date else { return "" }
+        return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "es")))
+    }
+
+    private func recentBarAccessibilityLabel(_ bar: DailyExpenseBar) -> String {
+        "\(compactDayLabel(bar.date)), \(currencyLabel(bar.total)) gastados"
     }
 
     private func projectedMonthClosing(using snapshot: HomeDashboardSnapshot) -> Double {

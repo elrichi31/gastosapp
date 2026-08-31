@@ -11,7 +11,7 @@ struct ProviderBadge: View {
                 .fill(provider.color)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1)
+                        .stroke(AppTheme.border, lineWidth: 1)
                 )
 
             Text(provider.iniciales)

@@ -42,7 +42,7 @@ struct AddExpenseSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 14)
                 .background(AppTheme.backgroundBottom)
@@ -64,7 +64,7 @@ struct AddExpenseSheet: View {
         Button(action: dismiss.callAsFunction) {
             Image(systemName: "chevron.left")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.78))
+                .foregroundStyle(AppTheme.primaryText)
                 .frame(width: 42, height: 42)
                 .background(SelectorCircleBackground())
         }
@@ -90,7 +90,7 @@ struct AddExpenseSheet: View {
         } label: {
             Image(systemName: mode.icon)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(isSelected ? .black : AppTheme.primaryText.opacity(0.68))
+                .foregroundStyle(isSelected ? .black : AppTheme.secondaryText)
                 .frame(width: 52, height: 42)
                 .background(Capsule().fill(isSelected ? AppTheme.accent : .clear))
         }
@@ -125,6 +125,6 @@ private struct SelectorCircleBackground: View {
     var body: some View {
         Circle()
             .fill(AppTheme.controlSurface)
-            .overlay(Circle().stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1))
+            .overlay(Circle().stroke(AppTheme.border, lineWidth: 1))
     }
 }

@@ -38,18 +38,24 @@ struct ProfileView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 20) {
-                    header
+                VStack(spacing: AppScreenMetrics.sectionSpacing) {
                     sessionCard
                     appearanceCard
                     notificationsCard
                     savingsGoalCard
                     logoutButton
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, 32)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            AppScreenHeader(eyebrow: "Tu cuenta", title: "Perfil")
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
+                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
         .onChange(of: weeklySummaryEnabled) { _, _ in
             Task {
@@ -82,61 +88,53 @@ struct ProfileView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Perfil")
-                .font(.system(size: 32, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-            Text("Gestiona tu sesión")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var sessionCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                Circle()
-                    .fill(AppTheme.accent.opacity(0.18))
-                    .frame(width: 54, height: 54)
-                    .overlay(
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(AppTheme.accent)
-                    )
+        HStack(spacing: 16) {
+            Circle()
+                .fill(AppTheme.accent.opacity(0.18))
+                .frame(width: 58, height: 58)
+                .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.30), lineWidth: 1))
+                .overlay(
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(AppTheme.accent)
+                )
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(store.currentUser?.name ?? "Sesión activa")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text(store.currentUser?.email ?? "Sin correo")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-                }
-                Spacer()
+            VStack(alignment: .leading, spacing: 3) {
+                Text(store.currentUser?.name ?? "Sesión activa")
+                    .font(.title3.bold())
+                    .foregroundStyle(AppTheme.onStatement)
+                    .lineLimit(1)
+                Text(store.currentUser?.email ?? "Sin correo")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.statementSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+
+            Spacer(minLength: 0)
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .accessibilityElement(children: .combine)
     }
 
     private var appearanceCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "circle.lefthalf.filled")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.accent)
-                    .frame(width: 32, height: 32)
-                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 36, height: 36)
+                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Apariencia")
-                        .font(.headline)
+                        .font(.title3.bold())
                         .foregroundStyle(AppTheme.primaryText)
                     Text("Elige claro, oscuro o sigue el sistema.")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
             }
 
@@ -149,26 +147,25 @@ struct ProfileView: View {
             .pickerStyle(.segmented)
             .tint(AppTheme.accent)
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var notificationsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "bell.badge.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.accent)
-                    .frame(width: 32, height: 32)
-                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 36, height: 36)
+                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Notificaciones")
-                        .font(.headline)
+                        .font(.title3.bold())
                         .foregroundStyle(AppTheme.primaryText)
                     Text("Ajusta avisos semanales y de presupuesto.")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
             }
 
@@ -232,7 +229,7 @@ struct ProfileView: View {
                     .font(.caption.weight(.bold))
                     .textCase(.uppercase)
                     .tracking(1.1)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                    .foregroundStyle(AppTheme.tertiaryText)
 
                 Picker("Umbral de alerta", selection: $budgetAlertThreshold) {
                     ForEach(budgetAlertThresholds, id: \.value) { threshold in
@@ -245,26 +242,25 @@ struct ProfileView: View {
                 .opacity(budgetAlertsEnabled ? 1 : 0.45)
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var savingsGoalCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "banknote.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryAccent)
-                    .frame(width: 32, height: 32)
-                    .background(AppTheme.secondaryAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 36, height: 36)
+                    .background(AppTheme.secondaryAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Objetivo de ahorro")
-                        .font(.headline)
+                        .font(.title3.bold())
                         .foregroundStyle(AppTheme.primaryText)
                     Text("Protege una parte de tu presupuesto mensual.")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
             }
 
@@ -292,7 +288,7 @@ struct ProfileView: View {
                                 .foregroundStyle(AppTheme.primaryText)
                             Text("Monto objetivo para cada mes.")
                                 .font(.caption)
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
 
                         Spacer()
@@ -329,8 +325,7 @@ struct ProfileView: View {
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.strongBorder, lineWidth: 1))
             )
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private func settingsToggle(title: String, subtitle: String, icon: String, isOn: Binding<Bool>) -> some View {
@@ -348,7 +343,7 @@ struct ProfileView: View {
                         .foregroundStyle(AppTheme.primaryText)
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                        .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -364,10 +359,14 @@ struct ProfileView: View {
         } label: {
             Text("Cerrar sesión")
                 .font(.headline)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(AppTheme.negative)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(AppTheme.negative.opacity(0.85), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .padding(.vertical, 17)
+                .background(
+                    Capsule()
+                        .fill(AppTheme.negative.opacity(0.12))
+                        .overlay(Capsule().strokeBorder(AppTheme.negative.opacity(0.28), lineWidth: 1))
+                )
         }
     }
 

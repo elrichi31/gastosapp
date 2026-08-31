@@ -30,7 +30,7 @@ struct BudgetDetailView: View {
                 Button(action: dismiss.callAsFunction) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.78))
+                        .foregroundStyle(AppTheme.primaryText)
                 }
                 .accessibilityLabel("Volver")
             }
@@ -116,13 +116,13 @@ struct BudgetDetailView: View {
 
     private var detailScroll: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: AppScreenMetrics.sectionSpacing) {
                 screenHeader
                 BudgetSummaryHero(budget: budget, snapshot: spendingSnapshot)
                 content
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+            .padding(.top, AppScreenMetrics.headerTopPadding)
             .padding(.bottom, 36)
         }
         .refreshable {
@@ -133,46 +133,18 @@ struct BudgetDetailView: View {
     }
 
     private var screenHeader: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Presupuesto")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .tracking(2)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
-                Text(budget.monthYearTitle)
-                    .font(.system(.title2, design: .default, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-            }
-
-            Spacer()
-
-            Button {
-                presentedSheet = .addCategory
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(AppTheme.accent))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Agregar categoría")
+        AppScreenHeader(eyebrow: "Presupuesto", title: budget.monthYearTitle) {
+            AppCircleButton(
+                icon: "plus",
+                prominent: true,
+                label: "Agregar categoría",
+                action: { presentedSheet = .addCategory }
+            )
         }
     }
 
     private var categoriesHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Categorías")
-                .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-
-            Spacer()
-
-            Text("Detalle ↓")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
-        }
+        AppSectionTitle(title: "Categorías", trailingText: "Detalle ↓")
     }
 
     private var deleteAlertBinding: Binding<Bool> {
@@ -180,11 +152,7 @@ struct BudgetDetailView: View {
     }
 
     private var background: some View {
-        LinearGradient(
-            colors: [AppTheme.backgroundTop, AppTheme.backgroundBottom],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        AppTheme.screenBackground
     }
 
     private func deleteSelectedMovement() {
@@ -214,7 +182,7 @@ struct BudgetDetailView: View {
             Image(systemName: icon).font(.system(size: 14, weight: .bold)).foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.primaryText)
-                Text(message).font(.caption).foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                Text(message).font(.caption).foregroundStyle(AppTheme.secondaryText)
             }
             Spacer()
         }
@@ -241,14 +209,14 @@ struct BudgetDetailView: View {
                         .foregroundStyle(AppTheme.primaryText)
                     Text("Trae categorías y movimientos presupuestados del mes previo.")
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             .padding(16)
             .background(

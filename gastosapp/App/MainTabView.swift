@@ -17,6 +17,7 @@ struct MainTabView: View {
                 .frame(maxWidth: .infinity)
         }
         .ignoresSafeArea(.keyboard)
+        .sensoryFeedback(.selection, trigger: seleccion)
     }
 
     @ViewBuilder
@@ -56,6 +57,7 @@ private struct PillTabBar: View {
         }
         .padding(FloatingTabBarMetrics.innerPadding)
         .background(AppTheme.chromeBackground(Capsule()))
+        .accessibilityElement(children: .contain)
     }
 
     private func botonTab(tab: MainTabView.Tab, icono: String, titulo: String) -> some View {
@@ -80,7 +82,14 @@ private struct PillTabBar: View {
             .background {
                 if activo {
                     Capsule()
-                        .fill(AppTheme.accent.opacity(0.13))
+                        .fill(
+                            LinearGradient(
+                                colors: [AppTheme.accent.opacity(0.22), AppTheme.accent.opacity(0.10)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(Capsule().strokeBorder(AppTheme.accent.opacity(0.20), lineWidth: 0.75))
                         .matchedGeometryEffect(id: "tab", in: indicator)
                 }
             }
@@ -88,39 +97,8 @@ private struct PillTabBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(titulo)
+        .accessibilityValue(activo ? "Seleccionado" : "")
         .accessibilityAddTraits(activo ? .isSelected : [])
-    }
-}
-
-private struct PlaceholderView: View {
-    let titulo: String
-    let icono: String
-    let color: Color
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    AppTheme.backgroundTop,
-                    AppTheme.backgroundBottom
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                Image(systemName: icono)
-                    .font(.system(size: 56, weight: .semibold))
-                    .foregroundStyle(color)
-                Text(titulo)
-                    .font(.system(size: 28, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                Text("Próximamente")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
-            }
-        }
     }
 }
 

@@ -34,11 +34,11 @@ struct AddBudgetSheet: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Nuevo mes")
-                    .font(.system(.title3, design: .default, weight: .bold))
+                    .font(.title3.bold())
                     .foregroundStyle(AppTheme.primaryText)
                 Text("Elige el mes para activar su presupuesto.")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             Spacer()
             closeButton
@@ -46,15 +46,7 @@ struct AddBudgetSheet: View {
     }
 
     private var closeButton: some View {
-        Button(action: dismiss.callAsFunction) {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.72))
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(AppTheme.primaryText.opacity(0.08)))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cerrar")
+        AppCircleButton(icon: "xmark", label: "Cerrar", action: dismiss.callAsFunction)
     }
 
     private var selectors: some View {
@@ -75,7 +67,7 @@ struct AddBudgetSheet: View {
                     Text(title)
                         .font(.caption2.weight(.bold))
                         .textCase(.uppercase)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                        .foregroundStyle(AppTheme.tertiaryText)
                     Text(value)
                         .font(.system(.headline, design: .default, weight: .bold))
                         .foregroundStyle(AppTheme.primaryText)
@@ -84,10 +76,14 @@ struct AddBudgetSheet: View {
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             .padding(14)
-            .background(AppTheme.cardBackground(cornerRadius: 18))
+            .background((
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
         }
         .buttonStyle(.plain)
         .disabled(options.isEmpty)
@@ -102,18 +98,18 @@ struct AddBudgetSheet: View {
         } else if availableMonths.isEmpty {
             Text("No hay meses disponibles para crear en este año.")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.50))
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
     private var saveButton: some View {
         Button(action: save) {
             Text(budgets.isSavingBudget ? "Guardando…" : "Crear mes")
-                .font(.headline.weight(.bold))
+                .font(.headline)
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(Capsule().fill(canSave ? AppTheme.accent : AppTheme.primaryText.opacity(0.18)))
+                .background(Capsule().fill(canSave ? AppTheme.accent : AppTheme.placeholderText))
         }
         .buttonStyle(.plain)
         .disabled(!canSave)

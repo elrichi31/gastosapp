@@ -50,11 +50,7 @@ struct HomeCategoryExpenseDetailSheet: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: category.icono)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(width: 42, height: 42)
-                .background(category.color, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            CategoryGlyph(categoria: category, size: 42)
             titleBlock
             Spacer()
             closeButton
@@ -64,39 +60,31 @@ struct HomeCategoryExpenseDetailSheet: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(category.nombre)
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.title3.bold())
                 .foregroundStyle(AppTheme.primaryText)
             Text("\(expenses.count) registros · \(total.budgetCurrency)")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.50))
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
     private var closeButton: some View {
-        Button(action: dismiss.callAsFunction) {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.72))
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(AppTheme.primaryText.opacity(0.08)))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cerrar")
+        AppCircleButton(icon: "xmark", label: "Cerrar", action: dismiss.callAsFunction)
     }
 
     private var sheetHint: some View {
         HStack(spacing: 9) {
             Image(systemName: "calendar.badge.clock")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(category.color)
+                .foregroundStyle(AppTheme.accent)
             Text("Agrupado por fecha con total diario")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                .foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .frame(height: 34)
-        .background(Capsule().fill(AppTheme.primaryText.opacity(0.055)))
+        .background(Capsule().fill(AppTheme.controlSurface))
     }
 
     private func daySection(_ group: CategoryExpenseDayGroup) -> some View {
@@ -114,14 +102,14 @@ struct HomeCategoryExpenseDetailSheet: View {
         HStack(spacing: 10) {
             Text(dayTitle(group.date))
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.80))
+                .foregroundStyle(AppTheme.primaryText)
             Rectangle()
-                .fill(AppTheme.primaryText.opacity(0.07))
+                .fill(AppTheme.controlSurface)
                 .frame(height: 1)
             Text(group.total.budgetCurrency)
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
@@ -134,7 +122,7 @@ struct HomeCategoryExpenseDetailSheet: View {
                     .lineLimit(1)
                 Text(expense.metodoPago.shortLabel)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             Spacer()
             Text(expense.monto.budgetCurrency)
@@ -143,7 +131,11 @@ struct HomeCategoryExpenseDetailSheet: View {
                 .foregroundStyle(AppTheme.primaryText)
         }
         .padding(14)
-        .background(AppTheme.cardBackground(cornerRadius: 18))
+        .background((
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
     }
 
     private func dayTitle(_ date: Date) -> String {

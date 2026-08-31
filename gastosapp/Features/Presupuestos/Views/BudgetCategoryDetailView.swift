@@ -33,7 +33,7 @@ struct BudgetCategoryDetailView: View {
                     summaryCard
                     budgetedSection
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 36)
             }
@@ -45,7 +45,7 @@ struct BudgetCategoryDetailView: View {
                 Button(action: dismiss.callAsFunction) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.78))
+                        .foregroundStyle(AppTheme.primaryText)
                 }
                 .accessibilityLabel("Volver")
             }
@@ -65,7 +65,7 @@ struct BudgetCategoryDetailView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.78))
+                        .foregroundStyle(AppTheme.primaryText)
                 }
                 .accessibilityLabel("Agregar gasto")
             }
@@ -91,20 +91,7 @@ struct BudgetCategoryDetailView: View {
     }
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Categoría")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .tracking(2)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
-                Text(currentCategory.displayCategory.nombre)
-                    .font(.system(.title2, design: .default, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-            }
-
-            Spacer()
-        }
+        AppScreenHeader(eyebrow: "Categoría", title: currentCategory.displayCategory.nombre)
     }
 
     private var summaryCard: some View {

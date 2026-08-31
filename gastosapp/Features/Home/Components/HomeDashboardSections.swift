@@ -1,13 +1,5 @@
 import SwiftUI
 
-struct HomeCardBackground: View {
-    var cornerRadius: CGFloat = AppTheme.Radius.card
-
-    var body: some View {
-        AppTheme.cardBackground(cornerRadius: cornerRadius)
-    }
-}
-
 /// Bloque principal del Inicio: responde "¿cómo voy este mes?" de una sola vez.
 ///
 /// Antes esto eran dos tarjetas (el hero y "Cierre del mes") que mostraban la
@@ -38,14 +30,14 @@ struct HomeMonthHeroCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                AppSectionLabel(text: state.amount == nil ? "Estado de hoy" : state.title)
+                heroLabel(state.amount == nil ? "Estado de hoy" : state.title)
                 Spacer(minLength: 0)
                 if state.isLoading {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(AppTheme.tertiaryText)
+                    .tint(AppTheme.statementSecondary)
                 } else {
-                    AppSectionLabel(text: "\(daysRemaining) días", size: 10)
+                    heroLabel("\(daysRemaining) días")
                 }
             }
 
@@ -54,14 +46,14 @@ struct HomeMonthHeroCard: View {
                     .font(AppTheme.number(46, .bold))
                     .monospacedDigit()
                     .kerning(-1.2)
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(AppTheme.onStatement)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .padding(.top, 12)
             } else {
                 Text(state.title)
                     .font(AppTheme.number(28, .bold))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(AppTheme.onStatement)
                     .lineLimit(2)
                     .minimumScaleFactor(0.75)
                     .padding(.top, 12)
@@ -69,11 +61,11 @@ struct HomeMonthHeroCard: View {
 
             Text(state.subtitle)
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+                .foregroundStyle(AppTheme.statementSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
 
-            AppHairline()
+            AppTheme.statementHairline
                 .padding(.top, 18)
 
             HStack(spacing: 0) {
@@ -82,13 +74,13 @@ struct HomeMonthHeroCard: View {
                 heroStat(title: "Proyección", value: projectionValue, tint: AppTheme.secondaryAccent)
                 if let budgetValue {
                     statDivider
-                    heroStat(title: "Presupuesto", value: budgetValue, tint: AppTheme.tertiaryText)
+                    heroStat(title: "Presupuesto", value: budgetValue, tint: AppTheme.onStatement.opacity(0.45))
                 }
             }
             .padding(.top, 16)
 
             if let outcomeMessage {
-                AppHairline()
+                AppTheme.statementHairline
                     .padding(.top, 16)
 
                 HStack(alignment: .top, spacing: 10) {
@@ -97,7 +89,7 @@ struct HomeMonthHeroCard: View {
                         .foregroundStyle(outcomeTint)
                     Text(outcomeMessage)
                         .font(.footnote)
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -105,33 +97,33 @@ struct HomeMonthHeroCard: View {
             }
 
             if let nextRecurringTitle, let nextRecurringDateLabel {
-                AppHairline()
+                AppTheme.statementHairline
                     .padding(.top, 14)
 
                 HStack(spacing: 10) {
                     Image(systemName: "repeat")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(AppTheme.secondaryAccent)
+                        .foregroundStyle(AppTheme.accent)
                     Text(nextRecurringTitle)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText)
+                        .foregroundStyle(AppTheme.onStatement)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Text(nextRecurringDateLabel)
                         .font(AppTheme.number(12, .semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                 }
                 .padding(.top, 14)
             }
         }
-        .padding(22)
-        .background(HomeCardBackground())
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
         .accessibilityElement(children: .combine)
     }
 
     private var statDivider: some View {
         Rectangle()
-            .fill(AppTheme.border)
+            .fill(AppTheme.onStatementFaint)
             .frame(width: 1, height: 32)
     }
 
@@ -141,17 +133,25 @@ struct HomeMonthHeroCard: View {
                 Circle()
                     .fill(tint)
                     .frame(width: 6, height: 6)
-                AppSectionLabel(text: title, size: 10)
+                heroLabel(title)
             }
             Text(value)
                 .font(AppTheme.number(17, .semibold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, 2)
+    }
+
+    private func heroLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .textCase(.uppercase)
+            .tracking(1.1)
+            .foregroundStyle(AppTheme.statementSecondary)
     }
 }
 
@@ -176,23 +176,32 @@ struct HomeQuickActionsSection: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 9) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(prominent ? AppTheme.onAccent : tint)
-                    .frame(width: 32, height: 32)
+                    .foregroundStyle(prominent ? AppTheme.onAccent : AppTheme.primaryText)
+                    .frame(width: 30, height: 30)
                     .background(
-                        Circle().fill(prominent ? AnyShapeStyle(tint) : AnyShapeStyle(tint.opacity(0.14)))
+                        Circle().fill(
+                            prominent
+                                ? AnyShapeStyle(AppTheme.onAccent.opacity(0.16))
+                                : AnyShapeStyle(tint.opacity(0.14))
+                        )
                     )
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(prominent ? AppTheme.onAccent : AppTheme.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(HomeCardBackground(cornerRadius: AppTheme.Radius.control))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(prominent ? AnyShapeStyle(AppTheme.accent) : AnyShapeStyle(AppTheme.controlSurface))
+                    .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: prominent ? 0 : 1))
+            )
         }
         .buttonStyle(.plain)
     }
@@ -222,7 +231,7 @@ struct HomeUpcomingChargesSection: View {
                             .foregroundStyle(AppTheme.primaryText)
                         Text("Cuando agregues un gasto recurrente o una suscripción, te mostraré aquí lo siguiente que viene.")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                            .foregroundStyle(AppTheme.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -248,7 +257,7 @@ struct HomeUpcomingChargesSection: View {
                                     .lineLimit(1)
                                 Text("\(dayLabel(preview.expense)) • \(preview.expense.cadenceLabel)")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.primaryText.opacity(0.56))
+                                    .foregroundStyle(AppTheme.secondaryText)
                                     .lineLimit(1)
                             }
 
@@ -263,14 +272,13 @@ struct HomeUpcomingChargesSection: View {
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(AppTheme.insetSurface)
-                                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.primaryText.opacity(0.07), lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.border, lineWidth: 1))
                         )
                     }
                 }
             }
         }
-        .padding(18)
-        .background(HomeCardBackground())
+        .padding(.vertical, 4)
     }
 }
 
@@ -287,8 +295,7 @@ struct HomeInsightsSection: View {
                 }
             }
         }
-        .padding(18)
-        .background(HomeCardBackground())
+        .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
     }
 }
@@ -314,11 +321,11 @@ struct HomeSavingsGoalSection: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Objetivo de ahorro")
-                        .font(.headline.weight(.bold))
+                        .font(.title2.bold())
                         .foregroundStyle(AppTheme.primaryText)
                     Text("Meta mensual: \(monthlyTargetValue)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.54))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
 
                 Spacer()
@@ -347,7 +354,7 @@ struct HomeSavingsGoalSection: View {
 
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(AppTheme.primaryText.opacity(0.08))
+                            Capsule().fill(AppTheme.controlSurface)
                             Capsule()
                                 .fill(availableAllowance >= 0 ? AppTheme.secondaryAccent : AppTheme.warning)
                                 .frame(width: max(proxy.size.width * allowanceProgress, 8))
@@ -357,7 +364,7 @@ struct HomeSavingsGoalSection: View {
 
                     Text(statusMessage)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                        .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(14)
@@ -368,14 +375,14 @@ struct HomeSavingsGoalSection: View {
                 )
             }
         }
-        .padding(18)
-        .background(HomeCardBackground())
+        .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
     }
 }
 
 struct HomeRecent30DaysSection: View {
     let bars: [DailyExpenseBar]
+    var totalValue: String = ""
     @Binding var selectedBar: DailyExpenseBar?
     let dayLabel: (Date?) -> String
     let accessibilityLabel: (DailyExpenseBar) -> String
@@ -384,9 +391,27 @@ struct HomeRecent30DaysSection: View {
         bars.map(\.total).max() ?? 0
     }
 
+    private var latestActiveDate: Date? {
+        bars.last(where: { $0.total > 0 })?.date
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HomeSectionHeader(title: "Últimos 30 días", trailingText: "por día")
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Resumen mensual")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                Text("Tus gastos")
+                    .font(.title2.bold())
+                    .foregroundStyle(AppTheme.primaryText)
+                if !totalValue.isEmpty {
+                    Text(totalValue)
+                        .font(AppTheme.number(34, .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.primaryText)
+                        .padding(.top, 6)
+                }
+            }
 
             GeometryReader { proxy in
                 let spacing: CGFloat = 4
@@ -404,7 +429,7 @@ struct HomeRecent30DaysSection: View {
                                 bar: bar,
                                 width: barWidth,
                                 maxValue: maxValue,
-                                isSelected: bar.date == selectedBar?.date
+                                isHighlighted: bar.date == (selectedBar?.date ?? latestActiveDate)
                             )
                         }
                         .buttonStyle(.plain)
@@ -421,14 +446,72 @@ struct HomeRecent30DaysSection: View {
                 Text(dayLabel(Date()))
             }
             .font(.caption.weight(.bold))
-            .foregroundStyle(AppTheme.primaryText.opacity(0.35))
+            .foregroundStyle(AppTheme.tertiaryText)
 
             if let selectedBar {
                 HomeRecentDayDetailCard(bar: selectedBar, dayLabel: dayLabel)
             }
         }
-        .padding(18)
-        .background(HomeCardBackground())
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(AppTheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(AppTheme.strongBorder, lineWidth: 1))
+        )
+    }
+}
+
+struct HomeRecentActivitySection: View {
+    let expenses: [Expense]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Actividad reciente")
+                    .font(.title2.bold())
+                    .foregroundStyle(AppTheme.primaryText)
+                Spacer()
+                Image(systemName: "ellipsis")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .accessibilityHidden(true)
+            }
+
+            if expenses.isEmpty {
+                Text("Tus movimientos recientes aparecerán aquí.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 18) {
+                    ForEach(expenses) { expense in
+                        HStack(spacing: 14) {
+                            CategoryGlyph(categoria: expense.categoria, size: 46)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(expense.descripcion)
+                                    .font(.headline)
+                                    .foregroundStyle(AppTheme.primaryText)
+                                    .lineLimit(1)
+                                Text("\(expense.categoria.nombre) · \(expense.fecha.formatted(.relative(presentation: .named)))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Text("−\(expense.monto.budgetCurrency)")
+                                .font(.headline)
+                                .monospacedDigit()
+                                .foregroundStyle(AppTheme.primaryText)
+                                .fixedSize()
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -443,18 +526,18 @@ struct HomeCategoriesSection: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(title)
-                    .font(.system(.title3, design: .default, weight: .bold))
+                    .font(.title3.bold())
                     .foregroundStyle(AppTheme.primaryText)
                 Spacer()
                 Text(trailingText)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
 
             if totals.isEmpty {
                 Text("Sin gastos este mes")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -471,8 +554,7 @@ struct HomeCategoriesSection: View {
                 }
             }
         }
-        .padding(18)
-        .background(HomeCardBackground())
+        .padding(.vertical, 4)
     }
 }
 
@@ -495,7 +577,7 @@ private struct HomeInsightRow: View {
                     .minimumScaleFactor(0.82)
                 Text(insight.message)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.54))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(2)
             }
 
@@ -505,7 +587,7 @@ private struct HomeInsightRow: View {
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppTheme.insetSurface)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.primaryText.opacity(0.07), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.border, lineWidth: 1))
         )
     }
 }
@@ -519,7 +601,7 @@ private struct HomeSavingsMetric: View {
             Text(title)
                 .font(.caption2.weight(.bold))
                 .textCase(.uppercase)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
             Text(value)
                 .font(.system(.headline, design: .default, weight: .bold))
                 .monospacedDigit()
@@ -555,7 +637,7 @@ private struct HomeMessageCard: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text(message)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.54))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -574,29 +656,19 @@ private struct HomeRecentDayBar: View {
     let bar: DailyExpenseBar
     let width: CGFloat
     let maxValue: Double
-    let isSelected: Bool
+    let isHighlighted: Bool
 
     var body: some View {
         if bar.total > 0 {
             let height = max(12, CGFloat(bar.total / max(maxValue, 1)) * 78)
 
-            VStack(spacing: 0) {
-                ForEach(bar.segments) { segment in
-                    Rectangle()
-                        .fill(segment.color)
-                        .frame(height: max(4, height * segment.fraction))
-                }
-            }
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isHighlighted ? AppTheme.accent : AppTheme.accent.opacity(0.22))
             .frame(width: width, height: height, alignment: .bottom)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .stroke(isSelected ? AppTheme.primaryText.opacity(0.65) : .clear, lineWidth: 1)
-            )
             .frame(width: width, height: 84, alignment: .bottom)
         } else {
             Capsule()
-                .fill(AppTheme.primaryText.opacity(0.08))
+                .fill(AppTheme.controlSurface)
                 .frame(width: width, height: width)
                 .frame(width: width, height: 84, alignment: .bottom)
         }
@@ -623,7 +695,7 @@ private struct HomeRecentDayDetailCard: View {
             if bar.segments.isEmpty {
                 Text("Sin gastos registrados ese día")
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                    .foregroundStyle(AppTheme.tertiaryText)
             } else {
                 VStack(spacing: 6) {
                     ForEach(bar.segments) { segment in
@@ -633,12 +705,12 @@ private struct HomeRecentDayDetailCard: View {
                                 .frame(width: 8, height: 8)
                             Text(segment.categoryName)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.72))
+                                .foregroundStyle(AppTheme.primaryText)
                             Spacer()
                             Text(segment.amount, format: .currency(code: "USD").precision(.fractionLength(2)))
                                 .font(.caption.weight(.bold))
                                 .monospacedDigit()
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.72))
+                                .foregroundStyle(AppTheme.primaryText)
                         }
                     }
                 }
@@ -648,7 +720,7 @@ private struct HomeRecentDayDetailCard: View {
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(AppTheme.insetSurface)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(AppTheme.primaryText.opacity(0.07), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(AppTheme.border, lineWidth: 1))
         )
     }
 }
@@ -663,11 +735,7 @@ private struct HomeCategoryRow: View {
 
         VStack(spacing: 8) {
             HStack(spacing: 12) {
-                Image(systemName: category.icono)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 42, height: 42)
-                    .background(category.color.opacity(0.95), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                CategoryGlyph(categoria: category, size: 42)
                 Text(category.nombre)
                     .font(.system(.headline, design: .default, weight: .bold))
                     .foregroundStyle(AppTheme.primaryText)
@@ -681,20 +749,20 @@ private struct HomeCategoryRow: View {
                 Text("\(Int(round(percentage * 100)))%")
                     .font(.headline.weight(.bold))
                     .monospacedDigit()
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .frame(width: 46, alignment: .trailing)
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.40))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(AppTheme.primaryText.opacity(0.06)))
+                    .background(Circle().fill(AppTheme.controlSurface))
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(AppTheme.primaryText.opacity(0.07))
+                    Capsule().fill(AppTheme.controlSurface)
                     Capsule()
-                        .fill(category.color)
+                        .fill(AppTheme.accent)
                         .frame(width: max(proxy.size.width * percentage, 8))
                 }
             }

@@ -25,7 +25,7 @@ struct BudgetMovementListRow: View {
                     Text(movement.dateLabel)
                 }
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                .foregroundStyle(AppTheme.secondaryText)
             }
 
             Spacer(minLength: 12)
@@ -42,7 +42,7 @@ struct BudgetMovementListRow: View {
         .overlay(alignment: .bottom) {
             if position.showsBottomDivider {
                 Divider()
-                    .overlay(AppTheme.primaryText.opacity(0.08))
+                    .overlay(AppTheme.border)
                     .padding(.horizontal, 16)
             }
         }
@@ -52,7 +52,7 @@ struct BudgetMovementListRow: View {
 
     private var rowBackground: some View {
         BudgetGroupedShape(position: position)
-            .fill(AppTheme.primaryText.opacity(0.055))
+            .fill(AppTheme.controlSurface)
             .overlay(
                 BudgetGroupedShape(position: position)
                     .stroke(tint.opacity(0.22), lineWidth: 1)

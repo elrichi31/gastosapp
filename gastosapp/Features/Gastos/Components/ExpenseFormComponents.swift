@@ -20,7 +20,7 @@ struct ExpenseFormStatusCard: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text(status.message)
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -28,7 +28,11 @@ struct ExpenseFormStatusCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(AppTheme.cardBackground())
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+        )
     }
 }
 
@@ -39,16 +43,16 @@ struct ExpenseIconBadge: View {
     var body: some View {
         Image(systemName: systemName)
             .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(AppTheme.primaryText)
-            .frame(width: 28, height: 28)
-            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .foregroundStyle(color)
+            .frame(width: 30, height: 30)
+            .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
 struct ExpenseFormDivider: View {
     var body: some View {
         Divider()
-            .background(AppTheme.primaryText.opacity(0.08))
+            .background(AppTheme.border)
             .padding(.leading, 56)
     }
 }
@@ -78,11 +82,11 @@ struct ExpenseFormMenuRow<PickerContent: View>: View {
         } label: {
             HStack(spacing: 4) {
                 Text(value)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.7))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption2)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
         }
     }

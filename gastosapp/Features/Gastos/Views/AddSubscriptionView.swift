@@ -114,7 +114,7 @@ struct AddSubscriptionView: View {
                     catalogoGrid
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
@@ -131,25 +131,12 @@ struct AddSubscriptionView: View {
     // MARK: - Encabezado
 
     private var encabezado: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(isEditing ? "Editar suscripción" : (servicioConfigurado ? "Configurar" : "Nueva suscripción"))
-                    .font(.system(size: 26, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                Text(servicioConfigurado ? "Ajusta monto, ciclo y método de pago" : "Elige el proveedor")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-            }
-            Spacer()
+        AppScreenHeader(
+            eyebrow: servicioConfigurado ? "Ajusta monto, ciclo y método de pago" : "Elige el proveedor",
+            title: isEditing ? "Editar suscripción" : (servicioConfigurado ? "Configurar" : "Nueva suscripción")
+        ) {
             if showsCloseButton {
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.7))
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(AppTheme.primaryText.opacity(0.08)))
-                }
-                .accessibilityLabel("Cerrar")
+                AppCircleButton(icon: "xmark", label: "Cerrar") { dismiss() }
             }
         }
     }
@@ -159,18 +146,18 @@ struct AddSubscriptionView: View {
     private var buscador: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                .foregroundStyle(AppTheme.secondaryText)
             TextField(
                 "",
                 text: $busqueda,
-                prompt: Text("Buscar proveedor").foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                prompt: Text("Buscar proveedor").foregroundStyle(AppTheme.tertiaryText)
             )
             .foregroundStyle(AppTheme.primaryText)
             .tint(AppTheme.accent)
             if !busqueda.isEmpty {
                 Button { busqueda = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                        .foregroundStyle(AppTheme.tertiaryText)
                 }
                 .accessibilityLabel("Limpiar búsqueda")
             }
@@ -179,10 +166,10 @@ struct AddSubscriptionView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(AppTheme.primaryText.opacity(0.06))
+                .fill(AppTheme.controlSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1)
+                        .stroke(AppTheme.border, lineWidth: 1)
                 )
         )
     }
@@ -197,12 +184,12 @@ struct AddSubscriptionView: View {
                     HStack(spacing: 8) {
                         Image(systemName: cat.icono)
                             .font(.caption)
-                            .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                            .foregroundStyle(AppTheme.secondaryText)
                         Text(cat.rawValue)
                             .font(.caption)
                             .fontWeight(.semibold)
                             .tracking(0.5)
-                            .foregroundStyle(AppTheme.primaryText.opacity(0.6))
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                     LazyVGrid(columns: cols, spacing: 12) {
                         ForEach(providers) { p in
@@ -214,7 +201,7 @@ struct AddSubscriptionView: View {
             if resultados.isEmpty {
                 Text("Sin resultados")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .padding(.vertical, 20)
             }
         }
@@ -232,7 +219,7 @@ struct AddSubscriptionView: View {
                 ProviderBadge(provider: p, size: 52)
                 Text(p.nombre)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.7))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -261,7 +248,7 @@ struct AddSubscriptionView: View {
             } label: {
                 Label("Volver", systemImage: "chevron.left")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.72))
+                    .foregroundStyle(AppTheme.primaryText)
             }
             .buttonStyle(.plain)
             Spacer()
@@ -275,12 +262,12 @@ struct AddSubscriptionView: View {
                     ProviderBadge(provider: provider, size: 56)
                 } else {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(AppTheme.primaryText.opacity(0.08))
+                        .fill(AppTheme.controlSurface)
                         .frame(width: 56, height: 56)
                         .overlay(
                             Image(systemName: "rectangle.stack.fill")
                                 .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.75))
+                                .foregroundStyle(AppTheme.primaryText)
                         )
                 }
             }
@@ -289,7 +276,7 @@ struct AddSubscriptionView: View {
                 TextField(
                     "",
                     text: $nombreServicio,
-                    prompt: Text("Nombre del servicio").foregroundStyle(AppTheme.primaryText.opacity(0.28))
+                    prompt: Text("Nombre del servicio").foregroundStyle(AppTheme.placeholderText)
                 )
                 .font(.system(size: 20, weight: .bold, design: .default))
                 .foregroundStyle(AppTheme.primaryText)
@@ -298,7 +285,7 @@ struct AddSubscriptionView: View {
 
                 Text(provider?.categoria.rawValue ?? "Suscripción personalizada")
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             Spacer()
             Button {
@@ -325,10 +312,10 @@ struct AddSubscriptionView: View {
     private var montoCard: some View {
         VStack(spacing: 14) {
             Text("Monto por cobro")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .tracking(1.2)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.statementSecondary)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Spacer(minLength: 0)
@@ -338,12 +325,12 @@ struct AddSubscriptionView: View {
                 TextField(
                     "",
                     text: $monto,
-                    prompt: Text("0").foregroundStyle(AppTheme.primaryText.opacity(0.18))
+                    prompt: Text("0").foregroundStyle(AppTheme.onStatement.opacity(0.22))
                 )
                 .keyboardType(.decimalPad)
                 .font(.system(size: 64, weight: .bold, design: .default))
                 .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .tint(AppTheme.accent)
                 .multilineTextAlignment(.leading)
                 .fixedSize()
@@ -365,12 +352,12 @@ struct AddSubscriptionView: View {
             if montoNumerico > 0 && ciclo != .mensual {
                 Text("≈ $\(formatear(montoNumerico * ciclo.factorMensual)) / mes")
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, AppScreenMetrics.horizontalPadding)
         .background(tarjetaFondo)
     }
 
@@ -389,10 +376,10 @@ struct AddSubscriptionView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(ciclo.rawValue).foregroundStyle(AppTheme.primaryText.opacity(0.7))
+                        Text(ciclo.rawValue).foregroundStyle(AppTheme.secondaryText)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption2)
-                            .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                            .foregroundStyle(AppTheme.tertiaryText)
                     }
                 }
             }
@@ -409,7 +396,7 @@ struct AddSubscriptionView: View {
                 Spacer()
                 Text("Próximo cobro")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -429,10 +416,10 @@ struct AddSubscriptionView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(metodoPago.rawValue).foregroundStyle(AppTheme.primaryText.opacity(0.7))
+                        Text(metodoPago.rawValue).foregroundStyle(AppTheme.secondaryText)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption2)
-                            .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                            .foregroundStyle(AppTheme.tertiaryText)
                     }
                 }
             }
@@ -547,16 +534,16 @@ struct AddSubscriptionView: View {
 
     private var tarjetaFondo: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(AppTheme.primaryText.opacity(0.06))
+            .fill(AppTheme.controlSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(AppTheme.border, lineWidth: 1)
             )
     }
 
     private var divisor: some View {
         Divider()
-            .background(AppTheme.primaryText.opacity(0.08))
+            .background(AppTheme.border)
             .padding(.leading, 56)
     }
 
@@ -586,7 +573,7 @@ struct AddSubscriptionView: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             Spacer(minLength: 0)
         }

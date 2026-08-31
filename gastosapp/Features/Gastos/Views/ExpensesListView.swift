@@ -81,31 +81,35 @@ struct ExpensesListView: View {
                     selectorMes
                 }
 
-                sectionRow {
-                    filtrosCard
-                }
-
                 if store.isLoadingExpenses && store.gastos.isEmpty {
                     sectionRow {
                         loadingCard
                     }
-                } else if snapshot.monthExpenses.isEmpty {
-                    sectionRow {
-                        vacio
-                    }
                 } else {
-                    sectionRow {
-                        totalCard
+                    if !snapshot.monthExpenses.isEmpty {
+                        sectionRow {
+                            totalCard
+                        }
                     }
 
-                    ForEach(snapshot.feedItems) { item in
-                        switch item {
-                        case let .day(date, totalDia):
-                            sectionRow {
-                                dayMarker(date, total: totalDia)
+                    sectionRow {
+                        filtrosCard
+                    }
+
+                    if snapshot.monthExpenses.isEmpty {
+                        sectionRow {
+                            vacio
+                        }
+                    } else {
+                        ForEach(snapshot.feedItems) { item in
+                            switch item {
+                            case let .day(date, totalDia):
+                                sectionRow {
+                                    dayMarker(date, total: totalDia)
+                                }
+                            case let .expense(gasto):
+                                expenseRow(gasto)
                             }
-                        case let .expense(gasto):
-                            expenseRow(gasto)
                         }
                     }
                 }
@@ -149,7 +153,7 @@ struct ExpensesListView: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         editSheetHeader
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                             .padding(.top, 10)
                             .padding(.bottom, 10)
                     }
@@ -165,7 +169,7 @@ struct ExpensesListView: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         editSheetHeader
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                             .padding(.top, 10)
                             .padding(.bottom, 10)
                     }
@@ -200,7 +204,7 @@ struct ExpensesListView: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text("\(snapshot.monthExpenses.count) registros")
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             .animation(.easeInOut(duration: 0.15), value: mesActual)
 
@@ -248,15 +252,14 @@ struct ExpensesListView: View {
                 }
             }
         }
-        .padding(14)
-        .background(tarjetaFondo)
+        .padding(.vertical, 4)
     }
 
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
             TextField("Buscar gasto", text: $searchText)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -280,7 +283,7 @@ struct ExpensesListView: View {
         } label: {
             Image(systemName: "xmark.circle.fill")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Limpiar búsqueda")
@@ -288,7 +291,7 @@ struct ExpensesListView: View {
 
     private func sectionRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }
@@ -301,7 +304,7 @@ struct ExpensesListView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
+        .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -325,17 +328,9 @@ struct ExpensesListView: View {
 
     private var editSheetHeader: some View {
         HStack {
-            Button {
+            AppCircleButton(icon: "xmark", label: "Cerrar edición") {
                 presentedExpenseSheet = nil
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.78))
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(AppTheme.controlSurface))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar edición")
 
             Spacer()
         }
@@ -354,9 +349,9 @@ struct ExpensesListView: View {
         Button(action: accion) {
             Image(systemName: icono)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(habilitado ? AppTheme.primaryText : AppTheme.primaryText.opacity(0.2))
+                .foregroundStyle(habilitado ? AppTheme.primaryText : AppTheme.placeholderText)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(AppTheme.primaryText.opacity(habilitado ? 0.08 : 0.04)))
+                .background(Circle().fill(AppTheme.controlSurface).opacity(habilitado ? 1 : 0.5))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -407,43 +402,44 @@ struct ExpensesListView: View {
     }
 
     private var totalCard: some View {
-        VStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Total del mes")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .tracking(1.2)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppTheme.statementSecondary)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("$")
-                    .font(.system(size: 22, weight: .semibold, design: .default))
+                    .font(.system(size: 24, weight: .semibold, design: .default))
                     .foregroundStyle(AppTheme.accent)
                 Text(formatear(snapshot.total))
-                    .font(.system(size: 38, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .font(.system(size: 42, weight: .bold, design: .default))
+                    .foregroundStyle(AppTheme.onStatement)
             }
+
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.down.right")
+                    .font(.caption.bold())
+                Text("\(snapshot.monthExpenses.count) movimientos registrados")
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(AppTheme.statementSecondary)
+            .padding(.top, 6)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
-        .background(tarjetaFondo)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(24)
+        .background(AppTheme.statementBackground())
     }
 
     private func dayMarker(_ fecha: Date, total: Double) -> some View {
         HStack(spacing: 10) {
             Text(headerFecha(fecha))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.76))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(AppTheme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
-                .padding(.horizontal, 12)
-                .frame(height: 28)
-                .background(
-                    Capsule()
-                        .fill(AppTheme.controlSurface)
-                )
 
             Text("$\(formatear(total))")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: true, vertical: false)
 
             Rectangle()
@@ -454,13 +450,7 @@ struct ExpensesListView: View {
 
     private func fila(_ gasto: Expense) -> some View {
         HStack(alignment: .center, spacing: 13) {
-            Image(systemName: gasto.categoria.icono)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(gasto.categoria.color)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle().fill(gasto.categoria.color.opacity(0.15))
-                )
+            CategoryGlyph(categoria: gasto.categoria, size: 44)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(gasto.descripcion)
@@ -494,17 +484,7 @@ struct ExpensesListView: View {
                 .foregroundStyle(AppTheme.primaryText)
                 .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
-                .fill(AppTheme.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
-                        .strokeBorder(AppTheme.border, lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
-        )
+        .padding(.vertical, 10)
     }
 
     private func deleteExpense(_ gasto: Expense) {
@@ -540,7 +520,7 @@ struct ExpensesListView: View {
                     .minimumScaleFactor(0.8)
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(isSelected ? .black : AppTheme.primaryText.opacity(0.72))
+            .foregroundStyle(isSelected ? .black : AppTheme.primaryText)
             .padding(.horizontal, 12)
             .frame(height: 30)
             .background(Capsule().fill(isSelected ? AppTheme.accent : AppTheme.controlSurface))
@@ -559,7 +539,7 @@ struct ExpensesListView: View {
                 .foregroundStyle(AppTheme.primaryText)
             Text("Preparando tu lista de movimientos.")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -572,13 +552,13 @@ struct ExpensesListView: View {
         VStack(spacing: 14) {
             Image(systemName: "tray")
                 .font(.system(size: 48, weight: .semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.3))
+                .foregroundStyle(AppTheme.placeholderText)
             Text(emptyTitle)
                 .font(.system(size: 20, weight: .bold, design: .default))
                 .foregroundStyle(AppTheme.primaryText)
             Text(mensajeVacio)
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
             if shouldShowCreateExpenseCTA {
                 Button {
@@ -737,7 +717,7 @@ private struct ExpenseDetailSheet: View {
                     metadataCard
                     actionRow
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 28)
                 .padding(.bottom, 36)
             }
@@ -752,16 +732,18 @@ private struct ExpenseDetailSheet: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            Image(systemName: expense.categoria.icono)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(expense.categoria.color)
-                .frame(width: 58, height: 58)
-                .background(expense.categoria.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            CategoryGlyph(
+                categoria: expense.categoria,
+                size: 58,
+                tint: AppTheme.accent,
+                background: AppTheme.accent.opacity(0.16),
+                borderColor: AppTheme.accent.opacity(0.28)
+            )
 
             VStack(spacing: 7) {
                 Text(expense.descripcion)
                     .font(.system(size: 24, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(AppTheme.onStatement)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.72)
@@ -769,20 +751,20 @@ private struct ExpenseDetailSheet: View {
                 Text(expense.monto, format: .currency(code: "USD").precision(.fractionLength(2)))
                     .font(.system(size: 44, weight: .bold, design: .default))
                     .monospacedDigit()
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(AppTheme.onStatement)
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 18)
-        .padding(.vertical, 26)
-        .background(AppTheme.cardBackground(cornerRadius: 24))
+        .padding(.vertical, 28)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
     }
 
     private var metadataCard: some View {
         VStack(spacing: 0) {
-            detailRow(icon: expense.categoria.icono, title: "Categoría", value: expense.categoria.nombre, tint: expense.categoria.color)
+            detailRow(icon: expense.categoria.icono, title: "Categoría", value: expense.categoria.nombre, tint: AppTheme.accent)
             ExpenseFormDivider()
             detailRow(icon: expense.metodoPago.icono, title: "Método", value: expense.metodoPago.shortLabel, tint: AppTheme.secondaryAccent)
             ExpenseFormDivider()
@@ -807,7 +789,7 @@ private struct ExpenseDetailSheet: View {
                 Text(title)
                     .font(.caption.weight(.bold))
                     .textCase(.uppercase)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.primaryText)
@@ -853,7 +835,7 @@ private struct ExpenseDetailSheet: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(iconTint)
                 Text(title)
-                    .font(.headline.weight(.bold))
+                    .font(.headline)
                     .foregroundStyle(AppTheme.primaryText)
                     .lineLimit(1)
             }

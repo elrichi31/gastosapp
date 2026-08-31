@@ -153,7 +153,7 @@ struct RecurringExpensesListView: View {
 
     private func headerRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }
@@ -176,20 +176,19 @@ struct RecurringExpensesListView: View {
                     } label: {
                         Text(item.title)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(filter == item ? .black : AppTheme.primaryText.opacity(0.72))
+                            .foregroundStyle(filter == item ? .black : AppTheme.primaryText)
                             .padding(.horizontal, 12)
                             .frame(height: 30)
                             .background(
                                 Capsule()
-                                    .fill(filter == item ? AppTheme.accent : AppTheme.primaryText.opacity(0.06))
+                                    .fill(filter == item ? AppTheme.accent : AppTheme.controlSurface)
                             )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(14)
-        .background(AppTheme.cardBackground())
+        .padding(.vertical, 4)
     }
 
     private var upcomingSummaryCard: some View {
@@ -202,12 +201,12 @@ struct RecurringExpensesListView: View {
                     .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Próximos cobros")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text("Fijos estimados: \(currency(monthlyFixedEstimate)) al mes")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.54))
+                    Text("Fijos estimados")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.statementSecondary)
+                    Text(currency(monthlyFixedEstimate))
+                        .font(AppTheme.number(34, .bold))
+                        .foregroundStyle(AppTheme.onStatement)
                 }
 
                 Spacer()
@@ -216,13 +215,8 @@ struct RecurringExpensesListView: View {
             if upcomingItems.isEmpty {
                 Text("No tienes cargos activos próximos.")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                    .foregroundStyle(AppTheme.statementSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(AppTheme.insetSurface)
-                    )
             } else {
                 VStack(spacing: 10) {
                     ForEach(upcomingItems) { item in
@@ -231,27 +225,27 @@ struct RecurringExpensesListView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(22)
+        .background(AppTheme.statementBackground())
     }
 
     private func upcomingRow(_ item: RecurringExpense) -> some View {
         HStack(spacing: 12) {
             Image(systemName: item.categoria.icono)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .frame(width: 32, height: 32)
-                .background(item.categoria.color.opacity(0.84), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(AppTheme.onStatementFaint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.descripcion)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(AppTheme.onStatement)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
                 Text(nextChargeRelativeLabel(for: item))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                    .foregroundStyle(AppTheme.statementSecondary)
             }
 
             Spacer(minLength: 8)
@@ -259,17 +253,9 @@ struct RecurringExpensesListView: View {
             Text(currency(item.monto))
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(Capsule().fill(AppTheme.surface))
+                .foregroundStyle(AppTheme.onStatement)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(AppTheme.insetSurface)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.strongBorder, lineWidth: 1))
-        )
+        .padding(.vertical, 8)
     }
 
     private func closeEditorAndRefresh() {
@@ -301,13 +287,13 @@ struct RecurringExpensesListView: View {
         VStack(spacing: 12) {
             Image(systemName: "repeat.circle")
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.32))
+                .foregroundStyle(AppTheme.placeholderText)
             Text("Sin cargos programados")
                 .font(.headline)
                 .foregroundStyle(AppTheme.primaryText)
             Text("Crea un recurrente o una suscripción y aparecerá aquí.")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)

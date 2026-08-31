@@ -29,7 +29,7 @@ struct SubscriptionsView: View {
                             seccion(grupo.categoria, items: grupo.items)
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                     .padding(.top, 12)
                     .padding(.bottom, 32)
                 }
@@ -48,24 +48,13 @@ struct SubscriptionsView: View {
     // MARK: - Encabezado
 
     private var encabezado: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Suscripciones")
-                    .font(.system(size: 32, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                Text("\(store.suscripciones.count) activas")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-            }
-            Spacer()
-            Button { mostrarAgregar = true } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(AppTheme.accent))
-            }
-            .accessibilityLabel("Agregar suscripción")
+        AppScreenHeader(eyebrow: "\(store.suscripciones.count) activas", title: "Suscripciones") {
+            AppCircleButton(
+                icon: "plus",
+                prominent: true,
+                label: "Agregar suscripción",
+                action: { mostrarAgregar = true }
+            )
         }
     }
 
@@ -73,23 +62,25 @@ struct SubscriptionsView: View {
 
     private var totalCard: some View {
         VStack(spacing: 14) {
-            VStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Gasto mensual estimado")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .tracking(1.2)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(1.1)
+                    .foregroundStyle(AppTheme.statementSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("$")
                         .font(.system(size: 24, weight: .semibold, design: .default))
                         .foregroundStyle(AppTheme.accent)
                     Text(formatear(store.totalMensual))
                         .font(.system(size: 42, weight: .bold, design: .default))
-                        .foregroundStyle(AppTheme.primaryText)
+                        .foregroundStyle(AppTheme.onStatement)
+                    Spacer(minLength: 0)
                 }
             }
 
-            Divider().background(AppTheme.primaryText.opacity(0.08))
+            AppTheme.statementHairline
 
             HStack {
                 infoCol(titulo: "Anual", valor: "$\(formatear(store.totalAnual))")
@@ -97,8 +88,8 @@ struct SubscriptionsView: View {
                 infoCol(titulo: "Promedio/sub", valor: "$\(formatear(promedioPorSub))")
             }
         }
-        .padding(20)
-        .background(AppTheme.cardBackground())
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
         .accessibilityElement(children: .combine)
     }
 
@@ -106,10 +97,11 @@ struct SubscriptionsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(titulo)
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .foregroundStyle(AppTheme.statementSecondary)
             Text(valor)
-                .font(.system(size: 16, weight: .semibold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
+                .font(AppTheme.number(16, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.onStatement)
         }
     }
 
@@ -129,7 +121,7 @@ struct SubscriptionsView: View {
             Text("Próximos cobros")
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.85))
+                .foregroundStyle(AppTheme.primaryText)
                 .padding(.horizontal, 4)
 
             VStack(spacing: 10) {
@@ -143,7 +135,7 @@ struct SubscriptionsView: View {
                                 .foregroundStyle(AppTheme.primaryText)
                             Text(diasHasta(s.proximaFecha))
                                 .font(.caption)
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                         Spacer()
                         Text("$\(formatear(s.monto))")
@@ -154,7 +146,7 @@ struct SubscriptionsView: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(AppTheme.primaryText.opacity(0.04))
+                            .fill(AppTheme.controlSurface)
                     )
                     .accessibilityElement(children: .combine)
                 }
@@ -178,15 +170,15 @@ struct SubscriptionsView: View {
             HStack(spacing: 8) {
                 Image(systemName: cat.icono)
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.6))
+                    .foregroundStyle(AppTheme.secondaryText)
                 Text(cat.rawValue)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.85))
+                    .foregroundStyle(AppTheme.primaryText)
                 Spacer()
                 Text("$\(formatear(items.reduce(0) { $0 + $1.costoMensualEquivalente }))/mes")
                     .font(.caption)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             .padding(.horizontal, 4)
 
@@ -195,7 +187,7 @@ struct SubscriptionsView: View {
                     fila(sub)
                     if idx < items.count - 1 {
                         Divider()
-                            .background(AppTheme.primaryText.opacity(0.06))
+                            .background(AppTheme.border)
                             .padding(.leading, 70)
                     }
                 }
@@ -218,7 +210,7 @@ struct SubscriptionsView: View {
                     Text(s.metodoPago.rawValue)
                 }
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .foregroundStyle(AppTheme.tertiaryText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -227,7 +219,7 @@ struct SubscriptionsView: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text("≈ $\(formatear(s.costoMensualEquivalente))/m")
                     .font(.caption2)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
         }
         .padding(.horizontal, 16)
@@ -254,14 +246,14 @@ struct SubscriptionsView: View {
                 .foregroundStyle(AppTheme.primaryText)
             Text("Agrega tus servicios para llevar el control de cuánto gastas al mes")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 30)
             Button { mostrarAgregar = true } label: {
                 Label("Agregar suscripción", systemImage: "plus")
                     .font(.headline)
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                     .padding(.vertical, 14)
                     .background(Capsule().fill(AppTheme.accent))
             }

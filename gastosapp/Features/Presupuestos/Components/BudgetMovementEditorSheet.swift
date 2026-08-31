@@ -24,7 +24,7 @@ struct BudgetMovementEditorSheet: View {
                 title: movement == nil ? "Nuevo gasto" : "Editar gasto",
                 subtitle: category.displayCategory.nombre,
                 icon: category.displayCategory.icono,
-                tint: category.displayCategory.color,
+                tint: AppTheme.accent,
                 onClose: dismiss.callAsFunction
             )
             fields

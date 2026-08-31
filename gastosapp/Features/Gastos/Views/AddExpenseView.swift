@@ -62,7 +62,7 @@ struct AddExpenseView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 22) {
                     encabezado
                     estadoCard
                     expenseComposerCard
@@ -70,8 +70,8 @@ struct AddExpenseView: View {
                     categoriaCard
                     botonGuardar
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, 40)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -95,16 +95,10 @@ struct AddExpenseView: View {
     }
 
     private var encabezado: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(isEditing ? "Editar gasto" : "Nuevo gasto")
-                .contentTransition(.opacity)
-                .font(.system(size: 32, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-            Text(isEditing ? "Corrige monto, categoría, método o fecha" : "Registra rápido sin perder detalle")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        AppScreenHeader(
+            eyebrow: isEditing ? "Corrige monto, categoría, método o fecha" : "Registra rápido sin perder detalle",
+            title: isEditing ? "Editar gasto" : "Nuevo gasto"
+        )
     }
 
     @ViewBuilder
@@ -126,36 +120,34 @@ struct AddExpenseView: View {
                 metodoPagoInlineField
             }
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.insetSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.strongBorder, lineWidth: 1))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(AppTheme.controlSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
             )
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
     }
 
     private var compactAmountField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Monto")
-                .font(.caption.weight(.bold))
+                .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
-                .tracking(1.2)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.44))
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.statementSecondary)
 
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("$")
-                    .font(.system(size: 24, weight: .semibold, design: .default))
+                    .font(.system(size: 26, weight: .semibold, design: .default))
                     .foregroundStyle(AppTheme.accent)
                 TextField(
                     "",
                     text: $monto,
-                    prompt: Text("0.00").foregroundStyle(AppTheme.primaryText.opacity(0.18))
+                    prompt: Text("0.00").foregroundStyle(AppTheme.onStatement.opacity(0.22))
                 )
                 .keyboardType(.decimalPad)
                 .font(.system(size: 46, weight: .bold, design: .default))
                 .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .tint(AppTheme.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
@@ -164,6 +156,8 @@ struct AddExpenseView: View {
                 Spacer(minLength: 0)
             }
         }
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
     }
 
     private var descripcionField: some View {
@@ -172,7 +166,7 @@ struct AddExpenseView: View {
             TextField(
                 "",
                 text: $descripcion,
-                prompt: Text("Descripción opcional").foregroundStyle(AppTheme.primaryText.opacity(0.35))
+                prompt: Text("Descripción opcional").foregroundStyle(AppTheme.tertiaryText)
             )
             .focused($focusedField, equals: .descripcion)
             .textInputAutocapitalization(.sentences)
@@ -195,14 +189,18 @@ struct AddExpenseView: View {
                         .foregroundStyle(AppTheme.primaryText)
                     Text(suggestionMessage(activeSuggestion))
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                        .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 0)
             }
             .padding(16)
-            .background(AppTheme.cardBackground(cornerRadius: 18))
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(AppTheme.controlSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            )
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
@@ -242,11 +240,11 @@ struct AddExpenseView: View {
                 HStack(spacing: 6) {
                     Text(metodoPagoSeleccionado?.shortLabel ?? "Elegir")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.72))
+                        .foregroundStyle(AppTheme.primaryText)
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.38))
+                        .foregroundStyle(AppTheme.tertiaryText)
                 }
             }
         }
@@ -256,16 +254,7 @@ struct AddExpenseView: View {
 
     private var categoriaCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Categoría")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                Spacer()
-                Text(categoriaSeleccionada?.nombre ?? "Elegir")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.48))
-                    .lineLimit(1)
-            }
+            AppSectionTitle(title: "Categoría", trailingText: categoriaSeleccionada?.nombre ?? "Elegir")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 10)], spacing: 10) {
                 ForEach(store.categorias) { categoria in
@@ -273,8 +262,7 @@ struct AddExpenseView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private func categoriaButton(_ categoria: Categoria) -> some View {
@@ -286,18 +274,13 @@ struct AddExpenseView: View {
             }
         } label: {
             ZStack(alignment: .topTrailing) {
-                Image(systemName: categoria.icono)
-                    .font(.system(size: 20, weight: .bold))
-                    .frame(width: 54, height: 54)
-                    .foregroundStyle(isSelected ? .black : AppTheme.primaryText.opacity(0.78))
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(isSelected ? AppTheme.accent : categoria.color.opacity(0.16))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(isSelected ? Color.clear : AppTheme.strongBorder, lineWidth: 1)
-                    )
+                CategoryGlyph(
+                    categoria: categoria,
+                    size: 54,
+                    tint: isSelected ? AppTheme.onAccent : AppTheme.primaryText,
+                    background: isSelected ? AppTheme.accent : AppTheme.controlSurface,
+                    borderColor: isSelected ? nil : AppTheme.border
+                )
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")

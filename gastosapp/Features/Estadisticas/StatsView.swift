@@ -23,7 +23,7 @@ struct StatsView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: AppScreenMetrics.sectionSpacing) {
                     summaryHero
                     categoryFilter
                     comparisonChartCard
@@ -33,20 +33,25 @@ struct StatsView: View {
                     monthlyExplorerCard
                     categoryBreakdownCard
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, 32)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            StatsHeaderBar(
-                year: selectedYear,
-                onPreviousYear: { changeYear(by: -1) },
-                onNextYear: { changeYear(by: 1) }
-            )
-            .padding(.horizontal, 20)
-            .padding(.top, 6)
-            .padding(.bottom, 12)
+            AppScreenHeader(eyebrow: "Tu año", title: "Estadísticas") {
+                AppPeriodStepper(
+                    label: "\(selectedYear)",
+                    onPrevious: { changeYear(by: -1) },
+                    onNext: { changeYear(by: 1) },
+                    previousLabel: "Año anterior",
+                    nextLabel: "Año siguiente"
+                )
+            }
+            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+            .padding(.top, AppScreenMetrics.headerTopPadding)
+            .padding(.bottom, AppScreenMetrics.headerBottomPadding)
+            .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
         .task { await loadData() }
         .onChange(of: selectedCategoryID) { _, _ in
@@ -84,17 +89,17 @@ struct StatsView: View {
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    AppSectionLabel(text: "Balance del año")
+                    heroLabel("Balance del año")
                     Text(dashboardSnapshot.annualBalance, format: .currency(code: "USD").precision(.fractionLength(2)))
                         .font(AppTheme.number(42, .bold))
                         .monospacedDigit()
                         .kerning(-1.2)
-                        .foregroundStyle(AppTheme.primaryText)
+                        .foregroundStyle(AppTheme.onStatement)
                         .lineLimit(1)
                         .minimumScaleFactor(0.55)
                     Text(dashboardSnapshot.balanceSubtitle)
                         .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                 }
 
                 Spacer()
@@ -103,35 +108,50 @@ struct StatsView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(tint)
                     .frame(width: 40, height: 40)
-                    .background(Circle().fill(tint.opacity(0.14)))
+                    .background(Circle().fill(tint.opacity(0.16)))
             }
 
-            AppHairline()
+            AppTheme.statementHairline
 
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 summaryMetric(title: "Presupuesto", value: dashboardSnapshot.annualBudget.budgetCurrency)
+                heroDivider
                 summaryMetric(title: "Gastado", value: dashboardSnapshot.annualSpent.budgetCurrency)
+                heroDivider
                 summaryMetric(title: "Uso", value: dashboardSnapshot.budgetUsageLabel)
             }
         }
-        .padding(22)
-        .background(AppTheme.cardBackground(cornerRadius: 28))
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
         .accessibilityElement(children: .combine)
+    }
+
+    private var heroDivider: some View {
+        Rectangle()
+            .fill(AppTheme.onStatementFaint)
+            .frame(width: 1, height: 32)
+    }
+
+    private func heroLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .textCase(.uppercase)
+            .tracking(1.1)
+            .foregroundStyle(AppTheme.statementSecondary)
     }
 
     private func summaryMetric(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            AppSectionLabel(text: title, size: 10)
+            heroLabel(title)
             Text(value)
-                .font(AppTheme.number(14, .semibold))
+                .font(AppTheme.number(15, .semibold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(AppTheme.insetBackground(cornerRadius: 14))
+        .padding(.leading, 2)
     }
 
     private var categoryFilter: some View {
@@ -142,10 +162,10 @@ struct StatsView: View {
                     filterButton(title: category.nombre, icon: category.icono, categoryID: category.id)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
         }
         .scrollIndicators(.hidden)
-        .padding(.horizontal, -20)
+        .padding(.horizontal, -AppScreenMetrics.horizontalPadding)
     }
 
     private func filterButton(title: String, icon: String, categoryID: Int?) -> some View {
@@ -162,7 +182,7 @@ struct StatsView: View {
                     .font(.caption.weight(.bold))
                     .lineLimit(1)
             }
-            .foregroundStyle(isSelected ? .black : AppTheme.primaryText.opacity(0.72))
+            .foregroundStyle(isSelected ? .black : AppTheme.primaryText)
             .padding(.horizontal, 13)
             .frame(height: 38)
             .background(Capsule().fill(isSelected ? AppTheme.accent : AppTheme.controlSurface))
@@ -215,24 +235,24 @@ struct StatsView: View {
 
                 if let point = dashboardSnapshot.selectedPoint {
                     RuleMark(x: .value("Seleccion", point.date, unit: .month))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.18))
+                        .foregroundStyle(AppTheme.placeholderText)
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
                 }
             }
             .chartXAxis {
                 AxisMarks(values: dashboardSnapshot.visibleMonthPoints.map(\.date)) { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.primaryText.opacity(0.05))
+                    AxisGridLine().foregroundStyle(AppTheme.border)
                     AxisValueLabel(format: .dateTime.month(.abbreviated), centered: true)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                        .foregroundStyle(AppTheme.tertiaryText)
                 }
             }
             .chartYAxis {
                 AxisMarks { value in
-                    AxisGridLine().foregroundStyle(AppTheme.primaryText.opacity(0.06))
+                    AxisGridLine().foregroundStyle(AppTheme.border)
                     AxisValueLabel {
                         if let amount = value.as(Double.self) {
                             Text(shortCurrency(amount))
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                                .foregroundStyle(AppTheme.tertiaryText)
                         }
                     }
                 }
@@ -244,15 +264,14 @@ struct StatsView: View {
                 if dashboardSnapshot.visibleMonthPoints.isEmpty {
                     Text("Sin meses con registros para este filtro.")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                        .foregroundStyle(AppTheme.tertiaryText)
                 }
             }
 
             legendRow
             selectedMonthDetail
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var legendRow: some View {
@@ -268,7 +287,7 @@ struct StatsView: View {
             Circle().fill(color).frame(width: 8, height: 8)
             Text(title)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.62))
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
@@ -277,7 +296,7 @@ struct StatsView: View {
         return HStack(spacing: 10) {
             statPill(title: point?.monthName ?? "Mes", value: point?.varianceLabel ?? "$0.00", tint: point?.isOverBudget == true ? AppTheme.warning : AppTheme.accent)
             statPill(title: "Gastos", value: "\(point?.expenseCount ?? 0)", tint: AppTheme.secondaryAccent)
-            statPill(title: "Uso", value: point?.usageLabel ?? "0%", tint: AppTheme.primaryText.opacity(0.72))
+            statPill(title: "Uso", value: point?.usageLabel ?? "0%", tint: AppTheme.primaryText)
         }
     }
 
@@ -328,7 +347,7 @@ struct StatsView: View {
             Text(title)
                 .font(.caption2.weight(.bold))
                 .textCase(.uppercase)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
             Text(value)
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
@@ -363,7 +382,7 @@ struct StatsView: View {
                                 .foregroundStyle(AppTheme.primaryText)
                             Text(insight.message)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                                .foregroundStyle(AppTheme.secondaryText)
                         }
                         Spacer(minLength: 0)
                     }
@@ -376,8 +395,7 @@ struct StatsView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var smartBudgetCard: some View {
@@ -397,8 +415,7 @@ struct StatsView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private func smartSignalRow(_ signal: SmartBudgetSignal) -> some View {
@@ -415,7 +432,7 @@ struct StatsView: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text(signal.message)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
 
             Spacer(minLength: 0)
@@ -436,7 +453,7 @@ struct StatsView: View {
                 if dashboardSnapshot.visibleMonthPoints.isEmpty {
                     Text("No hay gastos registrados para explorar en este filtro.")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                        .foregroundStyle(AppTheme.tertiaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
                 } else {
@@ -453,8 +470,7 @@ struct StatsView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var categoryBreakdownCard: some View {
@@ -464,7 +480,7 @@ struct StatsView: View {
             if dashboardSnapshot.selectedMonthCategoryTotals.isEmpty {
                 Text("Sin gastos registrados en este mes.")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 22)
             } else {
@@ -475,19 +491,14 @@ struct StatsView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private func categoryRow(_ item: CategoryTotal) -> some View {
         let percentage = dashboardSnapshot.selectedMonthSpent > 0 ? item.amount / dashboardSnapshot.selectedMonthSpent : 0
         return VStack(spacing: 8) {
             HStack(spacing: 11) {
-                Image(systemName: item.category.icono)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .frame(width: 34, height: 34)
-                    .background(item.category.color, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                CategoryGlyph(categoria: item.category, size: 38)
                 Text(item.category.nombre)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.primaryText)
@@ -502,14 +513,14 @@ struct StatsView: View {
                 Text("\(Int(round(percentage * 100)))%")
                     .font(.caption.weight(.bold))
                     .monospacedDigit()
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
                     .frame(width: 42, alignment: .trailing)
             }
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(AppTheme.insetSurface)
                     Capsule()
-                        .fill(item.category.color)
+                        .fill(AppTheme.accent)
                         .frame(width: max(proxy.size.width * percentage, item.amount > 0 ? 8 : 0))
                 }
             }
@@ -518,16 +529,7 @@ struct StatsView: View {
     }
 
     private func sectionHeader(title: String, subtitle: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            Text(subtitle)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
-                .lineLimit(1)
-        }
+        AppSectionTitle(title: title, trailingText: subtitle)
     }
 
     private func changeYear(by delta: Int) {
@@ -594,73 +596,6 @@ struct StatsView: View {
     }
 }
 
-private struct StatsHeaderBar: View {
-    let year: Int
-    let onPreviousYear: () -> Void
-    let onNextYear: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text("Estadisticas")
-                .font(.system(.title3, design: .default, weight: .semibold))
-                .foregroundStyle(AppTheme.primaryText)
-                .lineLimit(1)
-
-            Spacer()
-            yearSelector
-        }
-        .padding(.leading, 16)
-        .padding(.trailing, 12)
-        .padding(.vertical, 10)
-        .background(headerBackground)
-    }
-
-    private var yearSelector: some View {
-        HStack(spacing: 2) {
-            yearButton(icon: "chevron.left", action: onPreviousYear, label: "Año anterior")
-            Text(verbatim: "\(year)")
-                .font(.caption.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
-                .contentTransition(.numericText())
-                .frame(minWidth: 42)
-            yearButton(icon: "chevron.right", action: onNextYear, label: "Año siguiente")
-        }
-        .padding(3)
-        .background(
-            Capsule()
-                .fill(AppTheme.controlSurface)
-                .overlay(Capsule().stroke(AppTheme.border, lineWidth: 1))
-        )
-    }
-
-    private func yearButton(icon: String, action: @escaping () -> Void, label: String) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.8))
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(AppTheme.insetSurface))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-    }
-
-    private var headerBackground: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(AppTheme.chromeSurface)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.42))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(AppTheme.primaryText.opacity(0.10), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.16), radius: 16, y: 6)
-    }
-}
-
 private struct MonthlyStatsRow: View {
     let point: MonthlyComparisonPoint
     let isSelected: Bool
@@ -669,7 +604,7 @@ private struct MonthlyStatsRow: View {
         HStack(alignment: .center, spacing: 12) {
             Text(point.shortMonthName)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.primaryText.opacity(0.52))
+                .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.secondaryText)
                 .frame(width: 36, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -680,7 +615,7 @@ private struct MonthlyStatsRow: View {
 
                 Text(point.expenseCount == 1 ? "1 gasto" : "\(point.expenseCount) gastos")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(isSelected ? AppTheme.primaryText.opacity(0.72) : AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(isSelected ? AppTheme.primaryText : AppTheme.tertiaryText)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -133,6 +133,7 @@ struct LoginView: View {
 
                     Button {
                         showPassword.toggle()
+                        focusedField = .password
                     } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
                             .font(.system(size: 14, weight: .medium))
@@ -141,6 +142,7 @@ struct LoginView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(showPassword ? "Ocultar contraseña" : "Mostrar contraseña")
+                    .accessibilityHint("Mantiene el foco en el campo de contraseña")
                 }
             }
 

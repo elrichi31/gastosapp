@@ -120,7 +120,7 @@ struct AddRecurringExpenseView: View {
                     metodoPagoCard
                     botonGuardar
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 40)
             }
@@ -156,16 +156,10 @@ struct AddRecurringExpenseView: View {
     }
 
     private var encabezado: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(isEditing ? "Editar cargo recurrente" : kind.title)
-                .font(.system(size: 32, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-            Text(isEditing ? "Actualiza monto, frecuencia o método de pago." : kind.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        AppScreenHeader(
+            eyebrow: isEditing ? "Actualiza monto, frecuencia o método de pago." : kind.subtitle,
+            title: isEditing ? "Editar cargo recurrente" : kind.title
+        )
     }
 
     @ViewBuilder
@@ -184,7 +178,7 @@ struct AddRecurringExpenseView: View {
                         .foregroundStyle(AppTheme.primaryText)
                     Text(status.message)
                         .font(.caption)
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                        .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -199,10 +193,10 @@ struct AddRecurringExpenseView: View {
     private var montoCard: some View {
         VStack(spacing: 14) {
             Text(kind == .suscripcion ? "Monto por cobro" : "Monto del gasto")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .tracking(1.2)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.statementSecondary)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Spacer(minLength: 0)
@@ -212,12 +206,12 @@ struct AddRecurringExpenseView: View {
                 TextField(
                     "",
                     text: $monto,
-                    prompt: Text("0").foregroundStyle(AppTheme.primaryText.opacity(0.18))
+                    prompt: Text("0").foregroundStyle(AppTheme.onStatement.opacity(0.22))
                 )
                 .keyboardType(.decimalPad)
                 .font(.system(size: 64, weight: .bold, design: .default))
                 .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .tint(AppTheme.accent)
                 .multilineTextAlignment(.leading)
                 .fixedSize()
@@ -237,8 +231,8 @@ struct AddRecurringExpenseView: View {
                 .animation(.easeInOut(duration: 0.2), value: monto.isEmpty)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-        .background(tarjetaFondo)
+        .padding(.vertical, 30)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
     }
 
     private var detallesCard: some View {
@@ -253,7 +247,7 @@ struct AddRecurringExpenseView: View {
                 Spacer()
                 Text(isEditing ? "Próximo cobro" : "Primer cobro")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -394,12 +388,12 @@ struct AddRecurringExpenseView: View {
         } label: {
             Text(option.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? .black : AppTheme.primaryText.opacity(0.65))
+                .foregroundStyle(isSelected ? .black : AppTheme.secondaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(isSelected ? AppTheme.accent : AppTheme.primaryText.opacity(0.06))
+                        .fill(isSelected ? AppTheme.accent : AppTheme.controlSurface)
                 )
         }
         .buttonStyle(.plain)
@@ -408,17 +402,17 @@ struct AddRecurringExpenseView: View {
     private func selectorLabel(_ value: String) -> some View {
         HStack(spacing: 4) {
             Text(value)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.7))
+                .foregroundStyle(AppTheme.secondaryText)
             Image(systemName: "chevron.up.chevron.down")
                 .font(.caption2)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.4))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
     }
 
     private func campoTexto(icono: String, placeholder: String, texto: Binding<String>) -> some View {
         HStack(spacing: 14) {
             iconoCircular(icono, color: AppTheme.secondaryAccent)
-            TextField("", text: texto, prompt: Text(placeholder).foregroundStyle(AppTheme.primaryText.opacity(0.35)))
+            TextField("", text: texto, prompt: Text(placeholder).foregroundStyle(AppTheme.tertiaryText))
                 .focused($focusedField, equals: .descripcion)
                 .foregroundStyle(AppTheme.primaryText)
                 .tint(AppTheme.accent)
@@ -451,16 +445,16 @@ struct AddRecurringExpenseView: View {
 
     private var tarjetaFondo: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(AppTheme.primaryText.opacity(0.06))
+            .fill(AppTheme.controlSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppTheme.primaryText.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(AppTheme.border, lineWidth: 1)
             )
     }
 
     private var divisor: some View {
         Divider()
-            .background(AppTheme.primaryText.opacity(0.08))
+            .background(AppTheme.border)
             .padding(.leading, 56)
     }
 

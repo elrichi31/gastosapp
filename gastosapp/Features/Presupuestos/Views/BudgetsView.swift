@@ -30,7 +30,7 @@ struct BudgetsView: View {
 
                 if let toastMessage = budgets.saveStatusMessage {
                     TransientStatusToast(text: toastMessage, tint: AppTheme.accent, icon: "checkmark.circle.fill")
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                         .padding(.bottom, 92)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -52,9 +52,10 @@ struct BudgetsView: View {
                     onNextYear: showNextYear,
                     onAddTap: { presentedSheet = .addBudget }
                 )
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
-                .padding(.bottom, 12)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
+                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
             }
             .task { await loadAnnualData() }
         }
@@ -102,7 +103,7 @@ struct BudgetsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Abre el detalle del presupuesto")
-                .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
+                .listRowInsets(EdgeInsets(top: 5, leading: AppScreenMetrics.horizontalPadding, bottom: 5, trailing: AppScreenMetrics.horizontalPadding))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -156,17 +157,21 @@ struct BudgetsView: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    AppSectionLabel(text: "Total presupuestado")
+                    Text("Total presupuestado")
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .tracking(1.1)
+                        .foregroundStyle(AppTheme.statementSecondary)
                     Text(annualTotal, format: .currency(code: "USD").precision(.fractionLength(2)))
                         .font(AppTheme.number(42, .bold))
                         .monospacedDigit()
                         .kerning(-1.2)
-                        .foregroundStyle(AppTheme.primaryText)
+                        .foregroundStyle(AppTheme.onStatement)
                         .lineLimit(1)
                         .minimumScaleFactor(0.58)
                     Text("Plan anual creado: \(annualTotal.budgetCurrency)")
                         .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                 }
 
                 Spacer()
@@ -192,24 +197,28 @@ struct BudgetsView: View {
                                         .strokeBorder(
                                             isCurrentMonth(year: row.budget.anio, month: row.budget.mes)
                                                 ? AppTheme.accent
-                                                : AppTheme.border,
+                                                : AppTheme.onStatementFaint,
                                             lineWidth: 1
                                         )
                                 )
                             Text(monthSingleLetter(row.month))
                                 .font(AppTheme.label(10))
-                                .foregroundStyle(AppTheme.tertiaryText)
+                                .foregroundStyle(AppTheme.statementSecondary)
                         }
                         .frame(maxWidth: .infinity)
                     }
                 }
 
                 HStack(spacing: 6) {
-                    AppSectionLabel(text: "Actividad del año", size: 10)
+                    Text("Actividad del año")
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .tracking(1.1)
+                        .foregroundStyle(AppTheme.statementSecondary)
                     Spacer(minLength: 0)
                     Text("menos")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(AppTheme.tertiaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                     ForEach([0.12, 0.3, 0.55, 0.85], id: \.self) { level in
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
                             .fill(AppTheme.accent.opacity(level))
@@ -217,12 +226,12 @@ struct BudgetsView: View {
                     }
                     Text("más")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(AppTheme.tertiaryText)
+                        .foregroundStyle(AppTheme.statementSecondary)
                 }
             }
         }
         .padding(24)
-        .background(AppTheme.cardBackground(cornerRadius: 28))
+        .background(AppTheme.statementBackground(cornerRadius: 32))
         .accessibilityElement(children: .combine)
     }
 
@@ -243,16 +252,8 @@ struct BudgetsView: View {
     }
 
     private var monthsSectionHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Meses")
-                .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            Text("creados")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
-        }
-        .padding(.top, 4)
+        AppSectionTitle(title: "Meses", trailingText: "creados")
+            .padding(.top, 4)
     }
 
     private var hintCard: some View {
@@ -262,7 +263,7 @@ struct BudgetsView: View {
                 .foregroundStyle(AppTheme.accent)
             Text("Usa el botón + para crear los meses que faltan.")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.62))
+                .foregroundStyle(AppTheme.secondaryText)
             Spacer()
         }
         .padding(16)
@@ -318,7 +319,7 @@ struct BudgetsView: View {
 
     private func monthCellColor(_ row: (month: Int, budget: BudgetMonthly)) -> Color {
         let budget = row.budget
-        guard budget.total > 0 else { return AppTheme.insetSurface }
+        guard budget.total > 0 else { return AppTheme.onStatementFaint }
         let intensity = 0.22 + min(0.68, budget.total / maxMonthlyTotal * 0.68)
         return AppTheme.accent.opacity(intensity)
     }
@@ -347,7 +348,7 @@ struct BudgetsView: View {
 
     private func headerRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 8, leading: AppScreenMetrics.horizontalPadding, bottom: 8, trailing: AppScreenMetrics.horizontalPadding))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }
@@ -370,7 +371,7 @@ struct BudgetsView: View {
                 .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.primaryText)
-                Text(message).font(.caption).foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                Text(message).font(.caption).foregroundStyle(AppTheme.secondaryText)
             }
             Spacer()
         }
@@ -424,7 +425,7 @@ private struct AnnualBudgetMetricCard: View {
                 .font(.caption.weight(.semibold))
                 .textCase(.uppercase)
                 .tracking(1.1)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
             Text(value)
@@ -435,7 +436,7 @@ private struct AnnualBudgetMetricCard: View {
                 .minimumScaleFactor(0.70)
             Text(subtitle)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.45))
+                .foregroundStyle(AppTheme.tertiaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
@@ -503,7 +504,7 @@ private struct BudgetMonthAnnualRow: View {
             } else {
                 Text("—")
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.28))
+                    .foregroundStyle(AppTheme.placeholderText)
             }
         }
     }
@@ -512,7 +513,7 @@ private struct BudgetMonthAnnualRow: View {
         HStack(alignment: .firstTextBaseline) {
             Text(footerText)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+                .foregroundStyle(AppTheme.tertiaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
 
@@ -529,10 +530,10 @@ private struct BudgetMonthAnnualRow: View {
         VStack(spacing: 2) {
             Text(monthAbbreviation)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                .foregroundStyle(AppTheme.tertiaryText)
                 .tracking(0.7)
             Text(String(format: "%02d", month))
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.title3.bold())
                 .monospacedDigit()
                 .foregroundStyle(AppTheme.primaryText)
         }
@@ -558,9 +559,9 @@ private struct BudgetMonthAnnualRow: View {
     }
 
     private var statusTextColor: Color {
-        guard budget != nil else { return AppTheme.primaryText.opacity(0.34) }
+        guard budget != nil else { return AppTheme.placeholderText }
         if isCurrentMonth { return AppTheme.accent.opacity(0.90) }
-        return AppTheme.primaryText.opacity(0.50)
+        return AppTheme.secondaryText
     }
 
     private var isCurrentMonth: Bool {

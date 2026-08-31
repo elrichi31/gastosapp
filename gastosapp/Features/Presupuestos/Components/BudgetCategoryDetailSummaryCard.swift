@@ -42,7 +42,7 @@ struct BudgetCategoryDetailSummaryCard: View {
                 .font(.caption.weight(.semibold))
                 .textCase(.uppercase)
                 .tracking(1.3)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+                .foregroundStyle(AppTheme.tertiaryText)
             Text(metrics.remaining, format: .currency(code: "USD").precision(.fractionLength(2)))
                 .font(.system(size: 38, weight: .bold, design: .default))
                 .monospacedDigit()
@@ -84,7 +84,7 @@ struct BudgetCategoryDetailSummaryCard: View {
                 Text("Presupuesto \(monthTitle)")
             }
             .font(.caption.weight(.bold))
-            .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+            .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
@@ -94,7 +94,7 @@ struct BudgetCategoryDetailSummaryCard: View {
                 .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
                 .tracking(1.1)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                .foregroundStyle(AppTheme.tertiaryText)
             Text(amount, format: .currency(code: "USD").precision(.fractionLength(2)))
                 .font(.system(.subheadline, design: .default, weight: .bold))
                 .monospacedDigit()
@@ -108,7 +108,7 @@ struct BudgetCategoryDetailSummaryCard: View {
     private var progressBar: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(AppTheme.primaryText.opacity(0.10))
+                Capsule().fill(AppTheme.controlSurface)
                 Capsule()
                     .fill(tint)
                     .frame(width: max(proxy.size.width * metrics.progressValue, metrics.progressValue > 0 ? 12 : 0))
@@ -119,7 +119,7 @@ struct BudgetCategoryDetailSummaryCard: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(AppTheme.primaryText.opacity(0.10))
+            .fill(AppTheme.controlSurface)
             .frame(width: 1, height: 38)
     }
 
@@ -132,5 +132,5 @@ struct BudgetCategoryDetailSummaryCard: View {
             )
     }
 
-    private var tint: Color { category.displayCategory.color }
+    private var tint: Color { AppTheme.accent }
 }

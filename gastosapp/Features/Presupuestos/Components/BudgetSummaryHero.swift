@@ -18,7 +18,11 @@ struct BudgetSummaryHero: View {
 
     private var topRow: some View {
         HStack(alignment: .top) {
-            AppSectionLabel(text: "Restante en \(budget.monthTitle)")
+            Text("Restante en \(budget.monthTitle)")
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.statementSecondary)
 
             Spacer()
 
@@ -35,7 +39,7 @@ struct BudgetSummaryHero: View {
             .frame(height: 28)
         .background(
             Capsule()
-                .fill(AppTheme.accent.opacity(0.14))
+                .fill(AppTheme.accent.opacity(0.18))
         )
     }
 
@@ -46,13 +50,13 @@ struct BudgetSummaryHero: View {
                 .monospacedDigit()
                 .kerning(-1.4)
                 .contentTransition(.numericText())
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
 
             Text("de \(snapshot.monthlyMetrics.budgeted.budgetCurrency) planificados · \(daysRemainingInMonth) días por delante")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+                .foregroundStyle(AppTheme.statementSecondary)
                 .lineLimit(2)
         }
     }
@@ -61,7 +65,7 @@ struct BudgetSummaryHero: View {
         VStack(alignment: .leading, spacing: 10) {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(AppTheme.insetSurface)
+                    Capsule().fill(AppTheme.onStatementFaint)
 
                     HStack(spacing: 0) {
                         ForEach(snapshot.progressSegments) { segment in
@@ -86,11 +90,11 @@ struct BudgetSummaryHero: View {
             Text("\(Int(round(snapshot.monthlyMetrics.progressPercentage)))% del mes")
         }
         .font(AppTheme.number(13, .semibold))
-        .foregroundStyle(AppTheme.secondaryText)
+        .foregroundStyle(AppTheme.statementSecondary)
     }
 
     private var cardBackground: some View {
-        AppTheme.cardBackground(cornerRadius: 28)
+        AppTheme.statementBackground(cornerRadius: 32)
     }
 
     private var daysRemainingInMonth: Int {

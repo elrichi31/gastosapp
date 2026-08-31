@@ -13,7 +13,7 @@ struct BudgetAddMovementButton: View {
                     .foregroundStyle(tint)
                 Text("Agregar gasto")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.9))
+                    .foregroundStyle(AppTheme.primaryText)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 48)
@@ -26,7 +26,7 @@ struct BudgetAddMovementButton: View {
 
     private var buttonBackground: some View {
         BudgetGroupedShape(position: position)
-            .fill(AppTheme.primaryText.opacity(0.055))
+            .fill(AppTheme.controlSurface)
             .overlay(
                 BudgetGroupedShape(position: position)
                     .stroke(tint.opacity(0.22), lineWidth: 1)

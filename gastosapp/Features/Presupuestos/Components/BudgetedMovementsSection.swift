@@ -16,12 +16,12 @@ struct BudgetedMovementsSection: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Gastos presupuestados")
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.title3.bold())
                 .foregroundStyle(AppTheme.primaryText)
             Spacer()
             Text(countLabel)
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
     }
 
@@ -60,7 +60,7 @@ struct BudgetedMovementsSection: View {
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, 0)
         .frame(height: CGFloat(movements.count) * 74)
-        .background(AppTheme.cardBackground(cornerRadius: 24))
+        .background(AppTheme.cardBackground(cornerRadius: 26))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
@@ -68,19 +68,19 @@ struct BudgetedMovementsSection: View {
         VStack(spacing: 10) {
             Image(systemName: "tray")
                 .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.30))
+                .foregroundStyle(AppTheme.placeholderText)
             Text("Sin gastos presupuestados")
-                .font(.headline.weight(.bold))
+                .font(.headline)
                 .foregroundStyle(AppTheme.primaryText)
             Text("Agrega ítems como almuerzo, mercado o transporte para planificar esta categoría.")
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.50))
+                .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
         .padding(.horizontal, 18)
-        .background(AppTheme.cardBackground(cornerRadius: 24))
+        .background(AppTheme.cardBackground(cornerRadius: 26))
     }
 
     private var countLabel: String {
@@ -121,9 +121,9 @@ private struct BudgetedMovementDetailRow: View {
     private var initialsBadge: some View {
         Text(initials)
             .font(.caption.weight(.bold))
-            .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+            .foregroundStyle(AppTheme.secondaryText)
             .frame(width: 46, height: 46)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(AppTheme.primaryText.opacity(0.07)))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(AppTheme.controlSurface))
     }
 
     private var details: some View {
@@ -134,7 +134,7 @@ private struct BudgetedMovementDetailRow: View {
                 .lineLimit(1)
             Text("\(paymentMethod.shortLabel) · \(movement.dateLabel)")
                 .font(.caption)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.44))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
     }
 
@@ -149,7 +149,7 @@ private struct BudgetedMovementDetailRow: View {
     private var divider: some View {
         if showsDivider {
             Divider()
-                .overlay(AppTheme.primaryText.opacity(0.08))
+                .overlay(AppTheme.border)
                 .padding(.leading, 78)
         }
     }

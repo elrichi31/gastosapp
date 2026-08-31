@@ -69,17 +69,23 @@ struct FinancialCalendarView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 18) {
-                    monthSelector
+                VStack(spacing: AppScreenMetrics.sectionSpacing) {
                     summaryCard
                     agendaCard
                     calendarCard
                     selectedDayCard
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, 32)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            monthSelector
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
+                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
         .task {
             await store.loadExpensesIfNeeded()
@@ -93,63 +99,59 @@ struct FinancialCalendarView: View {
     }
 
     private var monthSelector: some View {
-        HStack {
-            monthButton(icon: "chevron.left") { moveMonth(-1) }
-
-            Spacer()
-
-            VStack(spacing: 2) {
-                Text(monthTitle)
-                    .font(.system(size: 23, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                Text("Calendario financiero")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.45))
-            }
-
-            Spacer()
-
-            monthButton(icon: "chevron.right") { moveMonth(1) }
+        AppScreenHeader(eyebrow: "Calendario financiero", title: monthTitle) {
+            AppPeriodStepper(
+                label: "",
+                onPrevious: { moveMonth(-1) },
+                onNext: { moveMonth(1) },
+                previousLabel: "Mes anterior",
+                nextLabel: "Mes siguiente"
+            )
         }
     }
 
     private var summaryCard: some View {
-        HStack(spacing: 10) {
-            summaryMetric(title: "Gastado", value: monthSpent, icon: "dollarsign.circle.fill", tint: AppTheme.accent)
-            summaryMetric(title: "Programado", value: monthScheduled, icon: "repeat.circle.fill", tint: AppTheme.secondaryAccent)
+        HStack(spacing: 0) {
+            summaryMetric(title: "Gastado", value: monthSpent, tint: AppTheme.accent)
+            Rectangle()
+                .fill(AppTheme.onStatementFaint)
+                .frame(width: 1, height: 44)
+            summaryMetric(title: "Programado", value: monthScheduled, tint: AppTheme.secondaryAccent)
         }
+        .padding(24)
+        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .accessibilityElement(children: .combine)
     }
 
-    private func summaryMetric(title: String, value: Double, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(tint)
-                .frame(width: 30, height: 30)
-                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+    private func summaryMetric(title: String, value: Double, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 6, height: 6)
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(1.1)
+                    .foregroundStyle(AppTheme.statementSecondary)
+            }
 
             Text(value, format: .currency(code: "USD").precision(.fractionLength(2)))
-                .font(.system(size: 19, weight: .bold, design: .default))
+                .font(AppTheme.number(24, .bold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
+                .foregroundStyle(AppTheme.onStatement)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppTheme.cardBackground(cornerRadius: 20))
+        .padding(.leading, 2)
     }
 
     private var agendaCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Agenda del mes")
-                    .font(.headline.weight(.bold))
+                    .font(.title2.bold())
                     .foregroundStyle(AppTheme.primaryText)
                 Spacer()
                 Image(systemName: "sparkles")
@@ -195,8 +197,7 @@ struct FinancialCalendarView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private func agendaRow(icon: String, tint: Color, title: String, value: String, detail: String) -> some View {
@@ -206,7 +207,7 @@ struct FinancialCalendarView: View {
                 Text(title)
                     .font(.caption.weight(.bold))
                     .textCase(.uppercase)
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.primaryText)
@@ -214,7 +215,7 @@ struct FinancialCalendarView: View {
                     .minimumScaleFactor(0.78)
                 Text(detail)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -236,7 +237,7 @@ struct FinancialCalendarView: View {
                 ForEach(Self.shortWeekdays) { day in
                     Text(day.title)
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.44))
+                        .foregroundStyle(AppTheme.tertiaryText)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -266,7 +267,7 @@ struct FinancialCalendarView: View {
                 .frame(width: 8, height: 8)
             Text(title)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
@@ -275,11 +276,11 @@ struct FinancialCalendarView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(selectedDayTitle)
-                        .font(.headline.weight(.bold))
+                        .font(.headline)
                         .foregroundStyle(AppTheme.primaryText)
                     Text(selectedDaySubtitle)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText.opacity(0.52))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
                 Spacer()
             }
@@ -299,8 +300,7 @@ struct FinancialCalendarView: View {
                 }
             }
         }
-        .padding(18)
-        .background(AppTheme.cardBackground(cornerRadius: 22))
+        .padding(.vertical, 4)
     }
 
     private var selectedDayTotals: some View {
@@ -315,7 +315,7 @@ struct FinancialCalendarView: View {
             Text(title)
                 .font(.caption2.weight(.bold))
                 .textCase(.uppercase)
-                .foregroundStyle(AppTheme.primaryText.opacity(0.44))
+                .foregroundStyle(AppTheme.tertiaryText)
             Text(value, format: .currency(code: "USD").precision(.fractionLength(2)))
                 .font(.subheadline.weight(.bold))
                 .monospacedDigit()
@@ -337,7 +337,7 @@ struct FinancialCalendarView: View {
             ExpenseIconBadge(systemName: "checkmark.seal.fill", color: AppTheme.accent)
             Text("No hay movimientos ni cargos programados para este día.")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.58))
+                .foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
         }
         .padding(14)
@@ -365,7 +365,7 @@ struct FinancialCalendarView: View {
                             .frame(width: 24, height: 24)
                             .background(
                                 Circle()
-                                    .fill(isToday && !isSelected ? AppTheme.primaryText.opacity(0.08) : Color.clear)
+                                    .fill(isToday && !isSelected ? AppTheme.controlSurface : Color.clear)
                             )
 
                         eventIndicators(for: day)
@@ -409,7 +409,7 @@ struct FinancialCalendarView: View {
             .frame(height: 8)
         } else {
             Capsule()
-                .fill(AppTheme.primaryText.opacity(0.10))
+                .fill(AppTheme.controlSurface)
                 .frame(width: 5, height: 5)
                 .frame(height: 8)
         }
@@ -434,14 +434,14 @@ struct FinancialCalendarView: View {
 
     private func calendarExpenseRow(_ expense: Expense) -> some View {
         HStack(spacing: 12) {
-            ExpenseIconBadge(systemName: expense.categoria.icono, color: expense.categoria.color)
+            ExpenseIconBadge(systemName: expense.categoria.icono, color: AppTheme.primaryText)
             VStack(alignment: .leading, spacing: 3) {
                 Text(expense.descripcion)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(AppTheme.primaryText)
                 Text("\(expense.categoria.nombre) • \(expense.metodoPago.shortLabel)")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             Spacer()
             Text(expense.monto, format: .currency(code: "USD").precision(.fractionLength(2)))
@@ -462,7 +462,7 @@ struct FinancialCalendarView: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Text("Programado • \(expense.cadenceLabel)")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.5))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
             Spacer()
             Text(expense.monto, format: .currency(code: "USD").precision(.fractionLength(2)))

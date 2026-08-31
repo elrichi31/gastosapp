@@ -59,13 +59,13 @@ struct BudgetCategorySummaryCard: View {
     private var amountRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(metrics.spent, format: .currency(code: "USD").precision(.fractionLength(0)))
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.title3.bold())
                 .monospacedDigit()
                 .foregroundStyle(AppTheme.primaryText)
 
             Text("/ \(Int(metrics.budgeted))")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.44))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
     }
 
@@ -92,7 +92,7 @@ struct BudgetCategorySummaryCard: View {
                 .monospacedDigit()
         }
         .font(.caption.weight(.bold))
-        .foregroundStyle(AppTheme.primaryText.opacity(0.46))
+        .foregroundStyle(AppTheme.tertiaryText)
     }
 
     private var cardBackground: some View {
@@ -105,5 +105,5 @@ struct BudgetCategorySummaryCard: View {
             .shadow(color: .black.opacity(0.045), radius: 10, y: 4)
     }
 
-    private var tint: Color { category.displayCategory.color }
+    private var tint: Color { AppTheme.accent }
 }

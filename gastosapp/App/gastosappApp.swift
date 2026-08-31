@@ -11,7 +11,7 @@ import SwiftUI
 struct gastosappApp: App {
     @State private var store = ExpenseStore()
     @State private var budgetStore = BudgetStore()
-    @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.system.rawValue
+    @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.dark.rawValue
 
     init() {
         LocalNotificationManager.configureForegroundPresentation()

@@ -23,24 +23,16 @@ struct BudgetEditorHeader: View {
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.title3.bold())
                 .foregroundStyle(AppTheme.primaryText)
             Text(subtitle)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.48))
+                .foregroundStyle(AppTheme.tertiaryText)
         }
     }
 
     private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.72))
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(AppTheme.primaryText.opacity(0.08)))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cerrar")
+        AppCircleButton(icon: "xmark", label: "Cerrar", action: onClose)
     }
 }
 
@@ -60,14 +52,18 @@ struct BudgetEditorTextField: View {
                 .tint(AppTheme.accent)
         }
         .padding(14)
-        .background(AppTheme.cardBackground(cornerRadius: 18))
+        .background((
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
     }
 
     private var fieldTitle: some View {
         Text(title)
             .font(.caption2.weight(.bold))
             .textCase(.uppercase)
-            .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+            .foregroundStyle(AppTheme.tertiaryText)
     }
 }
 
@@ -83,14 +79,18 @@ struct BudgetEditorDateField: View {
                 .tint(AppTheme.accent)
         }
         .padding(14)
-        .background(AppTheme.cardBackground(cornerRadius: 18))
+        .background((
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
     }
 
     private var label: some View {
         Text("Fecha")
             .font(.caption2.weight(.bold))
             .textCase(.uppercase)
-            .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+            .foregroundStyle(AppTheme.tertiaryText)
     }
 }
 
@@ -109,10 +109,14 @@ struct BudgetEditorMenuField<Content: View>: View {
                     .foregroundStyle(AppTheme.primaryText)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
             .padding(14)
-            .background(AppTheme.cardBackground(cornerRadius: 18))
+            .background((
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
         }
         .buttonStyle(.plain)
     }
@@ -121,7 +125,7 @@ struct BudgetEditorMenuField<Content: View>: View {
         Text(title)
             .font(.caption2.weight(.bold))
             .textCase(.uppercase)
-            .foregroundStyle(AppTheme.primaryText.opacity(0.42))
+            .foregroundStyle(AppTheme.tertiaryText)
     }
 }
 
@@ -136,11 +140,11 @@ struct BudgetEditorSaveButton: View {
                 if isSaving { ProgressView().tint(.black) }
                 Text(isSaving ? "Guardando…" : "Guardar")
             }
-            .font(.headline.weight(.bold))
+            .font(.headline)
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Capsule().fill(isEnabled ? AppTheme.accent : AppTheme.primaryText.opacity(0.18)))
+            .background(Capsule().fill(isEnabled ? AppTheme.accent : AppTheme.placeholderText))
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
@@ -156,6 +160,10 @@ struct BudgetEditorErrorCard: View {
             .foregroundStyle(AppTheme.warning)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(AppTheme.cardBackground(cornerRadius: 16))
+            .background((
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(AppTheme.controlSurface)
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+            ))
     }
 }
