@@ -123,7 +123,7 @@ struct BudgetDetailView: View {
             }
             .padding(.horizontal, AppScreenMetrics.horizontalPadding)
             .padding(.top, AppScreenMetrics.headerTopPadding)
-            .padding(.bottom, 36)
+            .padding(.bottom, AppScreenMetrics.contentBottomPadding)
         }
         .refreshable {
             await session.loadExpensesIfNeeded()

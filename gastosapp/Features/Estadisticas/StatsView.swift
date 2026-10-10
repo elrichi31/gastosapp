@@ -4,6 +4,7 @@ import Charts
 struct StatsView: View {
     @Environment(ExpenseStore.self) private var expenses
     @Environment(BudgetStore.self) private var budgets
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @State private var budgetDetailStore = BudgetDetailStore()
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
     @State private var selectedCategoryID: Int?
@@ -35,23 +36,32 @@ struct StatsView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, 32)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
+            .tracksScrollChrome()
+            .floatingTabBarInset()
         }
+        // Una sola fila, como Gastos y Presupuestos. El título "Tu año /
+        // Estadísticas" repetía lo que ya dice la pestaña y se llevaba la
+        // primera pantalla; aquí manda el año, que es lo único que cambia.
+        // Esta pantalla no tiene acción principal, así que el selector ocupa
+        // la fila entera en vez de dejar un hueco a la derecha.
         .safeAreaInset(edge: .top, spacing: 0) {
-            AppScreenHeader(eyebrow: "Tu año", title: "Estadísticas") {
-                AppPeriodStepper(
-                    label: "\(selectedYear)",
-                    onPrevious: { changeYear(by: -1) },
-                    onNext: { changeYear(by: 1) },
-                    previousLabel: "Año anterior",
-                    nextLabel: "Año siguiente"
-                )
-            }
+            AppPeriodStepper(
+                label: "\(selectedYear)",
+                onPrevious: { changeYear(by: -1) },
+                onNext: { changeYear(by: 1) },
+                previousLabel: "Año anterior",
+                nextLabel: "Año siguiente",
+                expands: true
+            )
             .padding(.horizontal, AppScreenMetrics.horizontalPadding)
             .padding(.top, AppScreenMetrics.headerTopPadding)
             .padding(.bottom, AppScreenMetrics.headerBottomPadding)
-            .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
+            .background {
+                AppHeaderScrim()
+                    .opacity(chrome?.isScrolled == true ? 1 : 0)
+            }
         }
         .task { await loadData() }
         .onChange(of: selectedCategoryID) { _, _ in

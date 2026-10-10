@@ -28,45 +28,48 @@ struct HomeMonthHeroCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                heroLabel(state.amount == nil ? "Estado de hoy" : state.title)
-                Spacer(minLength: 0)
-                if state.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                    .tint(AppTheme.statementSecondary)
-                } else {
-                    heroLabel("\(daysRemaining) días")
-                }
-            }
+        VStack(spacing: 0) {
+            heroLabel(state.amount == nil ? "Estado de hoy" : state.title)
 
             if let amount = state.amount {
                 Text(amount, format: .currency(code: "USD").precision(.fractionLength(2)))
-                    .font(AppTheme.number(46, .bold))
+                    .font(AppTheme.number(54, .bold))
                     .monospacedDigit()
-                    .kerning(-1.2)
-                    .foregroundStyle(AppTheme.onStatement)
+                    .contentTransition(.numericText(value: amount))
+                    .kerning(-1.6)
+                    .foregroundStyle(AppTheme.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-                    .padding(.top, 12)
+                    .minimumScaleFactor(0.5)
+                    .padding(.top, 10)
             } else {
                 Text(state.title)
-                    .font(AppTheme.number(28, .bold))
-                    .foregroundStyle(AppTheme.onStatement)
+                    .font(AppTheme.number(30, .bold))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.75)
-                    .padding(.top, 12)
+                    .padding(.top, 10)
             }
 
             Text(state.subtitle)
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.statementSecondary)
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6)
+                .padding(.top, 8)
 
-            AppTheme.statementHairline
-                .padding(.top, 18)
+            if state.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(AppTheme.secondaryText)
+                    .padding(.top, 14)
+            } else {
+                daysPill
+                    .padding(.top, 16)
+            }
+
+            heroDivider
+                .padding(.top, 26)
 
             HStack(spacing: 0) {
                 heroStat(title: "Gastado", value: spentValue, tint: AppTheme.accent)
@@ -74,14 +77,14 @@ struct HomeMonthHeroCard: View {
                 heroStat(title: "Proyección", value: projectionValue, tint: AppTheme.secondaryAccent)
                 if let budgetValue {
                     statDivider
-                    heroStat(title: "Presupuesto", value: budgetValue, tint: AppTheme.onStatement.opacity(0.45))
+                    heroStat(title: "Presupuesto", value: budgetValue, tint: AppTheme.primaryText.opacity(0.45))
                 }
             }
-            .padding(.top, 16)
+            .padding(.top, 18)
 
             if let outcomeMessage {
-                AppTheme.statementHairline
-                    .padding(.top, 16)
+                heroDivider
+                    .padding(.top, 18)
 
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: outcomeIcon)
@@ -89,16 +92,16 @@ struct HomeMonthHeroCard: View {
                         .foregroundStyle(outcomeTint)
                     Text(outcomeMessage)
                         .font(.footnote)
-                        .foregroundStyle(AppTheme.statementSecondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
-                .padding(.top, 14)
+                .padding(.top, 16)
             }
 
             if let nextRecurringTitle, let nextRecurringDateLabel {
-                AppTheme.statementHairline
-                    .padding(.top, 14)
+                heroDivider
+                    .padding(.top, 16)
 
                 HStack(spacing: 10) {
                     Image(systemName: "repeat")
@@ -106,29 +109,48 @@ struct HomeMonthHeroCard: View {
                         .foregroundStyle(AppTheme.accent)
                     Text(nextRecurringTitle)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.onStatement)
+                        .foregroundStyle(AppTheme.primaryText)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Text(nextRecurringDateLabel)
                         .font(AppTheme.number(12, .semibold))
-                        .foregroundStyle(AppTheme.statementSecondary)
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
                 .padding(.top, 14)
             }
         }
-        .padding(24)
-        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Píldora bajo la cifra, al estilo del botón "Accounts" de una app de banca.
+    private var daysPill: some View {
+        Text("\(daysRemaining) días restantes")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.primaryText)
+            .padding(.horizontal, 18)
+            .frame(height: 40)
+            .background(
+                Capsule()
+                    .fill(AppTheme.controlSurface.opacity(0.75))
+                    .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
+            )
+    }
+
+    private var heroDivider: some View {
+        Rectangle()
+            .fill(AppTheme.border)
+            .frame(height: 1)
     }
 
     private var statDivider: some View {
         Rectangle()
-            .fill(AppTheme.onStatementFaint)
+            .fill(AppTheme.border)
             .frame(width: 1, height: 32)
     }
 
     private func heroStat(title: String, value: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Circle()
                     .fill(tint)
@@ -138,7 +160,7 @@ struct HomeMonthHeroCard: View {
             Text(value)
                 .font(AppTheme.number(17, .semibold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.onStatement)
+                .foregroundStyle(AppTheme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -151,7 +173,7 @@ struct HomeMonthHeroCard: View {
             .font(.caption2.weight(.semibold))
             .textCase(.uppercase)
             .tracking(1.1)
-            .foregroundStyle(AppTheme.statementSecondary)
+            .foregroundStyle(AppTheme.secondaryText)
     }
 }
 
@@ -161,49 +183,43 @@ struct HomeQuickActionsSection: View {
     let onBudgetTap: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            quickActionButton(title: "Gasto", icon: "plus", tint: AppTheme.accent, prominent: true, action: onExpenseTap)
-            quickActionButton(title: "Recurrente", icon: "repeat", tint: AppTheme.secondaryAccent, prominent: false, action: onRecurringTap)
-            quickActionButton(title: "Presupuesto", icon: "target", tint: AppTheme.warning, prominent: false, action: onBudgetTap)
+        HStack(alignment: .top, spacing: 0) {
+            quickActionButton(title: "Gasto", icon: "plus", action: onExpenseTap)
+            quickActionButton(title: "Recurrente", icon: "repeat", action: onRecurringTap)
+            quickActionButton(title: "Presupuesto", icon: "target", action: onBudgetTap)
         }
+        .frame(maxWidth: .infinity)
     }
 
+    /// Círculo con el rótulo debajo, no una píldora con el texto al lado: así
+    /// las tres acciones ocupan el mismo ancho y la fila queda simétrica.
     private func quickActionButton(
         title: String,
         icon: String,
-        tint: Color,
-        prominent: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(prominent ? AppTheme.onAccent : AppTheme.primaryText)
-                    .frame(width: 30, height: 30)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .frame(width: 58, height: 58)
                     .background(
-                        Circle().fill(
-                            prominent
-                                ? AnyShapeStyle(AppTheme.onAccent.opacity(0.16))
-                                : AnyShapeStyle(tint.opacity(0.14))
-                        )
+                        Circle()
+                            .fill(AppTheme.controlSurface.opacity(0.75))
+                            .overlay(Circle().strokeBorder(AppTheme.border, lineWidth: 1))
                     )
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(prominent ? AppTheme.onAccent : AppTheme.primaryText)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(prominent ? AnyShapeStyle(AppTheme.accent) : AnyShapeStyle(AppTheme.controlSurface))
-                    .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: prominent ? 0 : 1))
-            )
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable(scale: 0.92))
+        .accessibilityLabel(title)
     }
 }
 

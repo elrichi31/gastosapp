@@ -6,6 +6,7 @@ struct GastosView: View {
     }
 
     @Environment(ExpenseStore.self) private var store
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @State private var sectionMode: GastosSectionMode = .movimientos
     @State private var path: [Route] = []
 
@@ -17,7 +18,7 @@ struct GastosView: View {
                 if let toastMessage {
                     TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
                         .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                        .padding(.bottom, 92)
+                        .padding(.bottom, AppScreenMetrics.toastBottomPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .zIndex(2)
@@ -38,10 +39,13 @@ struct GastosView: View {
                     sectionMode: $sectionMode,
                     onAddTap: { path.append(.addExpense) }
                 )
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
-                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
+                .background {
+                    AppHeaderScrim()
+                        .opacity(chrome?.isScrolled == true ? 1 : 0)
+                }
             }
         }
     }

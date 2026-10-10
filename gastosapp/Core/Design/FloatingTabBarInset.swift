@@ -2,17 +2,52 @@ import SwiftUI
 
 /// Métricas de la barra de pestañas flotante.
 ///
-/// `PillTabBar` se construye con estas constantes y `totalHeight` es exactamente
-/// el alto que la barra reserva en el área segura inferior, así que las dos
-/// nunca pueden desincronizarse.
+/// `PillTabBar` se construye con estas constantes y `reservedHeight` es
+/// exactamente el alto que la barra reserva en el área segura inferior, así que
+/// las dos nunca pueden desincronizarse.
 enum FloatingTabBarMetrics {
+    /// Alto de cada pestaña con el rótulo visible.
     static let itemHeight: CGFloat = 46
+    /// Alto de cada pestaña cuando la barra se contrae al desplazar.
+    static let compactItemHeight: CGFloat = 44
+    /// Tamaño del icono contraído.
+    ///
+    /// Al desaparecer el rótulo el icono crece para ocupar ese hueco: si
+    /// mantuviera su tamaño, la barra contraída se vería medio vacía.
+    static let compactIconSize: CGFloat = 24
+    static let iconSize: CGFloat = 16
     static let innerPadding: CGFloat = 7
     static let outerVerticalPadding: CGFloat = 10
 
-    static var totalHeight: CGFloat {
+    static var expandedHeight: CGFloat {
         itemHeight + innerPadding * 2 + outerVerticalPadding * 2
     }
+
+    static var compactHeight: CGFloat {
+        compactItemHeight + innerPadding * 2 + outerVerticalPadding * 2
+    }
+
+    /// Espacio reservado bajo el contenido.
+    ///
+    /// Siempre es el alto expandido, aunque la barra esté contraída: si el
+    /// espacio reservado cambiara con el scroll, el contenido daría un salto
+    /// justo mientras el usuario lo está desplazando.
+    ///
+    /// Incluye `outerVerticalPadding` arriba y abajo de la cápsula, así que al
+    /// reservarlo queda ese mismo aire entre la barra y el último elemento.
+    static var reservedHeight: CGFloat { expandedHeight }
+}
+
+/// Estado del cromo que reacciona al scroll de la pantalla activa.
+@Observable
+final class TabBarChrome {
+    /// La barra inferior se contrae al alejarse del principio.
+    var isCompact = false
+    /// El encabezado necesita velo en cuanto hay contenido pasando por debajo.
+    ///
+    /// Umbral mucho más bajo que el de la barra: el velo tiene que aparecer en
+    /// cuanto algo asoma, no cuando ya se ha desplazado medio dedo.
+    var isScrolled = false
 }
 
 private struct FloatingTabBarHeightKey: EnvironmentKey {
@@ -20,7 +55,7 @@ private struct FloatingTabBarHeightKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    /// Alto que ocupa la barra flotante, o 0 donde no hay barra (sheets, login).
+    /// Alto que reserva `floatingTabBarInset()`, o 0 fuera de `MainTabView`.
     var floatingTabBarHeight: CGFloat {
         get { self[FloatingTabBarHeightKey.self] }
         set { self[FloatingTabBarHeightKey.self] = newValue }
@@ -39,17 +74,78 @@ private struct FloatingTabBarInsetModifier: ViewModifier {
     }
 }
 
+/// Contrae la barra en cuanto el contenido se separa del principio.
+///
+/// El umbral evita que el rebote elástico de la parte superior la haga
+/// parpadear, y la histéresis (contraer a 40, expandir a 12) evita que oscile
+/// cuando el usuario deja el scroll justo en el límite.
+private struct TabBarCollapseModifier: ViewModifier {
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+
+    private let collapseThreshold: CGFloat = 40
+    private let expandThreshold: CGFloat = 12
+    private let scrimThreshold: CGFloat = 6
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                guard let chrome else { return }
+
+                let scrolled = offset > scrimThreshold
+                if scrolled != chrome.isScrolled {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        chrome.isScrolled = scrolled
+                    }
+                }
+
+                let shouldCompact: Bool
+                if chrome.isCompact {
+                    shouldCompact = offset > expandThreshold
+                } else {
+                    shouldCompact = offset > collapseThreshold
+                }
+                guard shouldCompact != chrome.isCompact else { return }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    chrome.isCompact = shouldCompact
+                }
+            }
+            .onDisappear {
+                guard let chrome else { return }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    chrome.isCompact = false
+                    chrome.isScrolled = false
+                }
+            }
+    }
+}
+
 extension View {
-    /// Reserva el espacio de la barra flotante en pantallas donde el
-    /// `safeAreaInset` de `MainTabView` no llega por sí solo.
+    /// Reserva el hueco de la barra flotante. Es la **única** forma de hacerlo
+    /// en toda la app.
     ///
-    /// Hace falta en los destinos de `navigationDestination`: SwiftUI no propaga
-    /// el inset del área segura del contenedor a las vistas que un
-    /// `NavigationStack` empuja, sólo a su raíz. Sin esto, el contenido del
-    /// final del scroll (por ejemplo el botón de guardar) queda debajo de la barra.
+    /// `MainTabView` dibuja la barra en un `overlay`, que no inyecta ningún
+    /// espacio: si una superficie con scroll no llama a esto, su contenido pasa
+    /// por debajo de la barra. La regla es literal —una llamada por cada
+    /// `ScrollView` o `List` que se vea con la barra encima— y se puede
+    /// auditar con un grep, porque no hay herencia implícita que compense un
+    /// olvido ni un inset heredado que se sume por duplicado.
     ///
-    /// Es inofensivo donde el inset sí llega: ahí el entorno vale 0.
+    /// Aplícalo al propio `ScrollView`/`List`, no a un contenedor lejano: el
+    /// área segura sólo baja hasta el primer scroll que se encuentre, y un
+    /// `NavigationStack` por medio la corta.
+    ///
+    /// No lo uses en hojas (`sheet`) ni en el login: ahí no hay barra. El valor
+    /// del entorno sí se hereda en una hoja, así que reservaría un hueco que
+    /// nada ocupa.
     func floatingTabBarInset() -> some View {
         modifier(FloatingTabBarInsetModifier())
+    }
+
+    /// Aplícalo al `ScrollView` o `List` de una pantalla raíz: contrae la barra
+    /// inferior y avisa al encabezado de que hay contenido pasando por debajo.
+    func tracksScrollChrome() -> some View {
+        modifier(TabBarCollapseModifier())
     }
 }

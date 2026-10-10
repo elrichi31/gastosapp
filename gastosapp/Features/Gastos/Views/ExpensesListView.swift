@@ -55,6 +55,7 @@ struct ExpensesListView: View {
     @State private var recurrenceFilter: RecurrenceFilter = .all
     @State private var selectedMethodID: Int? = nil
     @State private var searchText = ""
+    @State private var showsFilters = false
     @State private var presentedExpenseSheet: ExpenseSheet?
     @State private var expenseToDelete: Expense?
     @State private var snapshot = ExpensesListSnapshot.placeholder(monthStart: ExpensesListView.inicioMes(Date()))
@@ -77,8 +78,11 @@ struct ExpensesListView: View {
             fondo.ignoresSafeArea()
 
             List {
+                // El bloque va siempre, también en un mes sin gastos: además del
+                // total lleva la navegación de mes, así que ocultarlo dejaría
+                // al usuario sin forma de volver.
                 sectionRow {
-                    selectorMes
+                    totalCard
                 }
 
                 if store.isLoadingExpenses && store.gastos.isEmpty {
@@ -86,12 +90,6 @@ struct ExpensesListView: View {
                         loadingCard
                     }
                 } else {
-                    if !snapshot.monthExpenses.isEmpty {
-                        sectionRow {
-                            totalCard
-                        }
-                    }
-
                     sectionRow {
                         filtrosCard
                     }
@@ -118,6 +116,8 @@ struct ExpensesListView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .tracksScrollChrome()
+            .floatingTabBarInset()
             .environment(\.defaultMinListRowHeight, 1)
             .refreshable {
                 await store.loadExpenses(force: true)
@@ -192,32 +192,67 @@ struct ExpensesListView: View {
         }
     }
 
-    private var selectorMes: some View {
-        HStack {
-            botonMes(icono: "chevron.left", label: "Mes anterior", habilitado: true) { cambiarMes(-1) }
-
-            Spacer()
-
-            VStack(spacing: 2) {
-                Text(nombreMes(mesActual))
-                    .font(.system(size: 22, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.primaryText)
-                Text("\(snapshot.monthExpenses.count) registros")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            .animation(.easeInOut(duration: 0.15), value: mesActual)
-
-            Spacer()
-
-            botonMes(icono: "chevron.right", label: "Mes siguiente", habilitado: puedeAvanzar) { cambiarMes(1) }
-        }
+    private var activeFilterCount: Int {
+        (recurrenceFilter == .all ? 0 : 1) + (selectedMethodID == nil ? 0 : 1)
     }
 
+    /// Buscador siempre visible y píldoras bajo demanda.
+    ///
+    /// Las dos filas de píldoras ocupaban ~90pt fijos antes del primer gasto,
+    /// aunque casi nunca se usen. El contador del botón dice cuántos filtros
+    /// hay puestos sin necesidad de desplegarlas.
     private var filtrosCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            searchField
+            HStack(spacing: 10) {
+                searchField
+                filtersToggle
+            }
 
+            if showsFilters {
+                filterPillRows
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var filtersToggle: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                showsFilters.toggle()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(size: 13, weight: .bold))
+                if activeFilterCount > 0 {
+                    Text("\(activeFilterCount)")
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.onAccent)
+                        .frame(width: 16, height: 16)
+                        .background(Circle().fill(AppTheme.accent))
+                }
+            }
+            .foregroundStyle(showsFilters || activeFilterCount > 0 ? AppTheme.accent : AppTheme.primaryText)
+            .padding(.horizontal, 14)
+            .frame(height: 42)
+            .background(
+                Capsule()
+                    .fill(AppTheme.controlSurface)
+                    .overlay(Capsule().strokeBorder(
+                        showsFilters || activeFilterCount > 0 ? AppTheme.accent.opacity(0.4) : AppTheme.border,
+                        lineWidth: 1
+                    ))
+            )
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel("Filtros")
+        .accessibilityValue(activeFilterCount == 0 ? "Sin filtros" : "\(activeFilterCount) activos")
+    }
+
+    private var filterPillRows: some View {
+        VStack(alignment: .leading, spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(RecurrenceFilter.allCases) { filter in
@@ -252,7 +287,6 @@ struct ExpensesListView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
     }
 
     private var searchField: some View {
@@ -338,25 +372,11 @@ struct ExpensesListView: View {
 
     private var bottomSafeRow: some View {
         Color.clear
-            .frame(height: 84)
+            .frame(height: AppScreenMetrics.contentBottomPadding)
             .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .accessibilityHidden(true)
-    }
-
-    private func botonMes(icono: String, label: String, habilitado: Bool, accion: @escaping () -> Void) -> some View {
-        Button(action: accion) {
-            Image(systemName: icono)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(habilitado ? AppTheme.primaryText : AppTheme.placeholderText)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(AppTheme.controlSurface).opacity(habilitado ? 1 : 0.5))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!habilitado)
-        .accessibilityLabel(label)
     }
 
     private func cambiarMes(_ delta: Int) {
@@ -364,7 +384,7 @@ struct ExpensesListView: View {
         let inicioNuevoMes = ExpensesListView.inicioMes(nuevo)
         guard inicioNuevoMes <= ExpensesListView.inicioMes(Date()) else { return }
 
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
             mesActual = inicioNuevoMes
         }
     }
@@ -401,32 +421,70 @@ struct ExpensesListView: View {
         ]
     }
 
+    /// Navegación de mes, centrada sobre el total.
+    private var selectorMesInline: some View {
+        HStack(spacing: 6) {
+            botonMesInline(icono: "chevron.left", label: "Mes anterior", habilitado: true) { cambiarMes(-1) }
+
+            Text(nombreMes(mesActual))
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(minWidth: 128)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.15), value: mesActual)
+
+            botonMesInline(icono: "chevron.right", label: "Mes siguiente", habilitado: puedeAvanzar) { cambiarMes(1) }
+        }
+    }
+
+    private func botonMesInline(icono: String, label: String, habilitado: Bool, accion: @escaping () -> Void) -> some View {
+        Button(action: accion) {
+            Image(systemName: icono)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(habilitado ? AppTheme.primaryText : AppTheme.placeholderText)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(AppTheme.controlSurface).opacity(habilitado ? 1 : 0.5))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.pressable(scale: 0.86))
+        .disabled(!habilitado)
+        .accessibilityLabel(label)
+    }
+
+    /// Total del mes: sin recuadro y centrado, igual que la entrada de monto.
+    ///
+    /// Era un bloque oscuro que pesaba lo mismo que una tarjeta más; siendo la
+    /// cifra que resume la pantalla, manda mejor por tamaño que por caja.
     private var totalCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Total del mes")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppTheme.statementSecondary)
+        VStack(spacing: 12) {
+            selectorMesInline
+
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("$")
-                    .font(.system(size: 24, weight: .semibold, design: .default))
+                    .font(.system(size: 26, weight: .semibold, design: .default))
                     .foregroundStyle(AppTheme.accent)
-                Text(formatear(snapshot.total))
-                    .font(.system(size: 42, weight: .bold, design: .default))
-                    .foregroundStyle(AppTheme.onStatement)
+                Text(snapshot.total, format: .number.precision(.fractionLength(2)))
+                    .font(.system(size: 50, weight: .bold, design: .default))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: snapshot.total))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
             }
 
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Image(systemName: "arrow.down.right")
-                    .font(.caption.bold())
+                    .font(.caption2.bold())
                 Text("\(snapshot.monthExpenses.count) movimientos registrados")
                     .font(.caption.weight(.semibold))
+                    .contentTransition(.numericText(value: Double(snapshot.monthExpenses.count)))
             }
-            .foregroundStyle(AppTheme.statementSecondary)
-            .padding(.top, 6)
+            .foregroundStyle(AppTheme.secondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
-        .background(AppTheme.statementBackground())
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
     }
 
     private func dayMarker(_ fecha: Date, total: Double) -> some View {
@@ -683,14 +741,19 @@ struct ExpensesListView: View {
 
     private func rebuildSnapshot() {
         let query = cleanSearchText
-        snapshot = ExpensesListSnapshot(
-            expenses: store.gastos,
-            monthStart: mesActual,
-            calendar: Self.cal,
-            recurrenceMatches: matchesRecurrence,
-            paymentMatches: matchesPaymentMethod,
-            searchMatches: { matchesSearch($0, query: query) }
-        )
+        // El total vive dentro del snapshot, así que la animación tiene que
+        // envolver esta asignación: si sólo se anima `mesActual`, la cifra
+        // cambia de golpe y no rueda.
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            snapshot = ExpensesListSnapshot(
+                expenses: store.gastos,
+                monthStart: mesActual,
+                calendar: Self.cal,
+                recurrenceMatches: matchesRecurrence,
+                paymentMatches: matchesPaymentMethod,
+                searchMatches: { matchesSearch($0, query: query) }
+            )
+        }
     }
 }
 

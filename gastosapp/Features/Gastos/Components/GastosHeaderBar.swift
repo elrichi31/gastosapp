@@ -34,22 +34,9 @@ struct GastosHeaderBar: View {
     let onAddTap: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Tu dinero")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Text("Gastos")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(AppTheme.primaryText)
-                }
-
-                Spacer()
-                addButton
-            }
-
+        HStack(spacing: 12) {
             sectionSelector
+            addButton
         }
         .frame(maxWidth: .infinity)
     }
@@ -73,17 +60,23 @@ struct GastosHeaderBar: View {
             HStack(spacing: 7) {
                 Image(systemName: mode.icon)
                     .font(.system(size: 14, weight: .bold))
-                Text(mode.title)
-                    .font(.caption.weight(.bold))
-                    .lineLimit(1)
+                if isSelected {
+                    Text(mode.title)
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
+                }
             }
             .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.secondaryText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 38)
+            .padding(.horizontal, isSelected ? 14 : 0)
+            .frame(maxWidth: isSelected ? .infinity : nil)
+            .frame(width: isSelected ? nil : 44, height: 38)
             .background(Capsule().fill(isSelected ? AppTheme.accent : .clear))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable(scale: 0.94))
         .accessibilityLabel(mode.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var addButton: some View {
@@ -94,7 +87,7 @@ struct GastosHeaderBar: View {
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(AppTheme.accent))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("Agregar gasto")
     }
 }

@@ -111,6 +111,8 @@ struct RecurringExpensesListView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .tracksScrollChrome()
+            .floatingTabBarInset()
             .refreshable {
                 await store.loadRecurringExpenses(force: true)
             }
@@ -160,7 +162,7 @@ struct RecurringExpensesListView: View {
 
     private var bottomSafeRow: some View {
         Color.clear
-            .frame(height: 28)
+            .frame(height: AppScreenMetrics.contentBottomPadding)
             .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -192,31 +194,29 @@ struct RecurringExpensesListView: View {
     }
 
     private var upcomingSummaryCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 42, height: 42)
-                    .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        VStack(spacing: 18) {
+            VStack(spacing: 10) {
+                Text("Fijos estimados")
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(1.1)
+                    .foregroundStyle(AppTheme.secondaryText)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Fijos estimados")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppTheme.statementSecondary)
-                    Text(currency(monthlyFixedEstimate))
-                        .font(AppTheme.number(34, .bold))
-                        .foregroundStyle(AppTheme.onStatement)
-                }
-
-                Spacer()
+                Text(currency(monthlyFixedEstimate))
+                    .font(AppTheme.number(44, .bold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: monthlyFixedEstimate))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
+            .frame(maxWidth: .infinity)
 
             if upcomingItems.isEmpty {
                 Text("No tienes cargos activos próximos.")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.statementSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .frame(maxWidth: .infinity)
             } else {
                 VStack(spacing: 10) {
                     ForEach(upcomingItems) { item in
@@ -225,35 +225,30 @@ struct RecurringExpensesListView: View {
                 }
             }
         }
-        .padding(22)
-        .background(AppTheme.statementBackground())
+        .padding(.vertical, 6)
     }
 
     private func upcomingRow(_ item: RecurringExpense) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: item.categoria.icono)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.onStatement)
-                .frame(width: 32, height: 32)
-                .background(AppTheme.onStatementFaint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            CategoryGlyph(categoria: item.categoria, size: 34)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.descripcion)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.onStatement)
+                    .foregroundStyle(AppTheme.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
                 Text(nextChargeRelativeLabel(for: item))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.statementSecondary)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
 
             Spacer(minLength: 8)
 
             Text(currency(item.monto))
-                .font(.caption.weight(.bold))
+                .font(AppTheme.number(15, .semibold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.onStatement)
+                .foregroundStyle(AppTheme.primaryText)
         }
         .padding(.vertical, 8)
     }

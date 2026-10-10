@@ -16,6 +16,7 @@ struct BudgetsView: View {
     @State private var presentedSheet: PresentedSheet?
     @State private var budgetToDelete: BudgetMonthly?
     @State private var path: [Route] = []
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     private static let spanishMonthSymbols: [String] = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "es")
@@ -31,7 +32,7 @@ struct BudgetsView: View {
                 if let toastMessage = budgets.saveStatusMessage {
                     TransientStatusToast(text: toastMessage, tint: AppTheme.accent, icon: "checkmark.circle.fill")
                         .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                        .padding(.bottom, 92)
+                        .padding(.bottom, AppScreenMetrics.toastBottomPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .zIndex(2)
@@ -55,7 +56,10 @@ struct BudgetsView: View {
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
-                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
+                .background {
+                    AppHeaderScrim()
+                        .opacity(chrome?.isScrolled == true ? 1 : 0)
+                }
             }
             .task { await loadAnnualData() }
         }
@@ -123,6 +127,8 @@ struct BudgetsView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .tracksScrollChrome()
+        .floatingTabBarInset()
         .refreshable { await loadAnnualData(force: true) }
     }
 
@@ -355,7 +361,7 @@ struct BudgetsView: View {
 
     private var bottomSafeRow: some View {
         Color.clear
-            .frame(height: 28)
+            .frame(height: AppScreenMetrics.contentBottomPadding)
             .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)

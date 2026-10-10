@@ -77,15 +77,10 @@ struct FinancialCalendarView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, 32)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            monthSelector
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
-                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
+            .tracksScrollChrome()
+            .floatingTabBarInset()
         }
         .task {
             await store.loadExpensesIfNeeded()
@@ -98,33 +93,61 @@ struct FinancialCalendarView: View {
         }
     }
 
+    /// Navegación de mes centrada sobre las cifras.
+    ///
+    /// Antes era un encabezado propio con el antetítulo "Calendario financiero"
+    /// encima del nombre del mes. Sobraban las dos cosas: la sección ya la
+    /// nombra el selector de Gastos, y el mes cabe aquí sin ocupar una franja
+    /// entera de pantalla.
     private var monthSelector: some View {
-        AppScreenHeader(eyebrow: "Calendario financiero", title: monthTitle) {
-            AppPeriodStepper(
-                label: "",
-                onPrevious: { moveMonth(-1) },
-                onNext: { moveMonth(1) },
-                previousLabel: "Mes anterior",
-                nextLabel: "Mes siguiente"
-            )
+        HStack(spacing: 6) {
+            monthStepButton(icono: "chevron.left", label: "Mes anterior") { moveMonth(-1) }
+
+            Text(monthTitle)
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(minWidth: 128)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.15), value: visibleMonth)
+
+            monthStepButton(icono: "chevron.right", label: "Mes siguiente") { moveMonth(1) }
         }
     }
 
-    private var summaryCard: some View {
-        HStack(spacing: 0) {
-            summaryMetric(title: "Gastado", value: monthSpent, tint: AppTheme.accent)
-            Rectangle()
-                .fill(AppTheme.onStatementFaint)
-                .frame(width: 1, height: 44)
-            summaryMetric(title: "Programado", value: monthScheduled, tint: AppTheme.secondaryAccent)
+    private func monthStepButton(icono: String, label: String, accion: @escaping () -> Void) -> some View {
+        Button(action: accion) {
+            Image(systemName: icono)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(AppTheme.primaryText)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(AppTheme.controlSurface))
+                .contentShape(Circle())
         }
-        .padding(24)
-        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .buttonStyle(.pressable(scale: 0.86))
+        .accessibilityLabel(label)
+    }
+
+    private var summaryCard: some View {
+        VStack(spacing: 16) {
+            monthSelector
+
+            HStack(spacing: 0) {
+                summaryMetric(title: "Gastado", value: monthSpent, tint: AppTheme.accent)
+                Rectangle()
+                    .fill(AppTheme.border)
+                    .frame(width: 1, height: 40)
+                summaryMetric(title: "Programado", value: monthScheduled, tint: AppTheme.secondaryAccent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
     }
 
     private func summaryMetric(title: String, value: Double, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 8) {
             HStack(spacing: 7) {
                 Circle()
                     .fill(tint)
@@ -133,18 +156,18 @@ struct FinancialCalendarView: View {
                     .font(.caption2.weight(.semibold))
                     .textCase(.uppercase)
                     .tracking(1.1)
-                    .foregroundStyle(AppTheme.statementSecondary)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
 
             Text(value, format: .currency(code: "USD").precision(.fractionLength(2)))
-                .font(AppTheme.number(24, .bold))
+                .font(AppTheme.number(26, .bold))
                 .monospacedDigit()
-                .foregroundStyle(AppTheme.onStatement)
+                .contentTransition(.numericText(value: value))
+                .foregroundStyle(AppTheme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 2)
+        .frame(maxWidth: .infinity)
     }
 
     private var agendaCard: some View {

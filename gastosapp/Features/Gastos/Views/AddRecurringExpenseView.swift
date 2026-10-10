@@ -122,7 +122,7 @@ struct AddRecurringExpenseView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 12)
-                .padding(.bottom, 40)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
             .scrollDismissesKeyboard(.interactively)
         }

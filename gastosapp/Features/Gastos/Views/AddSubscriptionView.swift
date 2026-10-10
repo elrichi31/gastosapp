@@ -116,7 +116,7 @@ struct AddSubscriptionView: View {
             }
             .padding(.horizontal, AppScreenMetrics.horizontalPadding)
             .padding(.top, 8)
-            .padding(.bottom, 40)
+            .padding(.bottom, AppScreenMetrics.contentBottomPadding)
         }
         .scrollDismissesKeyboard(.interactively)
         .task {

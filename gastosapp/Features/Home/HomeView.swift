@@ -10,11 +10,15 @@ struct HomeView: View {
     }
 
     @Environment(ExpenseStore.self) private var store
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(BudgetStore.self) private var budgetStore
     @State private var budgetDetailStore = BudgetDetailStore()
     @State private var selectedCategory: Categoria?
     @State private var presentedQuickAction: QuickActionSheet?
     @State private var selectedRecentBar: DailyExpenseBar?
+    @State private var showsProfile = false
+    /// Conecta el avatar con la pantalla de Perfil para la transición de zoom.
+    @Namespace private var profileTransition
     @State private var isLoadingHomeData = true
     @State private var dashboardSnapshot = HomeDashboardSnapshot.placeholder()
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
@@ -125,9 +129,12 @@ struct HomeView: View {
             fondo.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 30) {
-                    homeDecisionHero(snapshot)
-                    quickActionsCard
+                VStack(spacing: AppScreenMetrics.sectionSpacing) {
+                    VStack(spacing: 28) {
+                        homeDecisionHero(snapshot)
+                        quickActionsCard
+                    }
+                    .padding(.bottom, 2)
                     HomeRecent30DaysSection(
                         bars: snapshot.recent30DayBars,
                         totalValue: snapshot.monthTotal.budgetCurrency,
@@ -144,28 +151,21 @@ struct HomeView: View {
                     smartInsightsCard(snapshot)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 24)
-                .padding(.top, 18)
-                .padding(.bottom, 18)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
+            .tracksScrollChrome()
+            .floatingTabBarInset()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             barraSuperior
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
+                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
-                    AppTheme.backgroundTop
-                        .overlay(alignment: .bottom) {
-                            LinearGradient(
-                                colors: [AppTheme.backgroundTop, AppTheme.backgroundTop.opacity(0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 16)
-                            .offset(y: 16)
-                        }
-                        .ignoresSafeArea(edges: .top)
+                    AppHeaderScrim()
+                        .opacity(chrome?.isScrolled == true ? 1 : 0)
                 }
         }
         .task {
@@ -182,6 +182,10 @@ struct HomeView: View {
         }
         .onChange(of: budgetDetailStore.categories) {
             rebuildDashboardSnapshot()
+        }
+        .sheet(isPresented: $showsProfile) {
+            ProfileView(onClose: { showsProfile = false })
+                .navigationTransition(.zoom(sourceID: Self.profileTransitionID, in: profileTransition))
         }
         .sheet(item: $selectedCategory) { category in
             HomeCategoryExpenseDetailSheet(category: category, expenses: snapshot.expenses(for: category))
@@ -214,7 +218,7 @@ struct HomeView: View {
             if let toastMessage {
                 TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
                     .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                    .padding(.bottom, 92)
+                    .padding(.bottom, AppScreenMetrics.toastBottomPadding)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -222,13 +226,19 @@ struct HomeView: View {
 
     private var barraSuperior: some View {
         HStack(spacing: 14) {
-            Image(systemName: "wallet.bifold.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(AppTheme.accent)
-                .frame(width: 50, height: 50)
-                .background(AppTheme.accent.opacity(0.16), in: Circle())
-                .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.28), lineWidth: 1))
-                .accessibilityHidden(true)
+            Button {
+                showsProfile = true
+            } label: {
+                Text(initials)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(width: 50, height: 50)
+                    .background(AppTheme.accent.opacity(0.16), in: Circle())
+                    .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.28), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition)
+            .accessibilityLabel("Abrir perfil")
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(Self.headerDateFormatter.string(from: Date()).capitalized)
@@ -241,15 +251,23 @@ struct HomeView: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(store.isAuthenticated ? AppTheme.accent : AppTheme.warning)
-                    .frame(width: 6, height: 6)
-                Image(systemName: "bell")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            .accessibilityLabel(store.isAuthenticated ? "Sesión activa" : "Sin sesión")
+            Image(systemName: "bell")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(AppTheme.primaryText)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(AppTheme.controlSurface.opacity(0.75))
+                        .overlay(Circle().strokeBorder(AppTheme.border, lineWidth: 1))
+                )
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(store.isAuthenticated ? AppTheme.accent : AppTheme.warning)
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().strokeBorder(AppTheme.backgroundTop, lineWidth: 2))
+                        .offset(x: 1, y: -1)
+                }
+                .accessibilityLabel(store.isAuthenticated ? "Sesión activa" : "Sin sesión")
         }
     }
 
@@ -259,6 +277,16 @@ struct HomeView: View {
         formatter.dateFormat = "EEEE, d 'de' MMMM"
         return formatter
     }()
+
+    private static let profileTransitionID = "perfil"
+
+    /// Iniciales del usuario para el avatar, como en cualquier app de banca.
+    private var initials: String {
+        let name = store.currentUser?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let parts = name.split(separator: " ").prefix(2)
+        let letters = parts.compactMap { $0.first.map(String.init) }
+        return letters.isEmpty ? "?" : letters.joined().uppercased()
+    }
 
     private var firstName: String {
         let name = store.currentUser?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -347,8 +375,28 @@ struct HomeView: View {
         )
     }
 
+    /// Fondo del Inicio: el verde de marca lavado sobre la parte alta, que se
+    /// apaga antes de llegar al contenido en tarjetas.
+    ///
+    /// Es lo que hace que la cifra del mes flote sobre color en lugar de vivir
+    /// dentro de una tarjeta más.
     private var fondo: some View {
-        AppTheme.screenBackground
+        ZStack {
+            AppTheme.screenBackground
+
+            EllipticalGradient(
+                colors: [AppTheme.accent.opacity(0.42), AppTheme.accent.opacity(0.10), .clear],
+                center: .top,
+                startRadiusFraction: 0,
+                endRadiusFraction: 0.85
+            )
+
+            LinearGradient(
+                colors: [.clear, AppTheme.backgroundTop.opacity(0.75), AppTheme.backgroundTop],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 
     private func compactDayLabel(_ date: Date?) -> String {

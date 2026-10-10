@@ -31,7 +31,7 @@ struct SubscriptionsView: View {
                     }
                     .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                     .padding(.top, 12)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, AppScreenMetrics.contentBottomPadding)
                 }
             }
         }

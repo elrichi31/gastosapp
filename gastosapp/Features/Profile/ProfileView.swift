@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ProfileView: View {
+    /// `nil` cuando la vista no se presenta de forma modal.
+    var onClose: (() -> Void)?
+
     @Environment(ExpenseStore.self) private var store
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.system.rawValue
     @AppStorage(LocalNotificationManager.weeklySummaryEnabledKey) private var weeklySummaryEnabled = true
@@ -47,11 +50,15 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, 32)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            AppScreenHeader(eyebrow: "Tu cuenta", title: "Perfil")
+            AppScreenHeader(eyebrow: "Tu cuenta", title: "Perfil") {
+                if let onClose {
+                    AppCircleButton(icon: "xmark", label: "Cerrar", action: onClose)
+                }
+            }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
@@ -355,6 +362,7 @@ struct ProfileView: View {
 
     private var logoutButton: some View {
         Button {
+            onClose?()
             store.logout()
         } label: {
             Text("Cerrar sesión")

@@ -35,7 +35,7 @@ struct BudgetCategoryDetailView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, 12)
-                .padding(.bottom, 36)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
         }
         .navigationBarBackButtonHidden(true)

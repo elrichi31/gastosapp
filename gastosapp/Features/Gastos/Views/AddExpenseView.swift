@@ -72,7 +72,7 @@ struct AddExpenseView: View {
                 }
                 .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, 40)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -127,37 +127,85 @@ struct AddExpenseView: View {
         }
     }
 
+    /// Entrada del monto: sin caja, centrada y con los dígitos rodando.
+    ///
+    /// El campo real es invisible y sólo aporta teclado y foco; lo que se ve es
+    /// texto normal. Hace falta ese desdoble porque un `TextField` dibuja su
+    /// contenido de una pieza y no admite transición por carácter: sin él, los
+    /// dígitos aparecerían de golpe.
     private var compactAmountField: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 14) {
             Text("Monto")
                 .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
                 .tracking(1.1)
-                .foregroundStyle(AppTheme.statementSecondary)
+                .foregroundStyle(AppTheme.secondaryText)
 
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                Text("$")
-                    .font(.system(size: 26, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-                TextField(
-                    "",
-                    text: $monto,
-                    prompt: Text("0.00").foregroundStyle(AppTheme.onStatement.opacity(0.22))
-                )
-                .keyboardType(.decimalPad)
-                .font(.system(size: 46, weight: .bold, design: .default))
-                .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.onStatement)
-                .tint(AppTheme.accent)
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .monospacedDigit()
+            ZStack {
+                TextField("", text: $monto)
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .monto)
+                    // Casi invisible en lugar de opacidad 0: un campo
+                    // totalmente transparente puede quedar fuera del recorrido
+                    // de foco según la versión de iOS, y entonces el teclado no
+                    // aparecería nunca.
+                    .opacity(0.01)
+                    .frame(width: 1, height: 1)
+                    .accessibilityLabel("Monto")
 
-                Spacer(minLength: 0)
+                amountDisplay
+                    .accessibilityHidden(true)
             }
         }
-        .padding(24)
-        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .onTapGesture { focusedField = .monto }
+        .sensoryFeedback(.selection, trigger: monto.count)
+    }
+
+    private var amountDisplay: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("$")
+                .font(.system(size: 28, weight: .semibold, design: .default))
+                .foregroundStyle(monto.isEmpty ? AppTheme.placeholderText : AppTheme.accent)
+
+            HStack(spacing: 0) {
+                // La identidad es la posición: al teclear sólo cambia el último
+                // hueco, así que sólo ese dígito entra y los demás se quedan
+                // quietos en lugar de reanimarse todos.
+                ForEach(Array(displayedAmount.enumerated()), id: \.offset) { _, character in
+                    Text(String(character))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .top).combined(with: .opacity)
+                        ))
+                }
+            }
+            .font(.system(size: 56, weight: .bold, design: .default))
+            .monospacedDigit()
+            .foregroundStyle(monto.isEmpty ? AppTheme.placeholderText : AppTheme.primaryText)
+            .frame(height: 66)
+            .clipped()
+        }
+        .scaleEffect(amountScale, anchor: .center)
+        .animation(.spring(response: 0.3, dampingFraction: 0.68), value: displayedAmount)
+        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: amountScale)
+    }
+
+    private var displayedAmount: String {
+        monto.isEmpty ? "0.00" : monto
+    }
+
+    /// Cuánto encoge la cifra según lo larga que sea, para que nunca desborde.
+    private var amountScale: CGFloat {
+        switch displayedAmount.count {
+        case 0...6: return 1
+        case 7: return 0.88
+        case 8: return 0.78
+        case 9: return 0.68
+        default: return 0.6
+        }
     }
 
     private var descripcionField: some View {

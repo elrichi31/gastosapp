@@ -48,6 +48,15 @@ enum AppTheme {
     static let controlSurface = adaptive(dark: hex(0x202120), light: hex(0xEDEFED))
     /// Barras flotantes (tab bar, encabezados, toasts).
     static let chromeSurface = adaptive(dark: hex(0x151615, 0.90), light: hex(0xFFFFFF, 0.88))
+    /// Tinte del velo de encabezado, sobre el material desenfocado.
+    ///
+    /// En oscuro va casi opaco a propósito: `ultraThinMaterial` sube la
+    /// luminancia y sobre un fondo negro el velo se lee gris, que es justo lo
+    /// que no queremos. Tapándolo con el mismo negro del fondo queda un cristal
+    /// oscuro —sigue desenfocando lo que pasa por debajo, pero no aclara la
+    /// franja—. En claro el material ya casa con el fondo, así que ahí el tinte
+    /// se queda suave.
+    static let headerScrimTint = adaptive(dark: hex(0x080908, 0.62), light: hex(0xF7F8F7, 0.26))
 
     // MARK: - Bordes
 
@@ -224,6 +233,13 @@ enum AppScreenMetrics {
     static let headerTopPadding: CGFloat = 12
     static let headerBottomPadding: CGFloat = 18
     static let sectionSpacing: CGFloat = 30
+    /// Aire tras el último bloque. Va *encima* del espacio que reserva la barra
+    /// flotante, así que no hay que sumarle el alto de la barra a mano.
+    static let contentBottomPadding: CGFloat = 24
+    /// Separación de un toast respecto a la barra flotante.
+    static var toastBottomPadding: CGFloat {
+        FloatingTabBarMetrics.reservedHeight + 12
+    }
 }
 
 // MARK: - Componentes compartidos
@@ -283,35 +299,42 @@ struct AppCircleButton: View {
                         .overlay(Circle().strokeBorder(AppTheme.border, lineWidth: prominent ? 0 : 1))
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel(label)
     }
 }
 
 /// Selector de periodo con flechas, usado en Estadísticas y Presupuestos.
+///
+/// `expands` lo convierte en la pieza ancha de una barra de encabezado: ocupa
+/// todo el hueco que le dejen y crece hasta los 48pt de alto de los selectores
+/// de Gastos, para que las dos pantallas tengan la misma barra. Sin él se queda
+/// compacto, que es como lo usa Estadísticas junto a un título.
 struct AppPeriodStepper: View {
     let label: String
     let onPrevious: () -> Void
     let onNext: () -> Void
     var previousLabel: String = "Anterior"
     var nextLabel: String = "Siguiente"
+    var expands: Bool = false
 
     var body: some View {
         HStack(spacing: 2) {
             stepButton(icon: "chevron.left", action: onPrevious, label: previousLabel)
             Text(label)
-                .font(AppTheme.number(14, .bold))
+                .font(AppTheme.number(expands ? 15 : 14, .bold))
                 .monospacedDigit()
                 .foregroundStyle(AppTheme.primaryText)
                 .contentTransition(.numericText())
-                .frame(minWidth: 46)
+                .frame(minWidth: 46, maxWidth: expands ? .infinity : nil)
             stepButton(icon: "chevron.right", action: onNext, label: nextLabel)
         }
-        .padding(4)
+        .padding(expands ? 5 : 4)
+        .frame(maxWidth: expands ? .infinity : nil)
         .background(
             Capsule()
                 .fill(AppTheme.controlSurface)
-                .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
+                .overlay(Capsule().strokeBorder(expands ? AppTheme.strongBorder : AppTheme.border, lineWidth: 1))
         )
         .accessibilityElement(children: .contain)
     }
@@ -319,9 +342,9 @@ struct AppPeriodStepper: View {
     private func stepButton(icon: String, action: @escaping () -> Void, label: String) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: expands ? 13 : 12, weight: .bold))
                 .foregroundStyle(AppTheme.primaryText.opacity(0.85))
-                .frame(width: 32, height: 32)
+                .frame(width: expands ? 40 : 32, height: expands ? 38 : 32)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -346,6 +369,90 @@ struct AppSectionTitle: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
         }
+    }
+}
+
+/// Velo de encabezado: desenfoque que se apaga hacia abajo.
+///
+/// Tres capas, cada una resolviendo un problema distinto:
+///
+/// 1. `ultraThinMaterial` da el desenfoque, pero sobre un fondo casi negro
+///    aporta luminancia y se ve gris. `headerScrimTint` se la quita: en oscuro
+///    tapa el material con el negro del fondo y deja sólo el desenfoque.
+/// 2. La franja de desvanecido tiene alto **fijo**, no un porcentaje: con un
+///    porcentaje cambia de grosor según el área segura del modelo y en unos
+///    aparece un corte y en otros no.
+/// 3. La rampa no es lineal. Un degradado lineal deja ver el punto donde
+///    empieza — el ojo detecta el cambio brusco de pendiente — así que la
+///    máscara usa varias paradas que imitan una curva suave por los dos
+///    extremos, y así no hay línea.
+struct AppHeaderScrim: View {
+    var fadeHeight: CGFloat = 64
+
+    private var fadeStops: [Gradient.Stop] {
+        [
+            .init(color: .black, location: 0),
+            .init(color: .black.opacity(0.97), location: 0.14),
+            .init(color: .black.opacity(0.86), location: 0.30),
+            .init(color: .black.opacity(0.62), location: 0.48),
+            .init(color: .black.opacity(0.34), location: 0.66),
+            .init(color: .black.opacity(0.12), location: 0.84),
+            .init(color: .clear, location: 1)
+        ]
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay(AppTheme.headerScrimTint)
+            .mask {
+                VStack(spacing: 0) {
+                    Rectangle()
+                    LinearGradient(stops: fadeStops, startPoint: .top, endPoint: .bottom)
+                        .frame(height: fadeHeight)
+                }
+            }
+            .padding(.bottom, -fadeHeight * 0.75)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+    }
+}
+
+extension View {
+    /// Fondo de barra flotante: cristal de iOS 26, o el material de siempre.
+    ///
+    /// `glassEffect` sólo existe desde iOS 26 y el objetivo de despliegue es
+    /// 18.5, así que el repliegue no es opcional. En iOS 26 el cristal sustituye
+    /// al material porque él mismo aporta difuminado, filo y sombra.
+    @ViewBuilder
+    func appChromeBackground<S: Shape & InsettableShape>(_ shape: S) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular, in: shape)
+        } else {
+            background(AppTheme.chromeBackground(shape))
+        }
+    }
+}
+
+/// Respuesta táctil al pulsar: el control se hunde ligeramente.
+///
+/// SwiftUI no da realimentación visual a `.buttonStyle(.plain)`, así que sin
+/// esto los botones de la app parecen etiquetas muertas al tocarlos.
+struct PressableButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.94
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableButtonStyle {
+    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+    static func pressable(scale: CGFloat) -> PressableButtonStyle {
+        PressableButtonStyle(scale: scale)
     }
 }
 
