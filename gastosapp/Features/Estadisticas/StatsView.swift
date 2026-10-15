@@ -46,7 +46,11 @@ struct StatsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    tabPicker
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                            .padding(.horizontal, 20)
+                        tabPicker
+                    }
                     switch tab {
                     case .detail: detailContent
                     case .projection: projectionContent
@@ -68,12 +72,12 @@ struct StatsView: View {
         }
         .appTopBarPanels()
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 14) {
+            // Sólo la barra queda fija; el título va dentro del contenido.
+            Group {
                 if navigator != nil {
                     AppTopBar()
                         .padding(.horizontal, -4)
                 }
-                header
             }
                 .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
@@ -157,7 +161,6 @@ struct StatsView: View {
     private var tabPicker: some View {
         segmented(Tab.allCases, selection: $tab, height: 40, fontSize: 14) { $0.rawValue }
             .padding(.horizontal, 20)
-            .padding(.top, -6)
     }
 
     // MARK: - Detalle

@@ -382,25 +382,29 @@ struct PaymentMethodPicker: View {
     }
 }
 
-/// Botón principal fijo al pie, con un velo que funde el contenido de debajo.
+/// Botón principal fijo al pie, sobre el cristal desenfocado del resto de la app.
 struct FormStickySaveBar<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
         content
             .padding(.horizontal, 20)
-            .padding(.top, 28)
+            .padding(.top, 16)
             .padding(.bottom, 12)
-            .background(
-                LinearGradient(
-                    stops: [
-                        .init(color: AppTheme.backgroundTop.opacity(0), location: 0),
-                        .init(color: AppTheme.backgroundTop, location: 0.38)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea(edges: .bottom)
-            )
+            .background(AppFooterScrim())
+    }
+}
+
+/// Encabezado fijo de hoja sobre el cristal desenfocado, con el contenido
+/// pasando por debajo al desplazar.
+struct FormSheetChrome<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .background(AppHeaderScrim(fadeHeight: 36))
     }
 }

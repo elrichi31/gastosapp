@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct EmailReviewView: View {
+    /// Encabezado que se desplaza con el contenido (título de Gastos).
+    private let header: AnyView?
+
+    init(header: AnyView? = nil) {
+        self.header = header
+    }
+
     @Environment(ExpenseStore.self) private var session
     @State private var review = EmailReviewStore()
     @State private var editing: EmailMovement?
@@ -12,6 +19,7 @@ struct EmailReviewView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
+                if let header { header.padding(.bottom, 6) }
                 EmailInboxHeader(counts: review.counts, isSearching: $isSearching,
                     isSyncing: review.isSyncing, canSync: review.isEnabled == true && !review.isWorking,
                     onSync: { Task { await review.sync(using: session) } })

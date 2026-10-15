@@ -41,7 +41,10 @@ struct BudgetsView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        intro
+                        VStack(alignment: .leading, spacing: 4) {
+                            header
+                            intro
+                        }
                         content
                     }
                     .padding(.horizontal, 20)
@@ -71,12 +74,12 @@ struct BudgetsView: View {
             }
             .appTopBarPanels()
             .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 14) {
+                // Sólo la barra queda fija; el título va dentro del contenido.
+                Group {
                     if navigator != nil {
                         AppTopBar()
                             .padding(.horizontal, -4)
                     }
-                    header
                 }
                     .padding(.horizontal, 20)
                     .padding(.top, AppScreenMetrics.headerTopPadding)

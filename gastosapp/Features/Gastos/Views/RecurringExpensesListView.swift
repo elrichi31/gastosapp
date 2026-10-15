@@ -17,6 +17,13 @@ struct RecurringExpensesListView: View {
         }
     }
 
+    /// Encabezado que se desplaza con el contenido (título de Gastos).
+    private let header: AnyView?
+
+    init(header: AnyView? = nil) {
+        self.header = header
+    }
+
     @Environment(ExpenseStore.self) private var store
     @State private var recurringToSkip: RecurringExpense?
     @State private var filter: Filter = .all
@@ -56,6 +63,7 @@ struct RecurringExpensesListView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if let header { header }
                     if store.isLoadingRecurringExpenses && store.recurringExpenses.isEmpty {
                         ProgressView()
                             .tint(AppTheme.secondaryText)
@@ -121,13 +129,11 @@ struct RecurringExpensesListView: View {
                     onSaved: closeEditorAndRefresh
                 )
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    FormSheetHeader(title: recurring.isSubscriptionLike ? "Editar suscripción" : "Editar recurrente") {
-                        recurringToEdit = nil
+                    FormSheetChrome {
+                        FormSheetHeader(title: recurring.isSubscriptionLike ? "Editar suscripción" : "Editar recurrente") {
+                            recurringToEdit = nil
+                        }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
-                    .background(AppTheme.backgroundTop)
                 }
                 .toolbar(.hidden, for: .navigationBar)
             }

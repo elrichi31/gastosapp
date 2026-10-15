@@ -43,6 +43,13 @@ struct ExpensesListView: View {
     /// No es del usuario: se muestra como origen, no como etiqueta.
     private static let emailTag = "auto"
 
+    /// Encabezado que se desplaza con el contenido (título de Gastos).
+    private let header: AnyView?
+
+    init(header: AnyView? = nil) {
+        self.header = header
+    }
+
     @Environment(ExpenseStore.self) private var store
 
     private static let cal = Calendar.current
@@ -98,6 +105,10 @@ struct ExpensesListView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             List {
+                if let header {
+                    sectionRow(insets: EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20)) { header }
+                }
+
                 if navigator == nil {
                     sectionRow { searchField }
                 }
@@ -824,11 +835,9 @@ struct ExpensesListView: View {
     }
 
     private func sheetHeader(_ title: String) -> some View {
-        FormSheetHeader(title: title) { presentedExpenseSheet = nil }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-            .background(AppTheme.backgroundTop)
+        FormSheetChrome {
+            FormSheetHeader(title: title) { presentedExpenseSheet = nil }
+        }
     }
 
     private var bottomSafeRow: some View {

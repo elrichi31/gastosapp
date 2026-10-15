@@ -37,15 +37,12 @@ struct GastosView: View {
             }
             .appTopBarPanels()
             .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 14) {
+                // Sólo la barra queda fija; el título va dentro del contenido.
+                Group {
                     if navigator != nil {
                         AppTopBar(mode: sectionMode == .movimientos ? .filter : .panel)
                             .padding(.horizontal, -4)
                     }
-                    GastosHeaderBar(
-                        sectionMode: $sectionMode,
-                        onAddTap: navigator == nil ? { path.append(.addExpense) } : nil
-                    )
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
@@ -70,6 +67,15 @@ struct GastosView: View {
         }
     }
 
+    private var sectionHeader: AnyView {
+        AnyView(
+            GastosHeaderBar(
+                sectionMode: $sectionMode,
+                onAddTap: navigator == nil ? { path.append(.addExpense) } : nil
+            )
+        )
+    }
+
     private var toastMessage: (text: String, tint: Color, icon: String)? {
         if let message = store.syncStatusMessage {
             return (message, AppTheme.accent, "checkmark.circle.fill")
@@ -84,11 +90,11 @@ struct GastosView: View {
     private var currentSection: some View {
         switch sectionMode {
         case .movimientos:
-            ExpensesListView()
+            ExpensesListView(header: sectionHeader)
         case .recurrentes:
-            RecurringExpensesListView()
+            RecurringExpensesListView(header: sectionHeader)
         case .correo:
-            EmailReviewView()
+            EmailReviewView(header: sectionHeader)
         }
     }
 

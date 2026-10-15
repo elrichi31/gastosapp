@@ -56,19 +56,18 @@ struct AddExpenseSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 16) {
-                FormSheetHeader(title: mode.sheetTitle, closeIcon: "xmark", onClose: dismiss.callAsFunction)
-                    .contentTransition(.opacity)
-                FormSegmentedTabs(values: ComposerMode.allCases, selection: $mode) { $0.title }
+        // El encabezado va en un `safeAreaInset` y no encima en un `VStack`:
+        // así el formulario se desplaza por debajo y se ve desenfocado.
+        content
+            .safeAreaInset(edge: .top, spacing: 0) {
+                FormSheetChrome {
+                    VStack(spacing: 16) {
+                        FormSheetHeader(title: mode.sheetTitle, closeIcon: "xmark", onClose: dismiss.callAsFunction)
+                            .contentTransition(.opacity)
+                        FormSegmentedTabs(values: ComposerMode.allCases, selection: $mode) { $0.title }
+                    }
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-            .background(AppTheme.backgroundTop)
-
-            content
-        }
         .background(AppTheme.screenBackground.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .swipeBackBehavior()

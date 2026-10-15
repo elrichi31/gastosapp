@@ -383,6 +383,42 @@ struct AppHeaderScrim: View {
     }
 }
 
+/// Velo inferior: el mismo cristal que `AppHeaderScrim`, fundido hacia arriba.
+///
+/// Va detrás de las acciones fijas al pie (como «Guardar gasto») para que el
+/// contenido pase por debajo desenfocado en lugar de cortarse en seco.
+struct AppFooterScrim: View {
+    var fadeHeight: CGFloat = 48
+
+    private var fadeStops: [Gradient.Stop] {
+        [
+            .init(color: .clear, location: 0),
+            .init(color: .black.opacity(0.12), location: 0.16),
+            .init(color: .black.opacity(0.34), location: 0.34),
+            .init(color: .black.opacity(0.62), location: 0.52),
+            .init(color: .black.opacity(0.86), location: 0.70),
+            .init(color: .black.opacity(0.97), location: 0.86),
+            .init(color: .black, location: 1)
+        ]
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay(AppTheme.headerScrimTint)
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(stops: fadeStops, startPoint: .top, endPoint: .bottom)
+                        .frame(height: fadeHeight)
+                    Rectangle()
+                }
+            }
+            .padding(.top, -fadeHeight * 0.5)
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
+    }
+}
+
 extension View {
     /// Fondo de barra flotante: cristal de iOS 26, o el material de siempre.
     ///
