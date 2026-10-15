@@ -12,15 +12,25 @@ struct HomeView: View {
     @Environment(ExpenseStore.self) private var store
     @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(BudgetStore.self) private var budgetStore
+    /// Cambia de pestaña desde los enlaces «Ver todos» y «Ajustar».
+    var onOpenTab: (MainTabView.Tab) -> Void = { _ in }
     @State private var budgetDetailStore = BudgetDetailStore()
     @State private var selectedCategory: Categoria?
+    /// Separada de `selectedCategory`, que usa la hoja de detalle del mes:
+    /// las dos hojas no pueden colgar del mismo estado.
+    @State private var homeSelectedCategory: Categoria?
     @State private var presentedQuickAction: QuickActionSheet?
     @State private var selectedRecentBar: DailyExpenseBar?
     @State private var showsProfile = false
+    @State private var showsMonthDetails = false
     /// Conecta el avatar con la pantalla de Perfil para la transición de zoom.
     @Namespace private var profileTransition
     @State private var isLoadingHomeData = true
     @State private var dashboardSnapshot = HomeDashboardSnapshot.placeholder()
+    @State private var pulse = HomeMonthPulse.placeholder()
+    @State private var selectedCalendarDay: Int?
+    @State private var emailReview = EmailReviewStore()
+    @State private var showsEmailReview = false
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
 
@@ -126,41 +136,25 @@ struct HomeView: View {
         let snapshot = dashboardSnapshot
 
         ZStack {
-            fondo.ignoresSafeArea()
+            AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: AppScreenMetrics.sectionSpacing) {
-                    VStack(spacing: 28) {
-                        homeDecisionHero(snapshot)
-                        quickActionsCard
-                    }
-                    .padding(.bottom, 2)
-                    HomeRecent30DaysSection(
-                        bars: snapshot.recent30DayBars,
-                        totalValue: snapshot.monthTotal.budgetCurrency,
-                        selectedBar: $selectedRecentBar,
-                        dayLabel: compactDayLabel,
-                        accessibilityLabel: recentBarAccessibilityLabel
-                    )
-                    HomeRecentActivitySection(expenses: Array(snapshot.monthExpenses.prefix(4)))
-                    upcomingChargesCard(snapshot)
-                    categoriasCard(snapshot)
-                    if objetivoAhorroConfigurado {
-                        savingsGoalCard(snapshot)
-                    }
-                    smartInsightsCard(snapshot)
+                VStack(alignment: .leading, spacing: 16) {
+                    titleBlock
+                    summaryContent(snapshot)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+                .animation(.easeOut(duration: 0.2), value: isLoadingHomeData)
             }
             .tracksScrollChrome()
             .floatingTabBarInset()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             barraSuperior
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
@@ -170,6 +164,10 @@ struct HomeView: View {
         }
         .task {
             await loadHomeData()
+        }
+        .task {
+            emailReview.tab = "nuevos"
+            await emailReview.load(using: store)
         }
         .onChange(of: store.gastos) {
             rebuildDashboardSnapshot()
@@ -187,10 +185,27 @@ struct HomeView: View {
             ProfileView(onClose: { showsProfile = false })
                 .navigationTransition(.zoom(sourceID: Self.profileTransitionID, in: profileTransition))
         }
-        .sheet(item: $selectedCategory) { category in
-            HomeCategoryExpenseDetailSheet(category: category, expenses: snapshot.expenses(for: category))
+        .sheet(isPresented: $showsMonthDetails) {
+            monthDetails
+        }
+        .sheet(item: $homeSelectedCategory) { category in
+            HomeCategoryExpenseDetailSheet(category: category, expenses: dashboardSnapshot.expenses(for: category))
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showsEmailReview, onDismiss: {
+            Task { await emailReview.load(using: store) }
+        }) {
+            NavigationStack {
+                EmailReviewView()
+                    .navigationTitle("Correo")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cerrar") { showsEmailReview = false }
+                        }
+                    }
+            }
         }
         .sheet(item: $presentedQuickAction) { action in
             switch action {
@@ -224,51 +239,168 @@ struct HomeView: View {
         }
     }
 
+    /// Fila de botones flotantes: cuenta a la izquierda y alta rápida a la derecha.
     private var barraSuperior: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             Button {
                 showsProfile = true
             } label: {
                 Text(initials)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 50, height: 50)
-                    .background(AppTheme.accent.opacity(0.16), in: Circle())
-                    .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.28), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition)
-            .accessibilityLabel("Abrir perfil")
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(Self.headerDateFormatter.string(from: Date()).capitalized)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AppTheme.secondaryText)
-                Text("Hola, \(firstName)")
-                    .font(.title2.bold())
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(AppTheme.chromeButtonSurface)
+                            .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
+                            .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
+                    )
             }
+            .buttonStyle(.pressable)
+            .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition)
+            .accessibilityLabel("Cuenta: perfil, conexiones y ajustes")
 
             Spacer(minLength: 0)
 
-            Image(systemName: "bell")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(AppTheme.controlSurface.opacity(0.75))
-                        .overlay(Circle().strokeBorder(AppTheme.border, lineWidth: 1))
-                )
-                .overlay(alignment: .topTrailing) {
-                    Circle()
-                        .fill(store.isAuthenticated ? AppTheme.accent : AppTheme.warning)
-                        .frame(width: 9, height: 9)
-                        .overlay(Circle().strokeBorder(AppTheme.backgroundTop, lineWidth: 2))
-                        .offset(x: 1, y: -1)
-                }
-                .accessibilityLabel(store.isAuthenticated ? "Sesión activa" : "Sin sesión")
+            Menu {
+                Button("Nuevo gasto", systemImage: "plus") { presentedQuickAction = .expense }
+                Button("Nuevo recurrente", systemImage: "repeat") { presentedQuickAction = .recurring }
+                Button("Nuevo presupuesto", systemImage: "chart.pie") { presentedQuickAction = .budget }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(AppTheme.chromeButtonSurface)
+                            .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
+                            .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
+                    )
+            } primaryAction: {
+                presentedQuickAction = .expense
+            }
+            .accessibilityLabel("Nuevo gasto")
+            .accessibilityHint("Mantén pulsado para más opciones")
         }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Self.headerDateFormatter.string(from: Date()).capitalizingFirstLetter)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+            Text("Resumen")
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.6)
+                .foregroundStyle(AppTheme.primaryText)
+                .accessibilityAddTraits(.isHeader)
+        }
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private func summaryContent(_ snapshot: HomeDashboardSnapshot) -> some View {
+        if isLoadingHomeData && store.gastos.isEmpty {
+            HomeLoadingSkeleton()
+        } else if snapshot.monthExpenses.isEmpty {
+            if pendingEmailCount > 0 {
+                HomeEmailBanner(count: pendingEmailCount) { showsEmailReview = true }
+            }
+            HomeEmptyMonthState(
+                monthName: currentMonthName,
+                onAddExpense: { presentedQuickAction = .expense },
+                onBudget: { presentedQuickAction = .budget },
+                onRecurring: { presentedQuickAction = .recurring },
+                onEmail: { showsEmailReview = true }
+            )
+        } else {
+            if pendingEmailCount > 0 {
+                HomeEmailBanner(count: pendingEmailCount) { showsEmailReview = true }
+            }
+
+            HomeMonthSpendHero(
+                total: snapshot.monthTotal,
+                delta: pulse.monthDelta,
+                comparisonLabel: "que del \(pulse.previousPeriodLabel)"
+            )
+
+            HomePaceSection(pulse: pulse)
+
+            if let metrics = snapshot.budgetMetrics, metrics.budgeted > 0 {
+                HomeBudgetStatusSection(
+                    metrics: metrics,
+                    dailyAllowance: dailyBudgetAllowance(using: snapshot),
+                    lines: pulse.budgetLines,
+                    onAdjust: { onOpenTab(.presupuestos) }
+                )
+            } else {
+                HomeNoBudgetCard { presentedQuickAction = .budget }
+            }
+
+            HomeSpendingCalendar(pulse: pulse, selectedDay: $selectedCalendarDay)
+
+            HomeCategorySpendSection(
+                totals: snapshot.monthCategoryTotals,
+                counts: Dictionary(grouping: snapshot.monthExpenses, by: \.categoriaId).mapValues(\.count),
+                total: snapshot.monthTotal,
+                onSelect: { homeSelectedCategory = $0 }
+            )
+
+            HomeRecentExpensesSection(
+                expenses: Array(snapshot.monthExpenses.prefix(5)),
+                onSeeAll: { onOpenTab(.gastos) }
+            )
+
+            let upcoming = upcomingRecurring
+            if !upcoming.items.isEmpty {
+                HomeUpcomingRecurringSection(
+                    items: upcoming.items,
+                    committedTotal: upcoming.total,
+                    onSeeAll: { showsMonthDetails = true }
+                )
+            }
+
+            Button { showsMonthDetails = true } label: {
+                HStack {
+                    Text("Ver detalle del mes").font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Image(systemName: "arrow.up.right").font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(AppTheme.accent)
+                .padding(.horizontal, 4)
+                .frame(minHeight: 48)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var pendingEmailCount: Int {
+        guard emailReview.isEnabled == true else { return 0 }
+        return emailReview.counts["nuevos"] ?? 0
+    }
+
+    private var currentMonthName: String {
+        Date().formatted(.dateTime.month(.wide).locale(Locale(identifier: "es")))
+    }
+
+    /// Recurrentes activos cuyo próximo cobro cae de hoy a fin de mes.
+    ///
+    /// Sólo cuenta el próximo cobro de cada uno: un semanal puede cobrar más
+    /// veces antes de fin de mes, por eso el total se presenta como previsto.
+    private var upcomingRecurring: (items: [HomeRecurringPreview], total: Double) {
+        let today = cal.startOfDay(for: Date())
+        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: today)) ?? today
+        let monthEnd = cal.date(byAdding: .month, value: 1, to: monthStart) ?? today
+        let inMonth = store.recurringExpenses
+            .filter { $0.activo }
+            .compactMap { recurring -> HomeRecurringPreview? in
+                guard let date = recurring.nextChargeDate, date >= today, date < monthEnd else { return nil }
+                return HomeRecurringPreview(expense: recurring, date: date)
+            }
+            .sorted { $0.date < $1.date }
+        return (Array(inMonth.prefix(4)), inMonth.reduce(0) { $0 + $1.expense.monto })
     }
 
     private static let headerDateFormatter: DateFormatter = {
@@ -293,37 +425,41 @@ struct HomeView: View {
         return name.split(separator: " ").first.map(String.init) ?? "bienvenido"
     }
 
-    private func homeDecisionHero(_ snapshot: HomeDashboardSnapshot) -> some View {
-        let state = decisionState(using: snapshot)
-        let target = snapshot.monthlyBudgetTarget
-        let delta = projectedBudgetDelta(using: snapshot)
-
-        return HomeMonthHeroCard(
-            state: state,
-            daysRemaining: diasRestantesIncluyendoHoy,
-            spentValue: snapshot.monthTotal.budgetCurrency,
-            projectionValue: projectedMonthClosing(using: snapshot).budgetCurrency,
-            budgetValue: target?.budgetCurrency,
-            outcomeMessage: outcomeMessage(target: target, delta: delta),
-            outcomeIsPositive: delta.map { $0 >= 0 },
-            nextRecurringTitle: snapshot.nextRecurringPreview?.expense.descripcion,
-            nextRecurringDateLabel: dayLabel(for: snapshot.nextRecurringPreview?.date)
-        )
-    }
-
-    private func outcomeMessage(target: Double?, delta: Double?) -> String? {
-        guard let target, let delta else { return nil }
-        return delta >= 0
-            ? "Si sigues así, cerrarías con \(delta.budgetCurrency) de aire sobre tu presupuesto."
-            : "Si sigues así, te pasarías por \(abs(delta).budgetCurrency) del presupuesto de \(target.budgetCurrency)."
-    }
-
-    private var quickActionsCard: some View {
-        HomeQuickActionsSection(
-            onExpenseTap: { presentedQuickAction = .expense },
-            onRecurringTap: { presentedQuickAction = .recurring },
-            onBudgetTap: { presentedQuickAction = .budget }
-        )
+    private var monthDetails: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    MonthlyCommitmentsCard()
+                    HomeRecent30DaysSection(
+                        bars: dashboardSnapshot.recent30DayBars,
+                        totalValue: dashboardSnapshot.monthTotal.budgetCurrency,
+                        selectedBar: $selectedRecentBar,
+                        dayLabel: compactDayLabel,
+                        accessibilityLabel: recentBarAccessibilityLabel
+                    )
+                    upcomingChargesCard(dashboardSnapshot)
+                    categoriasCard(dashboardSnapshot)
+                    if objetivoAhorroConfigurado {
+                        savingsGoalCard(dashboardSnapshot)
+                    }
+                    smartInsightsCard(dashboardSnapshot)
+                }
+                .padding(20)
+            }
+            .background(AppTheme.screenBackground.ignoresSafeArea())
+            .navigationTitle("Detalle del mes")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { showsMonthDetails = false }
+                }
+            }
+            .sheet(item: $selectedCategory) { category in
+                HomeCategoryExpenseDetailSheet(category: category, expenses: dashboardSnapshot.expenses(for: category))
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
     }
 
     private func upcomingChargesCard(_ snapshot: HomeDashboardSnapshot) -> some View {
@@ -375,30 +511,6 @@ struct HomeView: View {
         )
     }
 
-    /// Fondo del Inicio: el verde de marca lavado sobre la parte alta, que se
-    /// apaga antes de llegar al contenido en tarjetas.
-    ///
-    /// Es lo que hace que la cifra del mes flote sobre color en lugar de vivir
-    /// dentro de una tarjeta más.
-    private var fondo: some View {
-        ZStack {
-            AppTheme.screenBackground
-
-            EllipticalGradient(
-                colors: [AppTheme.accent.opacity(0.42), AppTheme.accent.opacity(0.10), .clear],
-                center: .top,
-                startRadiusFraction: 0,
-                endRadiusFraction: 0.85
-            )
-
-            LinearGradient(
-                colors: [.clear, AppTheme.backgroundTop.opacity(0.75), AppTheme.backgroundTop],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
-    }
-
     private func compactDayLabel(_ date: Date?) -> String {
         guard let date else { return "" }
         return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "es")))
@@ -406,63 +518,6 @@ struct HomeView: View {
 
     private func recentBarAccessibilityLabel(_ bar: DailyExpenseBar) -> String {
         "\(compactDayLabel(bar.date)), \(currencyLabel(bar.total)) gastados"
-    }
-
-    private func projectedMonthClosing(using snapshot: HomeDashboardSnapshot) -> Double {
-        snapshot.monthAveragePerDay * Double(diasDelMesActual)
-    }
-
-    private func projectedBudgetDelta(using snapshot: HomeDashboardSnapshot) -> Double? {
-        guard let target = snapshot.monthlyBudgetTarget else { return nil }
-        return target - projectedMonthClosing(using: snapshot)
-    }
-
-    private func decisionState(using snapshot: HomeDashboardSnapshot) -> HomeDecisionState {
-        if isLoadingHomeData || store.isLoadingExpenses || budgetStore.isLoadingBudgets || budgetDetailStore.isLoading {
-            return HomeDecisionState(
-                title: "Cargando tu mes",
-                subtitle: "Estoy revisando tus gastos y presupuesto para mostrarte el estado correcto.",
-                icon: "hourglass",
-                tint: AppTheme.secondaryAccent,
-                isLoading: true
-            )
-        }
-
-        if let metrics = snapshot.budgetMetrics, metrics.budgeted > 0, metrics.isOverBudget {
-            return HomeDecisionState(
-                title: "Baja el ritmo hoy",
-                subtitle: "Ya superaste el presupuesto por \(currencyLabel(abs(metrics.difference))).",
-                icon: "exclamationmark.triangle.fill",
-                tint: AppTheme.warning
-            )
-        }
-
-        let availableAllowance = availableWithoutTouchingSavings(using: snapshot)
-        if objetivoAhorroConfigurado, availableAllowance < 0 {
-            return HomeDecisionState(
-                title: "Protege tu ahorro",
-                subtitle: "La reserva ya se tocó por \(currencyLabel(abs(availableAllowance))).",
-                icon: "shield.lefthalf.filled",
-                tint: AppTheme.warning
-            )
-        }
-
-        if let dailyAllowance = dailyBudgetAllowance(using: snapshot) {
-            return HomeDecisionState(
-                title: "Puedes gastar hoy",
-                subtitle: "Manteniendo tu ritmo, este es tu cupo diario sugerido.",
-                icon: "checkmark.seal.fill",
-                tint: AppTheme.accent,
-                amount: dailyAllowance
-            )
-        }
-
-        return HomeDecisionState(
-            title: "Crea tu presupuesto",
-            subtitle: "Así puedo decirte cuánto gastar por día y avisarte antes.",
-            icon: "target",
-            tint: AppTheme.secondaryAccent
-        )
     }
 
     private func budgetBaseForSavings(using snapshot: HomeDashboardSnapshot) -> Double {
@@ -530,6 +585,13 @@ struct HomeView: View {
             scope: .month,
             calendar: cal
         )
+        pulse = HomeMonthPulse(
+            expenses: store.gastos,
+            monthTotal: dashboardSnapshot.monthTotal,
+            budget: presupuestoActual,
+            budgetCategories: budgetDetailStore.categories,
+            calendar: cal
+        )
     }
 
     private func dayLabel(for date: Date?) -> String {
@@ -581,4 +643,11 @@ struct HomeView: View {
     return HomeView()
         .environment(store)
         .environment(BudgetStore())
+}
+
+private extension String {
+    /// «martes, 14 de octubre» → «Martes, 14 de octubre».
+    var capitalizingFirstLetter: String {
+        prefix(1).uppercased() + dropFirst()
+    }
 }

@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Movimientos del mes, según el canvas «Gastos»: total con comparativa, barras
+/// diarias, filtros por categoría y etiqueta, y la lista agrupada por día.
 struct ExpensesListView: View {
     private enum RecurrenceFilter: String, CaseIterable, Identifiable {
         case all
@@ -37,6 +39,10 @@ struct ExpensesListView: View {
         }
     }
 
+    /// Etiqueta interna con la que el backend marca lo importado del correo.
+    /// No es del usuario: se muestra como origen, no como etiqueta.
+    private static let emailTag = "auto"
+
     @Environment(ExpenseStore.self) private var store
 
     private static let cal = Calendar.current
@@ -45,20 +51,20 @@ struct ExpensesListView: View {
         formatter.locale = Locale(identifier: "es")
         return formatter.monthSymbols
     }()
-    private static let spanishWeekdaySymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.weekdaySymbols
-    }()
 
     @State private var mesActual: Date = ExpensesListView.inicioMes(Date())
     @State private var recurrenceFilter: RecurrenceFilter = .all
     @State private var selectedMethodID: Int? = nil
+    @State private var originFilter = "all"
+    @State private var selectedCategoryID: Int?
+    @State private var selectedTags: Set<String> = []
     @State private var searchText = ""
     @State private var showsFilters = false
+    @State private var showsTags = false
     @State private var presentedExpenseSheet: ExpenseSheet?
     @State private var expenseToDelete: Expense?
     @State private var snapshot = ExpensesListSnapshot.placeholder(monthStart: ExpensesListView.inicioMes(Date()))
+    @AppStorage("gastos.swipeTipDismissed") private var swipeTipDismissed = false
 
     private static func inicioMes(_ d: Date) -> Date {
         let comps = cal.dateComponents([.year, .month], from: d)
@@ -73,37 +79,49 @@ struct ExpensesListView: View {
         mesActual < ExpensesListView.inicioMes(Date())
     }
 
+    private var isCurrentMonth: Bool {
+        mesActual == ExpensesListView.inicioMes(Date())
+    }
+
     var body: some View {
         ZStack {
-            fondo.ignoresSafeArea()
+            AppTheme.screenBackground.ignoresSafeArea()
 
             List {
+                sectionRow { searchField }
+
                 // El bloque va siempre, también en un mes sin gastos: además del
                 // total lleva la navegación de mes, así que ocultarlo dejaría
                 // al usuario sin forma de volver.
-                sectionRow {
-                    totalCard
-                }
+                sectionRow { totalBlock }
 
                 if store.isLoadingExpenses && store.gastos.isEmpty {
-                    sectionRow {
-                        loadingCard
-                    }
+                    sectionRow { loadingState }
+                } else if snapshot.monthExpensesBase.isEmpty {
+                    sectionRow { emptyMonthState }
                 } else {
-                    sectionRow {
-                        filtrosCard
+                    sectionRow(insets: EdgeInsets(top: 6, leading: 0, bottom: 2, trailing: 0)) { filterChips }
+
+                    if showsTags && !monthTags.isEmpty {
+                        sectionRow(insets: EdgeInsets(top: 2, leading: 20, bottom: 6, trailing: 20)) { tagCloud }
+                    }
+
+                    if showsFilters {
+                        sectionRow { filterPillRows }
                     }
 
                     if snapshot.monthExpenses.isEmpty {
-                        sectionRow {
-                            vacio
-                        }
+                        sectionRow { noResultsState }
                     } else {
+                        if !swipeTipDismissed {
+                            sectionRow { swipeTip }
+                        }
+
                         ForEach(snapshot.feedItems) { item in
                             switch item {
                             case let .day(date, totalDia):
-                                sectionRow {
-                                    dayMarker(date, total: totalDia)
+                                sectionRow(insets: EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20)) {
+                                    dayHeader(date, total: totalDia)
                                 }
                             case let .expense(gasto):
                                 expenseRow(gasto)
@@ -116,34 +134,30 @@ struct ExpensesListView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .tracksScrollChrome()
             .floatingTabBarInset()
             .environment(\.defaultMinListRowHeight, 1)
             .refreshable {
                 await store.loadExpenses(force: true)
             }
-
         }
         .task {
             await store.loadCatalogsIfNeeded()
             await store.loadExpensesIfNeeded()
             rebuildSnapshot()
         }
-        .onChange(of: store.gastos) {
-            rebuildSnapshot()
-        }
+        .onChange(of: store.gastos) { rebuildSnapshot() }
         .onChange(of: mesActual) {
+            selectedCategoryID = nil
             rebuildSnapshot()
         }
-        .onChange(of: recurrenceFilter) {
-            rebuildSnapshot()
-        }
-        .onChange(of: selectedMethodID) {
-            rebuildSnapshot()
-        }
-        .onChange(of: searchText) {
-            rebuildSnapshot()
-        }
+        .onChange(of: recurrenceFilter) { rebuildSnapshot() }
+        .onChange(of: selectedMethodID) { rebuildSnapshot() }
+        .onChange(of: originFilter) { rebuildSnapshot() }
+        .onChange(of: selectedCategoryID) { rebuildSnapshot() }
+        .onChange(of: selectedTags) { rebuildSnapshot() }
+        .onChange(of: searchText) { rebuildSnapshot() }
         .sheet(item: $presentedExpenseSheet) { sheet in
             NavigationStack {
                 switch sheet {
@@ -192,74 +206,319 @@ struct ExpensesListView: View {
         }
     }
 
-    private var activeFilterCount: Int {
-        (recurrenceFilter == .all ? 0 : 1) + (selectedMethodID == nil ? 0 : 1)
-    }
+    // MARK: - Búsqueda
 
-    /// Buscador siempre visible y píldoras bajo demanda.
-    ///
-    /// Las dos filas de píldoras ocupaban ~90pt fijos antes del primer gasto,
-    /// aunque casi nunca se usen. El contador del botón dice cuántos filtros
-    /// hay puestos sin necesidad de desplegarlas.
-    private var filtrosCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                searchField
-                filtersToggle
-            }
-
-            if showsFilters {
-                filterPillRows
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .accessibilityHidden(true)
+            TextField("Buscar", text: $searchText, prompt: Text("Buscar").foregroundStyle(AppTheme.tertiaryText))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .font(.system(size: 16))
+                .foregroundStyle(AppTheme.primaryText)
+                .tint(AppTheme.accent)
+                .accessibilityLabel("Buscar gastos")
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(AppTheme.primaryText.opacity(0.1)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Borrar búsqueda")
             }
         }
-        .padding(.vertical, 4)
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .frame(height: 44)
+        .background(
+            Capsule()
+                .fill(AppTheme.surface)
+                .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
+        )
     }
 
-    private var filtersToggle: some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                showsFilters.toggle()
+    // MARK: - Total del mes
+
+    private var isFiltering: Bool {
+        !cleanSearchText.isEmpty || selectedCategoryID != nil || !selectedTags.isEmpty
+            || selectedMethodID != nil || recurrenceFilter != .all || originFilter != "all"
+    }
+
+    private var scopeLabel: String {
+        guard isFiltering else { return "Todos los gastos" }
+        let count = snapshot.monthExpenses.count
+        return count == 1 ? "1 gasto" : "\(count) gastos"
+    }
+
+    /// Gasto del mismo tramo del mes anterior: hasta hoy en el mes en curso,
+    /// el mes entero si se mira un mes cerrado.
+    private var previousComparable: (total: Double, label: String)? {
+        guard let previousStart = Self.cal.date(byAdding: .month, value: -1, to: mesActual) else { return nil }
+        let previousName = nombreMesCorto(previousStart)
+        let end: Date
+        let label: String
+        if isCurrentMonth {
+            let day = Self.cal.component(.day, from: Date())
+            let previousDays = Self.cal.range(of: .day, in: .month, for: previousStart)?.count ?? 30
+            end = Self.cal.date(byAdding: .day, value: min(day, previousDays), to: previousStart) ?? mesActual
+            label = "que \(previousName) al día \(day)"
+        } else {
+            end = mesActual
+            label = "que \(previousName)"
+        }
+        let total = store.gastos
+            .filter { $0.fecha >= previousStart && $0.fecha < end }
+            .reduce(0) { $0 + $1.monto }
+        return total > 0 ? (total, label) : nil
+    }
+
+    private var totalParts: (whole: String, cents: String) {
+        let total = snapshot.total
+        let whole = Double(Int(total)).formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        let cents = Int((total * 100).rounded()) % 100
+        return (whole, (Locale.current.decimalSeparator ?? ".") + String(format: "%02d", cents))
+    }
+
+    private var totalBlock: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                monthStepper
+
+                (Text(totalParts.whole)
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+                 + Text(totalParts.cents)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(AppTheme.tertiaryText))
+                    .tracking(-1.5)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .contentTransition(.numericText(value: snapshot.total))
+                    .accessibilityLabel(snapshot.total.formatted(.currency(code: "USD")))
+
+                HStack(spacing: 8) {
+                    if isFiltering {
+                        Text("con los filtros activos")
+                    } else if let previous = previousComparable {
+                        HomeSpendDelta(percent: HomeMonthPulse.change(from: previous.total, to: snapshot.total), style: .pill)
+                        Text(previous.label)
+                    } else {
+                        Text(snapshot.monthExpenses.count == 1 ? "1 movimiento" : "\(snapshot.monthExpenses.count) movimientos")
+                    }
+                }
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.tertiaryText)
             }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "line.3.horizontal.decrease")
-                    .font(.system(size: 13, weight: .bold))
-                if activeFilterCount > 0 {
-                    Text("\(activeFilterCount)")
-                        .font(.caption2.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(AppTheme.onAccent)
-                        .frame(width: 16, height: 16)
-                        .background(Circle().fill(AppTheme.accent))
+
+            if !snapshot.monthExpensesBase.isEmpty {
+                dailyBars
+            }
+        }
+        .padding(.top, 6)
+    }
+
+    private var monthStepper: some View {
+        HStack(spacing: 2) {
+            stepButton(icon: "chevron.left", label: "Mes anterior", enabled: true) { cambiarMes(-1) }
+            Text("\(nombreMes(mesActual)) · \(scopeLabel)")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.tertiaryText)
+                .contentTransition(.numericText())
+                .lineLimit(1)
+            stepButton(icon: "chevron.right", label: "Mes siguiente", enabled: puedeAvanzar) { cambiarMes(1) }
+        }
+        .padding(.leading, -10)
+    }
+
+    private func stepButton(icon: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(enabled ? AppTheme.secondaryText : AppTheme.placeholderText)
+                .frame(width: 32, height: 32)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.pressable(scale: 0.86))
+        .disabled(!enabled)
+        .accessibilityLabel(label)
+    }
+
+    /// Una barra por día: hoy con el acento, los días por venir como un punto.
+    private var dailyBars: some View {
+        let days = Self.cal.range(of: .day, in: .month, for: mesActual)?.count ?? 30
+        let today = isCurrentMonth ? Self.cal.component(.day, from: Date()) : days
+        let byDay = Dictionary(grouping: snapshot.monthExpenses) { Self.cal.component(.day, from: $0.fecha) }
+            .mapValues { $0.reduce(0) { $0 + $1.monto } }
+        let maxValue = max(byDay.values.max() ?? 0, 1)
+        let monthName = nombreMesCorto(mesActual)
+
+        return VStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(1...days, id: \.self) { day in
+                    let value = byDay[day] ?? 0
+                    let isFuture = day > today
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(
+                            isCurrentMonth && day == today ? AppTheme.accent
+                                : isFuture ? AppTheme.primaryText.opacity(0.06) : AppTheme.primaryText.opacity(0.14)
+                        )
+                        .frame(height: isFuture ? 4 : max(4, CGFloat(value / maxValue) * 90))
+                        .frame(maxWidth: .infinity)
                 }
             }
-            .foregroundStyle(showsFilters || activeFilterCount > 0 ? AppTheme.accent : AppTheme.primaryText)
-            .padding(.horizontal, 14)
-            .frame(height: 42)
-            .background(
-                Capsule()
-                    .fill(AppTheme.controlSurface)
-                    .overlay(Capsule().strokeBorder(
-                        showsFilters || activeFilterCount > 0 ? AppTheme.accent.opacity(0.4) : AppTheme.border,
-                        lineWidth: 1
-                    ))
-            )
+            .frame(height: 96, alignment: .bottom)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Gasto diario de \(nombreMes(mesActual))")
+
+            HStack {
+                Text("1 \(monthName)")
+                Spacer()
+                Text("15 \(monthName)")
+                Spacer()
+                Text("\(days) \(monthName)")
+            }
+            .font(.caption2)
+            .foregroundStyle(AppTheme.tertiaryText)
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.pressable)
-        .accessibilityLabel("Filtros")
-        .accessibilityValue(activeFilterCount == 0 ? "Sin filtros" : "\(activeFilterCount) activos")
+    }
+
+    // MARK: - Filtros
+
+    /// Categorías del mes ordenadas por gasto, para los chips.
+    private var monthCategories: [Categoria] {
+        Dictionary(grouping: snapshot.monthExpensesBase, by: \.categoria)
+            .mapValues { $0.reduce(0) { $0 + $1.monto } }
+            .sorted { $0.value > $1.value }
+            .map(\.key)
+    }
+
+    private var monthTags: [String] {
+        let all = snapshot.monthExpensesBase.flatMap { visibleTags(for: $0) }
+        return Array(Set(all)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private var advancedFilterCount: Int {
+        (originFilter == "all" ? 0 : 1) + (recurrenceFilter == .all ? 0 : 1) + (selectedMethodID == nil ? 0 : 1)
+    }
+
+    private var filterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                categoryChip(title: "Todos", color: nil, isSelected: selectedCategoryID == nil) {
+                    selectedCategoryID = nil
+                }
+                ForEach(monthCategories, id: \.id) { category in
+                    categoryChip(title: category.nombre, color: category.color, isSelected: selectedCategoryID == category.id) {
+                        selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
+                    }
+                }
+
+                if !monthTags.isEmpty {
+                    accentChip(isOn: showsTags || !selectedTags.isEmpty) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showsTags.toggle() }
+                    } label: {
+                        Text("#").fontWeight(.bold).foregroundStyle(AppTheme.accent)
+                        Text(selectedTags.isEmpty ? "Etiquetas" : "Etiquetas · \(selectedTags.count)")
+                    }
+                    .accessibilityLabel(selectedTags.isEmpty ? "Etiquetas" : "Etiquetas, \(selectedTags.count) activas")
+                }
+
+                accentChip(isOn: showsFilters || advancedFilterCount > 0) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showsFilters.toggle() }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease").font(.system(size: 13, weight: .bold))
+                    Text(advancedFilterCount == 0 ? "Filtros" : "Filtros · \(advancedFilterCount)")
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func categoryChip(title: String, color: Color?, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if let color {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                }
+                Text(title).lineLimit(1)
+            }
+            .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+            .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+            .padding(.horizontal, 14)
+            .frame(height: 40)
+            .background(Capsule().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
+        }
+        .buttonStyle(.pressable(scale: 0.95))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func accentChip<Label: View>(
+        isOn: Bool,
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) { label() }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isOn ? AppTheme.accent : AppTheme.secondaryText)
+                .padding(.horizontal, 14)
+                .frame(height: 40)
+                .background(Capsule().fill(isOn ? AppTheme.accent.opacity(0.18) : AppTheme.popoverSurface))
+        }
+        .buttonStyle(.pressable(scale: 0.95))
+    }
+
+    private var tagCloud: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(monthTags, id: \.self) { tag in
+                tagChip(tag, height: 32, fontSize: 14, weight: .semibold)
+            }
+        }
+    }
+
+    private func tagChip(_ tag: String, height: CGFloat, fontSize: CGFloat, weight: Font.Weight) -> some View {
+        let isOn = selectedTags.contains(tag)
+        return Button {
+            if isOn { selectedTags.remove(tag) } else { selectedTags.insert(tag) }
+        } label: {
+            Text("#\(tag)")
+                .font(.system(size: fontSize, weight: weight))
+                .foregroundStyle(isOn ? AppTheme.onAccent : AppTheme.secondaryText)
+                .padding(.horizontal, height > 24 ? 12 : 8)
+                .frame(height: height)
+                .background(Capsule().fill(isOn ? AppTheme.accent : AppTheme.popoverSurface))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Etiqueta \(tag)")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     private var filterPillRows: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Picker("Origen", selection: $originFilter) {
+                Text("Todos").tag("all")
+                Text("Manual").tag("manual")
+                Text("Correo").tag("email")
+            }
+            .pickerStyle(.segmented)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(RecurrenceFilter.allCases) { filter in
-                        filterPill(
-                            title: filter.title,
-                            isSelected: recurrenceFilter == filter
-                        ) {
+                        filterPill(title: filter.title, isSelected: recurrenceFilter == filter) {
                             recurrenceFilter = filter
                         }
                     }
@@ -268,66 +527,104 @@ struct ExpensesListView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    filterPill(
-                        title: "Todos los pagos",
-                        isSelected: selectedMethodID == nil
-                    ) {
+                    filterPill(title: "Todos los pagos", isSelected: selectedMethodID == nil) {
                         selectedMethodID = nil
                     }
-
                     ForEach(store.metodosPago, id: \.id) { metodo in
-                        filterPill(
-                            title: metodo.shortLabel,
-                            icon: metodo.icono,
-                            isSelected: selectedMethodID == metodo.id
-                        ) {
+                        filterPill(title: metodo.shortLabel, icon: metodo.icono, isSelected: selectedMethodID == metodo.id) {
                             selectedMethodID = metodo.id
                         }
                     }
                 }
             }
         }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
-    private var searchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(AppTheme.tertiaryText)
-            TextField("Buscar gasto", text: $searchText)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText)
-                .tint(AppTheme.accent)
-            if !searchText.isEmpty { clearSearchButton }
+    private func filterPill(
+        title: String,
+        icon: String? = nil,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text(title)
+                    .lineLimit(1)
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(Capsule().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
         }
-        .padding(.horizontal, 12)
-        .frame(height: 42)
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var swipeTip: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "hand.draw")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(AppTheme.accent.opacity(0.16)))
+                .accessibilityHidden(true)
+            (Text("Desliza un gasto hacia la izquierda para ")
+             + Text("editarlo").fontWeight(.semibold).foregroundColor(AppTheme.primaryText)
+             + Text(" o ")
+             + Text("eliminarlo").fontWeight(.semibold).foregroundColor(AppTheme.primaryText)
+             + Text("."))
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Entendido") {
+                withAnimation { swipeTipDismissed = true }
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.accent)
+            .frame(minHeight: 40)
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 12)
         .background(
-            Capsule()
-                .fill(AppTheme.insetSurface)
-                .overlay(Capsule().stroke(AppTheme.strongBorder, lineWidth: 1))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(AppTheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppTheme.separator, lineWidth: 1))
         )
     }
 
-    private var clearSearchButton: some View {
-        Button {
-            searchText = ""
-        } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(AppTheme.tertiaryText)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Limpiar búsqueda")
-    }
+    // MARK: - Lista
 
-    private func sectionRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func sectionRow<Content: View>(
+        insets: EdgeInsets = EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20),
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         content()
-            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
+            .listRowInsets(insets)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+    }
+
+    private func dayHeader(_ fecha: Date, total: Double) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(headerFecha(fecha))
+                .font(.system(size: 17, weight: .semibold))
+                .tracking(-0.2)
+                .foregroundStyle(AppTheme.primaryText)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            Text(total.formatted(.currency(code: "USD").precision(.fractionLength(2))))
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.tertiaryText)
+        }
     }
 
     private func expenseRow(_ gasto: Expense) -> some View {
@@ -338,25 +635,189 @@ struct ExpensesListView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 24))
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button {
-                presentedExpenseSheet = .edit(gasto)
-            } label: {
-                nativeSwipeIcon("pencil", tint: AppTheme.accent)
-            }
-            .tint(AppTheme.backgroundBottom)
-            .accessibilityLabel("Editar")
-
             Button(role: .destructive) {
                 expenseToDelete = gasto
             } label: {
-                nativeSwipeIcon("trash", tint: AppTheme.negative)
+                Label("Eliminar", systemImage: "trash")
             }
-            .tint(AppTheme.backgroundBottom)
-            .accessibilityLabel("Eliminar")
+            .tint(AppTheme.negative)
+
+            Button {
+                presentedExpenseSheet = .edit(gasto)
+            } label: {
+                Label("Editar", systemImage: "pencil")
+            }
+            .tint(AppTheme.controlSurface)
+        }
+    }
+
+    private func visibleTags(for gasto: Expense) -> [String] {
+        (gasto.tags ?? []).filter { $0 != Self.emailTag }
+    }
+
+    private func fila(_ gasto: Expense) -> some View {
+        let color = gasto.categoria.color
+        let tags = visibleTags(for: gasto)
+        return HStack(alignment: .center, spacing: 14) {
+            CategoryGlyph(
+                categoria: gasto.categoria,
+                size: 48,
+                tint: color,
+                background: color.opacity(0.16),
+                isCircular: true
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(gasto.descripcion)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text("\(gasto.categoria.nombre) · \(gasto.metodoPago.shortLabel)")
+                        .lineLimit(1)
+                    if gasto.isRecurrent { badge("Recurrente") }
+                    if gasto.foreignTax != nil { badge("Exterior") }
+                    if gasto.tags?.contains(Self.emailTag) == true { badge("Correo") }
+                }
+                .font(.footnote)
+                .foregroundStyle(AppTheme.tertiaryText)
+
+                if !tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(tags.prefix(4), id: \.self) { tag in
+                            tagChip(tag, height: 22, fontSize: 12, weight: .medium)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Text("−\(gasto.monto.formatted(.currency(code: "USD").precision(.fractionLength(2))))")
+                .font(.system(size: 16, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.primaryText)
+                .fixedSize()
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func badge(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(AppTheme.popoverSurface))
+            .fixedSize()
+    }
+
+    // MARK: - Estados
+
+    private var loadingState: some View {
+        VStack(spacing: 12) {
+            ProgressView().tint(AppTheme.secondaryText)
+            Text("Cargando gastos")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var emptyMonthState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 72, height: 72)
+                .background(Circle().fill(AppTheme.accent.opacity(0.16)))
+                .accessibilityHidden(true)
+            VStack(spacing: 8) {
+                Text(isCurrentMonth ? "Aún no tienes gastos" : "Sin gastos en \(nombreMes(mesActual))")
+                    .font(.system(size: 22, weight: .bold))
+                    .tracking(-0.4)
+                    .foregroundStyle(AppTheme.primaryText)
+                Text(emptyMessage)
+                    .font(.system(size: 15))
+                    .lineSpacing(3)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .frame(maxWidth: 280)
+            }
+            .multilineTextAlignment(.center)
+            if canCreateExpense {
+                Button {
+                    presentedExpenseSheet = .create
+                } label: {
+                    Text("Agregar gasto")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(AppTheme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Capsule().fill(AppTheme.accent))
+                }
+                .buttonStyle(.pressable(scale: 0.98))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 32)
+        .padding(.bottom, 24)
+    }
+
+    private var noResultsState: some View {
+        VStack(spacing: 12) {
+            Text("Sin resultados")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryText)
+            Text("Ningún gasto coincide con estos filtros.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.tertiaryText)
+            Button(action: clearFilters) {
+                Text("Quitar filtros")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.backgroundTop)
+                    .padding(.horizontal, 20)
+                    .frame(height: 44)
+                    .background(Capsule().fill(AppTheme.primaryText))
+            }
+            .buttonStyle(.pressable(scale: 0.96))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .multilineTextAlignment(.center)
+    }
+
+    private var canCreateExpense: Bool {
+        store.hasBaseURLConfigured && store.canAccessProtectedEndpoints
+    }
+
+    private var emptyMessage: String {
+        if !store.hasBaseURLConfigured {
+            return "Configura tu conexión para empezar a ver tus movimientos."
+        }
+        if !store.canAccessProtectedEndpoints {
+            return "Inicia sesión para ver tus gastos."
+        }
+        return isCurrentMonth
+            ? "Registra uno a mano o impórtalos desde los correos de tu banco."
+            : "Cambia de mes o registra un gasto nuevo cuando quieras."
+    }
+
+    private func clearFilters() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            searchText = ""
+            selectedCategoryID = nil
+            selectedTags = []
+            selectedMethodID = nil
+            recurrenceFilter = .all
+            originFilter = "all"
         }
     }
 
@@ -379,6 +840,8 @@ struct ExpensesListView: View {
             .accessibilityHidden(true)
     }
 
+    // MARK: - Lógica
+
     private func cambiarMes(_ delta: Int) {
         guard let nuevo = Self.cal.date(byAdding: .month, value: delta, to: mesActual) else { return }
         let inicioNuevoMes = ExpensesListView.inicioMes(nuevo)
@@ -400,8 +863,16 @@ struct ExpensesListView: View {
         }
     }
 
+    private func matchesCategoryAndTags(_ gasto: Expense) -> Bool {
+        let categoryOK = selectedCategoryID == nil || gasto.categoriaId == selectedCategoryID
+        let tagsOK = selectedTags.isEmpty || selectedTags.isSubset(of: Set(gasto.tags ?? []))
+        return categoryOK && tagsOK
+    }
+
     private func matchesPaymentMethod(_ gasto: Expense) -> Bool {
-        selectedMethodID == nil || gasto.metodoPagoId == selectedMethodID
+        let email = gasto.tags?.contains(Self.emailTag) == true
+        let matchesOrigin = originFilter == "all" || (originFilter == "email" ? email : !email)
+        return matchesOrigin && (selectedMethodID == nil || gasto.metodoPagoId == selectedMethodID)
     }
 
     private func matchesSearch(_ gasto: Expense, query: String) -> Bool {
@@ -416,142 +887,9 @@ struct ExpensesListView: View {
             gasto.categoria.nombre,
             gasto.metodoPago.nombre,
             gasto.metodoPago.shortLabel,
-            formatear(gasto.monto),
+            MoneyInput.format(gasto.monto),
             headerFecha(Self.cal.startOfDay(for: gasto.fecha))
-        ]
-    }
-
-    /// Navegación de mes, centrada sobre el total.
-    private var selectorMesInline: some View {
-        HStack(spacing: 6) {
-            botonMesInline(icono: "chevron.left", label: "Mes anterior", habilitado: true) { cambiarMes(-1) }
-
-            Text(nombreMes(mesActual))
-                .font(.caption2.weight(.semibold))
-                .textCase(.uppercase)
-                .tracking(1.1)
-                .foregroundStyle(AppTheme.secondaryText)
-                .frame(minWidth: 128)
-                .contentTransition(.numericText())
-                .animation(.easeInOut(duration: 0.15), value: mesActual)
-
-            botonMesInline(icono: "chevron.right", label: "Mes siguiente", habilitado: puedeAvanzar) { cambiarMes(1) }
-        }
-    }
-
-    private func botonMesInline(icono: String, label: String, habilitado: Bool, accion: @escaping () -> Void) -> some View {
-        Button(action: accion) {
-            Image(systemName: icono)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(habilitado ? AppTheme.primaryText : AppTheme.placeholderText)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(AppTheme.controlSurface).opacity(habilitado ? 1 : 0.5))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.pressable(scale: 0.86))
-        .disabled(!habilitado)
-        .accessibilityLabel(label)
-    }
-
-    /// Total del mes: sin recuadro y centrado, igual que la entrada de monto.
-    ///
-    /// Era un bloque oscuro que pesaba lo mismo que una tarjeta más; siendo la
-    /// cifra que resume la pantalla, manda mejor por tamaño que por caja.
-    private var totalCard: some View {
-        VStack(spacing: 12) {
-            selectorMesInline
-
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("$")
-                    .font(.system(size: 26, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-                Text(snapshot.total, format: .number.precision(.fractionLength(2)))
-                    .font(.system(size: 50, weight: .bold, design: .default))
-                    .monospacedDigit()
-                    .contentTransition(.numericText(value: snapshot.total))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-            }
-
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.down.right")
-                    .font(.caption2.bold())
-                Text("\(snapshot.monthExpenses.count) movimientos registrados")
-                    .font(.caption.weight(.semibold))
-                    .contentTransition(.numericText(value: Double(snapshot.monthExpenses.count)))
-            }
-            .foregroundStyle(AppTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-    }
-
-    private func dayMarker(_ fecha: Date, total: Double) -> some View {
-        HStack(spacing: 10) {
-            Text(headerFecha(fecha))
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(AppTheme.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-
-            Text("$\(formatear(total))")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: true, vertical: false)
-
-            Rectangle()
-                .fill(AppTheme.border)
-                .frame(height: 1)
-        }
-    }
-
-    private func fila(_ gasto: Expense) -> some View {
-        HStack(alignment: .center, spacing: 13) {
-            CategoryGlyph(categoria: gasto.categoria, size: 44)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(gasto.descripcion)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                HStack(spacing: 5) {
-                    Text(gasto.categoria.nombre)
-                    Text(verbatim: "·")
-                        .foregroundStyle(AppTheme.tertiaryText)
-                    Text(gasto.metodoPago.shortLabel)
-                    if gasto.isRecurrent {
-                        Image(systemName: "repeat")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(AppTheme.accent)
-                    }
-                }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(AppTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            }
-
-            Spacer(minLength: 10)
-
-            Text("−$\(formatear(gasto.monto))")
-                .font(AppTheme.number(16, .semibold))
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .padding(.vertical, 10)
-    }
-
-    private func deleteExpense(_ gasto: Expense) {
-        expenseToDelete = gasto
-    }
-
-    private func deleteExpenseAndDismiss(_ gasto: Expense) {
-        presentedExpenseSheet = nil
-        deleteExpense(gasto)
+        ] + (gasto.tags ?? []).flatMap { [$0, "#" + $0] }
     }
 
     private func performDeleteExpenseAndDismiss(_ gasto: Expense) {
@@ -559,130 +897,6 @@ struct ExpensesListView: View {
         Task {
             await store.deleteExpense(id: gasto.id)
         }
-    }
-
-    private func filterPill(
-        title: String,
-        icon: String? = nil,
-        isSelected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                Text(title)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(isSelected ? .black : AppTheme.primaryText)
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .background(Capsule().fill(isSelected ? AppTheme.accent : AppTheme.controlSurface))
-            .overlay(Capsule().stroke(isSelected ? Color.clear : AppTheme.strongBorder, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var loadingCard: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .tint(AppTheme.accent)
-                .scaleEffect(1.1)
-            Text("Cargando gastos")
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-            Text("Preparando tu lista de movimientos.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 40)
-        .padding(.vertical, 48)
-        .background(tarjetaFondo)
-    }
-
-    private var vacio: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "tray")
-                .font(.system(size: 48, weight: .semibold))
-                .foregroundStyle(AppTheme.placeholderText)
-            Text(emptyTitle)
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundStyle(AppTheme.primaryText)
-            Text(mensajeVacio)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-            if shouldShowCreateExpenseCTA {
-                Button {
-                    presentedExpenseSheet = .create
-                } label: {
-                    Label("Registrar gasto", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 18)
-                        .frame(height: 44)
-                        .background(Capsule().fill(AppTheme.accent))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 4)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 40)
-        .padding(.top, 60)
-        .padding(.bottom, 40)
-    }
-
-    private var emptyTitle: String {
-        isFilteringExpenses && !snapshot.monthExpensesBase.isEmpty ? "Sin coincidencias" : "Sin gastos en este mes"
-    }
-
-    private var isFilteringExpenses: Bool {
-        !cleanSearchText.isEmpty || selectedMethodID != nil || recurrenceFilter != .all
-    }
-
-    private var shouldShowCreateExpenseCTA: Bool {
-        !isFilteringExpenses && store.hasBaseURLConfigured && store.canAccessProtectedEndpoints
-    }
-
-    private var mensajeVacio: String {
-        if isFilteringExpenses && !snapshot.monthExpensesBase.isEmpty {
-            return "Prueba con otro nombre, categoría, método o monto."
-        }
-        if !store.hasBaseURLConfigured {
-            return "Configura tu conexión para empezar a ver tus movimientos."
-        }
-        if !store.canAccessProtectedEndpoints {
-            return "Inicia sesión para ver tus gastos."
-        }
-        return "Cambia de mes o registra un gasto nuevo cuando quieras."
-    }
-
-    private var fondo: some View {
-        LinearGradient(
-            colors: [
-                AppTheme.backgroundTop,
-                AppTheme.backgroundBottom
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var tarjetaFondo: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(AppTheme.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppTheme.border, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.06), radius: 12, y: 5)
     }
 
     private func nombreMes(_ d: Date) -> String {
@@ -694,35 +908,26 @@ struct ExpensesListView: View {
         else {
             return ""
         }
-        return "\(Self.spanishMonthSymbols[month - 1]) \(year)".capitalized
+        return "\(Self.spanishMonthSymbols[month - 1].capitalized) \(year)"
+    }
+
+    private func nombreMesCorto(_ d: Date) -> String {
+        d.formatted(.dateTime.month(.abbreviated).locale(Locale(identifier: "es")))
+            .replacingOccurrences(of: ".", with: "")
     }
 
     private func headerFecha(_ fecha: Date) -> String {
         if Self.cal.isDateInToday(fecha) { return "Hoy" }
         if Self.cal.isDateInYesterday(fecha) { return "Ayer" }
-        let components = Self.cal.dateComponents([.weekday, .day, .month], from: fecha)
+        let components = Self.cal.dateComponents([.day, .month], from: fecha)
         guard
-            let weekday = components.weekday,
             let day = components.day,
             let month = components.month,
-            Self.spanishWeekdaySymbols.indices.contains(weekday - 1),
             Self.spanishMonthSymbols.indices.contains(month - 1)
         else {
             return ""
         }
-        return "\(Self.spanishWeekdaySymbols[weekday - 1]), \(day) de \(Self.spanishMonthSymbols[month - 1])".capitalized
-    }
-
-    private func formatear(_ valor: Double) -> String {
-        MoneyInput.format(valor)
-    }
-
-    private func nativeSwipeIcon(_ systemName: String, tint: Color) -> some View {
-        Image(systemName: systemName)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(tint)
-            .font(.system(size: 21, weight: .bold))
-            .frame(width: 30, height: 30)
+        return "\(day) de \(Self.spanishMonthSymbols[month - 1])"
     }
 
     private var deleteExpenseMessage: String {
@@ -749,11 +954,59 @@ struct ExpensesListView: View {
                 expenses: store.gastos,
                 monthStart: mesActual,
                 calendar: Self.cal,
-                recurrenceMatches: matchesRecurrence,
+                recurrenceMatches: { matchesRecurrence($0) && matchesCategoryAndTags($0) },
                 paymentMatches: matchesPaymentMethod,
                 searchMatches: { matchesSearch($0, query: query) }
             )
         }
+    }
+}
+
+/// Distribuye chips en filas que se parten al llegar al borde.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(subviews, width: proposal.width ?? .infinity)
+        let height = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        let width = rows.map(\.width).max() ?? 0
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows: [Row] = [Row()]
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let needed = rows[rows.count - 1].indices.isEmpty ? size.width : rows[rows.count - 1].width + spacing + size.width
+            if needed > width, !rows[rows.count - 1].indices.isEmpty {
+                rows.append(Row())
+            }
+            var row = rows[rows.count - 1]
+            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+            rows[rows.count - 1] = row
+        }
+        return rows
     }
 }
 

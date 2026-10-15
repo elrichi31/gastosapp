@@ -45,7 +45,7 @@ struct MainTabView: View {
     private var tabContent: some View {
         switch seleccion {
         case .inicio:
-            HomeView()
+            HomeView(onOpenTab: { seleccion = $0 })
         case .gastos:
             GastosView()
         case .presupuestos:

@@ -3,9 +3,10 @@ import UIKit
 
 /// Sistema de diseño de la app.
 ///
-/// Paleta oscura por defecto (negro real + superficies sólidas elevadas),
-/// modo claro neutro, un único acento de señal y semánticos para variación.
-/// Todas las pantallas leen sus colores, radios y tipografías desde aquí.
+/// Valores tomados del canvas «Control de Gastos — Inicio iOS»: fondo casi
+/// negro (o gris muy claro), tarjetas planas sin borde ni sombra, un acento
+/// verde y semánticos separados para subir/bajar. Todas las pantallas leen sus
+/// colores, radios y tipografías desde aquí.
 enum AppTheme {
 
     // MARK: - Primitivas
@@ -27,8 +28,8 @@ enum AppTheme {
 
     // MARK: - Fondo
 
-    static let backgroundTop = adaptive(dark: hex(0x080908), light: hex(0xF7F8F7))
-    static let backgroundBottom = adaptive(dark: hex(0x080908), light: hex(0xECEFEC))
+    static let backgroundTop = adaptive(dark: hex(0x0C0C0D), light: hex(0xF4F4F6))
+    static let backgroundBottom = adaptive(dark: hex(0x0C0C0D), light: hex(0xF4F4F6))
 
     static var screenBackground: some View {
         LinearGradient(
@@ -41,13 +42,19 @@ enum AppTheme {
     // MARK: - Superficies
 
     /// Tarjeta principal sobre el fondo.
-    static let surface = adaptive(dark: hex(0x171817), light: hex(0xFFFFFF))
-    /// Superficie anidada dentro de una tarjeta.
-    static let insetSurface = adaptive(dark: hex(0x202120), light: hex(0xF3F4F3))
+    static let surface = adaptive(dark: hex(0x151517), light: hex(0xFFFFFF))
+    /// Superficie anidada dentro de una tarjeta; también el riel de las barras.
+    static let insetSurface = adaptive(dark: hex(0x232326), light: hex(0xF4F4F6))
     /// Controles (segmentos, campos, botones secundarios).
-    static let controlSurface = adaptive(dark: hex(0x202120), light: hex(0xEDEFED))
+    static let controlSurface = adaptive(dark: hex(0x232326), light: hex(0xECECF0))
+    /// Riel vacío de barras de progreso.
+    static let track = adaptive(dark: hex(0x232326), light: hex(0xE8E8EC))
+    /// Paneles emergentes (búsqueda, bandeja) sobre el contenido.
+    static let popoverSurface = adaptive(dark: hex(0x1C1C1E), light: hex(0xFFFFFF))
     /// Barras flotantes (tab bar, encabezados, toasts).
-    static let chromeSurface = adaptive(dark: hex(0x151615, 0.90), light: hex(0xFFFFFF, 0.88))
+    static let chromeSurface = adaptive(dark: hex(0x1E1E20, 0.88), light: hex(0xFFFFFF, 0.92))
+    /// Botones circulares flotantes del encabezado.
+    static let chromeButtonSurface = adaptive(dark: hex(0x242428, 0.94), light: hex(0xFFFFFF, 0.96))
     /// Tinte del velo de encabezado, sobre el material desenfocado.
     ///
     /// En oscuro va casi opaco a propósito: `ultraThinMaterial` sube la
@@ -56,18 +63,20 @@ enum AppTheme {
     /// oscuro —sigue desenfocando lo que pasa por debajo, pero no aclara la
     /// franja—. En claro el material ya casa con el fondo, así que ahí el tinte
     /// se queda suave.
-    static let headerScrimTint = adaptive(dark: hex(0x080908, 0.62), light: hex(0xF7F8F7, 0.26))
+    static let headerScrimTint = adaptive(dark: hex(0x0C0C0D, 0.62), light: hex(0xF4F4F6, 0.26))
 
     // MARK: - Bordes
 
-    static let border = adaptive(dark: hex(0xFFFFFF, 0.07), light: hex(0x000000, 0.06))
-    static let strongBorder = adaptive(dark: hex(0xFFFFFF, 0.13), light: hex(0x000000, 0.10))
+    static let border = adaptive(dark: hex(0xFFFFFF, 0.08), light: hex(0x000000, 0.06))
+    static let strongBorder = adaptive(dark: hex(0xFFFFFF, 0.12), light: hex(0x000000, 0.10))
+    /// Separador opaco entre filas dentro de una tarjeta.
+    static let separator = adaptive(dark: hex(0x232326), light: hex(0xE8E8EC))
 
     // MARK: - Texto
 
-    static let primaryText = adaptive(dark: hex(0xF5F5F3), light: hex(0x0B0C0B))
-    static let secondaryText = adaptive(dark: hex(0xFFFFFF, 0.60), light: hex(0x000000, 0.55))
-    static let tertiaryText = adaptive(dark: hex(0xFFFFFF, 0.38), light: hex(0x000000, 0.36))
+    static let primaryText = adaptive(dark: hex(0xF5F5F5), light: hex(0x111114))
+    static let secondaryText = adaptive(dark: hex(0xA0A0AA), light: hex(0x5F5F69))
+    static let tertiaryText = adaptive(dark: hex(0x8A8A94), light: hex(0x6B6B75))
     /// Marcadores de posición, controles deshabilitados y glifos de estado vacío.
     ///
     /// Es el nivel más tenue de la escala: debe insinuar, no competir con el
@@ -76,31 +85,44 @@ enum AppTheme {
 
     // MARK: - Acentos y semánticos
 
-    /// Verde de marca, tomado del ícono de la app (#37965C).
+    /// Verde de marca (#3FA663).
     ///
-    /// Es el mismo valor en claro y en oscuro: es identidad, no un token que
-    /// deba adaptarse. Contraste: 5.68:1 con texto negro encima (los botones
-    /// sólidos usan `onAccent`) y 5.29:1 como texto sobre el fondo oscuro.
-    static let accent = Color(uiColor: hex(0x37965C))
-    /// Índigo eléctrico: recurrentes, proyecciones y datos secundarios.
-    static let secondaryAccent = adaptive(dark: hex(0x7B8CFF), light: hex(0x4A5FF0))
-    static let warning = adaptive(dark: hex(0xFFB340), light: hex(0xE08300))
-    static let negative = adaptive(dark: hex(0xFF5A52), light: hex(0xE03A31))
-    static let positive = accent
+    /// Mismo valor en claro y en oscuro: es identidad, no un token que deba
+    /// adaptarse. Los botones sólidos llevan `onAccent` encima (≈6.3:1).
+    static let accent = Color(uiColor: hex(0x3FA663))
+    /// Violeta: recurrentes, proyecciones y datos secundarios.
+    static let secondaryAccent = adaptive(dark: hex(0xA78FF7), light: hex(0x7A5AE8))
+    /// Azul informativo (p. ej. el ritmo de hoy).
+    static let info = adaptive(dark: hex(0x6AA6F5), light: hex(0x2F7AE0))
+    static let warning = adaptive(dark: hex(0xE8A82A), light: hex(0xB7791F))
+    /// Gastar más / pasarse del límite.
+    static let negative = adaptive(dark: hex(0xF4607F), light: hex(0xD93A5E))
+    /// Gastar menos / dentro del límite.
+    static let positive = adaptive(dark: hex(0x3DD68C), light: hex(0x1F9D5C))
     /// Color de texto/iconos que van encima de un acento sólido.
-    static let onAccent = Color.black
-    /// Bloque protagonista del dashboard: negro con matiz verde.
-    ///
-    /// No es adaptativo: en claro y en oscuro es el mismo bloque oscuro, igual
-    /// que el acento. Es identidad de marca, no un token de superficie.
-    static let statementSurface = Color(uiColor: hex(0x0F1712))
-    private static let statementSurfaceDeep = Color(uiColor: hex(0x070A08))
-    static let onStatement = Color(uiColor: hex(0xF2F5F2))
-    static let statementSecondary = Color(uiColor: hex(0xFFFFFF, 0.58))
-    /// Filo y separadores dentro del bloque.
-    static let onStatementFaint = Color(uiColor: hex(0xFFFFFF, 0.12))
+    static let onAccent = Color(uiColor: hex(0x0C0C0D))
+    /// Bloque protagonista: tarjeta teñida con el acento, en los dos modos.
+    static let statementSurface = accent.opacity(0.12)
+    static let onStatement = primaryText
+    static let statementSecondary = secondaryText
+    /// Separadores dentro del bloque.
+    static let onStatementFaint = adaptive(dark: hex(0xFFFFFF, 0.10), light: hex(0x000000, 0.08))
     /// Relleno de un control primario deshabilitado.
-    static let disabledFill = adaptive(dark: hex(0x24261F), light: hex(0xD5D9D3))
+    static let disabledFill = adaptive(dark: hex(0x232326), light: hex(0xE8E8EC))
+
+    /// Colores fijos para distinguir categorías en barras, puntos y leyendas.
+    static let categoryPalette: [Color] = [
+        Color(uiColor: hex(0x3F8CF0)),
+        Color(uiColor: hex(0xC98400)),
+        Color(uiColor: hex(0x9170F5)),
+        Color(uiColor: hex(0x12A37A)),
+        Color(uiColor: hex(0xE0607E)),
+        Color(uiColor: hex(0x5FA8B8))
+    ]
+
+    static func categoryColor(at index: Int) -> Color {
+        categoryPalette[((index % categoryPalette.count) + categoryPalette.count) % categoryPalette.count]
+    }
 
     static func delta(_ value: Double, positiveIsGood: Bool = true) -> Color {
         if value == 0 { return secondaryText }
@@ -110,9 +132,9 @@ enum AppTheme {
     // MARK: - Radios
 
     enum Radius {
-        static let card: CGFloat = 24
+        static let card: CGFloat = 22
         static let control: CGFloat = 16
-        static let chip: CGFloat = 11
+        static let chip: CGFloat = 12
     }
 
     // MARK: - Tipografía
@@ -129,60 +151,16 @@ enum AppTheme {
 
     // MARK: - Fondos reutilizables
 
+    /// Tarjeta plana: el contraste con el fondo basta, sin borde ni sombra.
     static func cardBackground(cornerRadius: CGFloat = Radius.card) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.thinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.14), border, border],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.75
-                    )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-            .shadow(color: .black.opacity(0.14), radius: 24, y: 12)
+            .fill(surface)
     }
 
-    /// Fondo del bloque protagonista: negro verdoso, halo de acento y filo verde.
-    static func statementBackground(cornerRadius: CGFloat = 30) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return shape
-            .fill(
-                LinearGradient(
-                    colors: [statementSurface, statementSurfaceDeep],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                shape.fill(
-                    RadialGradient(
-                        colors: [accent.opacity(0.20), .clear],
-                        center: .topTrailing,
-                        startRadius: 0,
-                        endRadius: 280
-                    )
-                )
-            )
-            .overlay(
-                shape.strokeBorder(
-                    LinearGradient(
-                        colors: [accent.opacity(0.38), onStatementFaint, onStatementFaint],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.85
-                )
-            )
-            .shadow(color: .black.opacity(0.34), radius: 26, y: 14)
+    /// Fondo del bloque protagonista: el acento al 12 % sobre el fondo.
+    static func statementBackground(cornerRadius: CGFloat = Radius.card) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(statementSurface)
     }
 
     /// Separador dentro del bloque protagonista.
@@ -195,10 +173,6 @@ enum AppTheme {
     static func insetBackground(cornerRadius: CGFloat = Radius.control) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(insetSurface)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(border, lineWidth: 1)
-            )
     }
 
     static func capsuleBackground(_ color: Color = surface) -> some View {
@@ -210,18 +184,8 @@ enum AppTheme {
         shape
             .fill(.ultraThinMaterial)
             .overlay(shape.fill(chromeSurface))
-            .overlay(
-                shape.strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.22), strongBorder, border],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.75
-                )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-            .shadow(color: .black.opacity(0.24), radius: 26, y: 12)
+            .overlay(shape.strokeBorder(strongBorder, lineWidth: 1))
+            .shadow(color: .black.opacity(0.30), radius: 16, y: 8)
     }
 }
 
@@ -295,8 +259,9 @@ struct AppCircleButton: View {
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(prominent ? AnyShapeStyle(AppTheme.accent) : AnyShapeStyle(AppTheme.controlSurface))
-                        .overlay(Circle().strokeBorder(AppTheme.border, lineWidth: prominent ? 0 : 1))
+                        .fill(prominent ? AnyShapeStyle(AppTheme.accent) : AnyShapeStyle(AppTheme.chromeButtonSurface))
+                        .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: prominent ? 0 : 1))
+                        .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
                 )
         }
         .buttonStyle(.pressable)
@@ -466,9 +431,11 @@ struct CategoryGlyph: View {
     var tint: Color = AppTheme.primaryText
     var background: Color = AppTheme.controlSurface
     var borderColor: Color?
+    /// Círculo en lugar de cuadrado redondeado, como en las filas de Gastos.
+    var isCircular = false
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: isCircular ? size / 2 : size * 0.32, style: .continuous)
 
         return Group {
             if let symbolName = categoria.symbolName {
@@ -534,7 +501,7 @@ struct AppDeltaChip: View {
 struct AppHairline: View {
     var body: some View {
         Rectangle()
-            .fill(AppTheme.border)
+            .fill(AppTheme.separator)
             .frame(height: 1)
     }
 }

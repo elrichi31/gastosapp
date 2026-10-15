@@ -256,15 +256,6 @@ struct HomeBudgetCategoryAlert: Hashable {
     let metrics: BudgetCategoryMetrics
 }
 
-struct HomeDecisionState {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let tint: Color
-    var amount: Double?
-    var isLoading = false
-}
-
 struct HomeRecurringPreview: Identifiable {
     let expense: RecurringExpense
     let date: Date

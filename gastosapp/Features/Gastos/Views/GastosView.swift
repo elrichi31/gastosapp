@@ -39,7 +39,7 @@ struct GastosView: View {
                     sectionMode: $sectionMode,
                     onAddTap: { path.append(.addExpense) }
                 )
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+                .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
@@ -69,6 +69,8 @@ struct GastosView: View {
             RecurringExpensesListView()
         case .calendario:
             FinancialCalendarView()
+        case .correo:
+            EmailReviewView()
         }
     }
 

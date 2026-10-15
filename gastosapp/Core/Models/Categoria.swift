@@ -61,29 +61,12 @@ struct Categoria: Identifiable, Hashable, Codable {
         symbolName ?? "circle.grid.2x2.fill"
     }
 
-    /// Rampa de marca para leyendas y segmentos apilados.
-    ///
-    /// Las fichas de categoría son neutras, pero un desglose con varias
-    /// categorías a la vez sí necesita tintes distinguibles. En lugar del
-    /// arcoíris anterior (rosa, índigo, azul) esta rampa se mantiene en la
-    /// familia del verde de marca más neutros cálidos, de modo que un gráfico
-    /// apilado siga leyéndose como parte de la misma app.
-    private static let ramp: [Color] = [
-        Color(red: 0.216, green: 0.588, blue: 0.361),
-        Color(red: 0.482, green: 0.729, blue: 0.478),
-        Color(red: 0.298, green: 0.667, blue: 0.612),
-        Color(red: 0.741, green: 0.729, blue: 0.463),
-        Color(red: 0.204, green: 0.451, blue: 0.435),
-        Color(red: 0.639, green: 0.596, blue: 0.502),
-        Color(red: 0.549, green: 0.663, blue: 0.325),
-        Color(red: 0.400, green: 0.529, blue: 0.545)
-    ]
-
     /// Tinte estable de la categoría, derivado de su identificador.
+    ///
+    /// Sale de `AppTheme.categoryPalette`: tonos de claridad parecida y matiz
+    /// bien separado, para que un desglose con varias categorías se lea sin leyenda.
     var color: Color {
-        guard !Self.ramp.isEmpty else { return AppTheme.accent }
-        let index = abs(id) % Self.ramp.count
-        return Self.ramp[index]
+        AppTheme.categoryColor(at: abs(id))
     }
 
     static let fallback: [Categoria] = [
