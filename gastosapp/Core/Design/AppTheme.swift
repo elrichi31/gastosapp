@@ -582,3 +582,44 @@ struct TransientStatusToast: View {
         .background(AppTheme.chromeBackground(Capsule()))
     }
 }
+
+/// Bloque de esqueleto con un brillo que lo recorre, mientras llegan los datos.
+///
+/// Con «Reducir movimiento» se queda quieto: el brillo es decoración, no
+/// información.
+struct SkeletonBlock: View {
+    var width: CGFloat?
+    var height: CGFloat
+    var cornerRadius: CGFloat = 8
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = -1
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(AppTheme.insetSurface)
+            .overlay {
+                if !reduceMotion {
+                    GeometryReader { proxy in
+                        LinearGradient(
+                            colors: [.clear, AppTheme.primaryText.opacity(0.07), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: proxy.size.width)
+                        .offset(x: phase * proxy.size.width)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                }
+            }
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}

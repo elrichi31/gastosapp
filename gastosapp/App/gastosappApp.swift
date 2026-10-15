@@ -11,7 +11,7 @@ import SwiftUI
 struct gastosappApp: App {
     @State private var store = ExpenseStore()
     @State private var budgetStore = BudgetStore()
-    @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.dark.rawValue
+    @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.defaultValue.rawValue
 
     init() {
         LocalNotificationManager.configureForegroundPresentation()
@@ -22,11 +22,12 @@ struct gastosappApp: App {
             ContentView()
                 .environment(store)
                 .environment(budgetStore)
-                .preferredColorScheme(selectedAppearance.colorScheme)
+                .onAppear { selectedAppearance.apply() }
+                .onChange(of: appearanceRawValue) { selectedAppearance.apply() }
         }
     }
 
     private var selectedAppearance: AppAppearancePreference {
-        AppAppearancePreference(rawValue: appearanceRawValue) ?? .system
+        AppAppearancePreference(rawValue: appearanceRawValue) ?? .defaultValue
     }
 }

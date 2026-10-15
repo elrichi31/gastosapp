@@ -849,14 +849,46 @@ struct HomeEmptyMonthState: View {
 struct HomeLoadingSkeleton: View {
     var body: some View {
         VStack(spacing: 16) {
-            Capsule().fill(AppTheme.surface).frame(height: 56)
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .fill(AppTheme.surface).frame(height: 132)
-            RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                .fill(AppTheme.surface).frame(height: 200)
+            HStack(spacing: 12) {
+                SkeletonBlock(width: 34, height: 34, cornerRadius: 17)
+                SkeletonBlock(width: 180, height: 14)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 16)
+            .frame(height: 56)
+            .background(Capsule().fill(AppTheme.surface))
+
+            VStack(alignment: .leading, spacing: 14) {
+                SkeletonBlock(width: 110, height: 12)
+                SkeletonBlock(width: 200, height: 40, cornerRadius: 10)
+                SkeletonBlock(width: 150, height: 22, cornerRadius: 11)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppTheme.cardBackground())
+
+            VStack(spacing: 0) {
+                ForEach(0..<3, id: \.self) { index in
+                    HStack(spacing: 14) {
+                        SkeletonBlock(width: 34, height: 34, cornerRadius: 17)
+                        VStack(alignment: .leading, spacing: 8) {
+                            SkeletonBlock(width: 120, height: 12)
+                            SkeletonBlock(width: 80, height: 10)
+                        }
+                        Spacer(minLength: 0)
+                        SkeletonBlock(width: 70, height: 20)
+                    }
+                    .frame(height: 64)
+                    .overlay(alignment: .top) { if index > 0 { AppHairline() } }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+            .background(AppTheme.cardBackground())
         }
-        .overlay { ProgressView().tint(AppTheme.secondaryText) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cargando tu resumen")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }

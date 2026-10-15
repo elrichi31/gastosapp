@@ -82,6 +82,8 @@ struct ExpensesListView: View {
     @State private var expenseToDelete: Expense?
     @State private var snapshot = ExpensesListSnapshot.placeholder(monthStart: ExpensesListView.inicioMes(Date()))
     @AppStorage("gastos.swipeTipDismissed") private var swipeTipDismissed = false
+    /// Hasta la primera carga, la lista vacía no significa «sin gastos».
+    @State private var hasLoaded = false
 
     private static func inicioMes(_ d: Date) -> Date {
         let comps = cal.dateComponents([.year, .month], from: d)
@@ -118,7 +120,7 @@ struct ExpensesListView: View {
                 // al usuario sin forma de volver.
                 sectionRow { totalBlock }
 
-                if store.isLoadingExpenses && store.gastos.isEmpty {
+                if (!hasLoaded || store.isLoadingExpenses) && snapshot.monthExpensesBase.isEmpty {
                     sectionRow { loadingState }
                 } else if snapshot.monthExpensesBase.isEmpty {
                     sectionRow { emptyMonthState }
@@ -169,6 +171,7 @@ struct ExpensesListView: View {
             await store.loadCatalogsIfNeeded()
             await store.loadExpensesIfNeeded()
             rebuildSnapshot()
+            hasLoaded = true
         }
         .onChange(of: store.gastos) { rebuildSnapshot() }
         .onChange(of: mesActual) {
@@ -652,19 +655,22 @@ struct ExpensesListView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            // Sólo iconos: el texto bajo cada uno sobraba en un hueco tan estrecho.
             Button(role: .destructive) {
                 expenseToDelete = gasto
             } label: {
-                Label("Eliminar", systemImage: "trash")
+                Image(systemName: "trash")
             }
             .tint(AppTheme.negative)
+            .accessibilityLabel("Eliminar \(gasto.descripcion)")
 
             Button {
                 presentedExpenseSheet = .edit(gasto)
             } label: {
-                Label("Editar", systemImage: "pencil")
+                Image(systemName: "pencil")
             }
-            .tint(AppTheme.controlSurface)
+            .tint(AppTheme.tertiaryText)
+            .accessibilityLabel("Editar \(gasto.descripcion)")
         }
     }
 
@@ -734,16 +740,28 @@ struct ExpensesListView: View {
 
     // MARK: - Estados
 
+    /// Esqueleto con la forma de la lista: encabezado de día y filas.
     private var loadingState: some View {
-        VStack(spacing: 12) {
-            ProgressView().tint(AppTheme.secondaryText)
-            Text("Cargando gastos")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+        VStack(alignment: .leading, spacing: 0) {
+            SkeletonBlock(width: 90, height: 16)
+                .padding(.bottom, 10)
+            ForEach(0..<5, id: \.self) { _ in
+                HStack(spacing: 14) {
+                    SkeletonBlock(width: 48, height: 48, cornerRadius: 24)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonBlock(width: 140, height: 14)
+                        SkeletonBlock(width: 100, height: 10)
+                    }
+                    Spacer(minLength: 0)
+                    SkeletonBlock(width: 64, height: 16)
+                }
+                .padding(.vertical, 10)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
-        .accessibilityElement(children: .combine)
+        .padding(.top, 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando gastos")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     private var emptyMonthState: some View {

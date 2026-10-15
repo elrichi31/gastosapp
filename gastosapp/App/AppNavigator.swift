@@ -1,5 +1,21 @@
 import SwiftUI
 
+private struct ProfileTransitionNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    /// Espacio de la transición «burbuja» entre el avatar y la hoja de Cuenta.
+    var profileTransitionNamespace: Namespace.ID? {
+        get { self[ProfileTransitionNamespaceKey.self] }
+        set { self[ProfileTransitionNamespaceKey.self] = newValue }
+    }
+}
+
+enum ProfileTransition {
+    static let sourceID = "perfil"
+}
+
 /// Estado de navegación compartido por las cuatro pestañas.
 ///
 /// La barra superior vive en cada pantalla, pero sus acciones (abrir la cuenta,

@@ -10,6 +10,7 @@ struct MainTabView: View {
     @State private var navigator = AppNavigator()
     @State private var inbox = AppInbox()
     @State private var chrome = TabBarChrome()
+    @Namespace private var profileNamespace
 
     var body: some View {
         @Bindable var navigator = navigator
@@ -18,6 +19,7 @@ struct MainTabView: View {
         .environment(chrome)
         .environment(navigator)
         .environment(inbox)
+        .environment(\.profileTransitionNamespace, profileNamespace)
         // La barra va en un `overlay`, no en un `safeAreaInset`: así no inyecta
         // ningún espacio implícito en el contenido. Todo el hueco bajo la barra
         // lo pide cada pantalla con `.floatingTabBarInset()`, que es lo único
@@ -40,6 +42,7 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $navigator.showsProfile) {
             ProfileView(onClose: { navigator.showsProfile = false })
+                .navigationTransition(.zoom(sourceID: ProfileTransition.sourceID, in: profileNamespace))
         }
         .sheet(isPresented: $navigator.showsNewExpense) {
             NavigationStack {

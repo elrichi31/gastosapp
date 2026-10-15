@@ -309,7 +309,9 @@ struct HomeView: View {
 
     @ViewBuilder
     private func summaryContent(_ snapshot: HomeDashboardSnapshot) -> some View {
-        if isLoadingHomeData && store.gastos.isEmpty {
+        // Mientras carga, esqueleto: el resumen vacío diría «no hay gastos»
+        // antes de saberlo.
+        if (isLoadingHomeData || store.isLoadingExpenses) && snapshot.monthExpenses.isEmpty {
             HomeLoadingSkeleton()
         } else if snapshot.monthExpenses.isEmpty {
             if pendingEmailCount > 0 {
@@ -567,6 +569,9 @@ struct HomeView: View {
     private func loadHomeData() async {
         isLoadingHomeData = true
         defer { isLoadingHomeData = false }
+        // Lo que ya está en el dispositivo se ve al momento; el servidor lo
+        // actualiza después.
+        rebuildDashboardSnapshot()
 
         await store.loadExpensesIfNeeded()
         await store.loadRecurringExpensesIfNeeded()

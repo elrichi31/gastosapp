@@ -13,6 +13,7 @@ struct AppTopBar: View {
     @Environment(ExpenseStore.self) private var store
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppInbox.self) private var inbox
+    @Environment(\.profileTransitionNamespace) private var profileNamespace
     @FocusState private var searchFocused: Bool
 
     private var query: Binding<String> {
@@ -53,6 +54,7 @@ struct AppTopBar: View {
                         .background(chromeCircle)
                 }
                 .buttonStyle(.pressable)
+                .profileTransitionSource(profileNamespace)
                 .accessibilityLabel("Cuenta: perfil, conexiones y ajustes")
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
@@ -177,6 +179,18 @@ struct AppTopBar: View {
             .fill(AppTheme.chromeButtonSurface)
             .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
             .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
+    }
+}
+
+private extension View {
+    /// El avatar es el origen de la burbuja que se abre en Cuenta.
+    @ViewBuilder
+    func profileTransitionSource(_ namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            matchedTransitionSource(id: ProfileTransition.sourceID, in: namespace)
+        } else {
+            self
+        }
     }
 }
 
