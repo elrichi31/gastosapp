@@ -26,7 +26,7 @@ enum GastosSectionMode: Hashable, CaseIterable {
             return "repeat"
         case .calendario: return "calendar"
         case .correo:
-            return "tray"
+            return "envelope"
         }
     }
 }
@@ -34,11 +34,13 @@ enum GastosSectionMode: Hashable, CaseIterable {
 /// Encabezado de Gastos: título grande y accesos circulares.
 ///
 /// En Movimientos los círculos abren Recurrentes, Calendario y Correo; dentro
-/// de una de ellas un botón de volver ocupa su lugar. El «+» está siempre.
+/// de una de ellas un botón de volver ocupa su lugar. El «+» sólo aparece si
+/// no hay barra superior compartida que ya lo ofrezca.
 struct GastosHeaderBar: View {
     @Binding var sectionMode: GastosSectionMode
 
-    let onAddTap: () -> Void
+    /// `nil` cuando la barra superior compartida ya ofrece el «+».
+    var onAddTap: (() -> Void)?
 
     private let shortcuts: [GastosSectionMode] = [.recurrentes, .calendario, .correo]
 
@@ -67,7 +69,9 @@ struct GastosHeaderBar: View {
                 }
             }
 
-            AppCircleButton(icon: "plus", label: "Nuevo gasto", action: onAddTap)
+            if let onAddTap {
+                AppCircleButton(icon: "plus", label: "Nuevo gasto", action: onAddTap)
+            }
         }
         .frame(maxWidth: .infinity)
     }

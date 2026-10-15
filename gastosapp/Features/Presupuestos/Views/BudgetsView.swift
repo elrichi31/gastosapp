@@ -18,6 +18,7 @@ struct BudgetsView: View {
     @Environment(ExpenseStore.self) private var session
     @Environment(BudgetStore.self) private var budgets
     @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+    @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var presentedSheet: PresentedSheet?
     @State private var budgetToDelete: BudgetMonthly?
     @State private var path: [Route] = []
@@ -68,8 +69,15 @@ struct BudgetsView: View {
                         .floatingTabBarInset()
                 }
             }
+            .appTopBarPanels()
             .safeAreaInset(edge: .top, spacing: 0) {
-                header
+                VStack(spacing: 14) {
+                    if navigator != nil {
+                        AppTopBar()
+                            .padding(.horizontal, -4)
+                    }
+                    header
+                }
                     .padding(.horizontal, 20)
                     .padding(.top, AppScreenMetrics.headerTopPadding)
                     .padding(.bottom, AppScreenMetrics.headerBottomPadding)

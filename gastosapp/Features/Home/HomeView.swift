@@ -30,6 +30,8 @@ struct HomeView: View {
     @State private var pulse = HomeMonthPulse.placeholder()
     @State private var selectedCalendarDay: Int?
     @State private var emailReview = EmailReviewStore()
+    @Environment(AppNavigator.self) private var navigator: AppNavigator?
+    @Environment(AppInbox.self) private var inbox: AppInbox?
     @State private var showsEmailReview = false
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
@@ -145,16 +147,19 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
-                .padding(.top, 4)
+                .padding(.top, 10)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
                 .animation(.easeOut(duration: 0.2), value: isLoadingHomeData)
             }
             .tracksScrollChrome()
             .floatingTabBarInset()
         }
+        .appTopBarPanels()
         .safeAreaInset(edge: .top, spacing: 0) {
-            barraSuperior
-                .padding(.horizontal, 20)
+            Group {
+                if navigator != nil { AppTopBar() } else { barraSuperior }
+            }
+                .padding(.horizontal, 16)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
@@ -166,6 +171,7 @@ struct HomeView: View {
             await loadHomeData()
         }
         .task {
+            guard inbox == nil else { return }
             emailReview.tab = "nuevos"
             await emailReview.load(using: store)
         }
@@ -194,7 +200,9 @@ struct HomeView: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showsEmailReview, onDismiss: {
-            Task { await emailReview.load(using: store) }
+            Task {
+                if inbox == nil { await emailReview.load(using: store) }
+            }
         }) {
             NavigationStack {
                 EmailReviewView()
@@ -377,6 +385,7 @@ struct HomeView: View {
     }
 
     private var pendingEmailCount: Int {
+        if let inbox { return inbox.pendingEmailCount }
         guard emailReview.isEnabled == true else { return 0 }
         return emailReview.counts["nuevos"] ?? 0
     }

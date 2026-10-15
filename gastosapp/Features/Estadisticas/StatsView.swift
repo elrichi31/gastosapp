@@ -15,6 +15,7 @@ struct StatsView: View {
 
     @Environment(ExpenseStore.self) private var expenses
     @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+    @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var tab: Tab = .detail
     @State private var period: StatsPeriod = .month(
         year: Calendar.current.component(.year, from: Date()),
@@ -65,8 +66,15 @@ struct StatsView: View {
                 }
             }
         }
+        .appTopBarPanels()
         .safeAreaInset(edge: .top, spacing: 0) {
-            header
+            VStack(spacing: 14) {
+                if navigator != nil {
+                    AppTopBar()
+                        .padding(.horizontal, -4)
+                }
+                header
+            }
                 .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)

@@ -6,18 +6,15 @@ import SwiftUI
 /// exactamente el alto que la barra reserva en el área segura inferior, así que
 /// las dos nunca pueden desincronizarse.
 enum FloatingTabBarMetrics {
-    /// Alto de cada pestaña con el rótulo visible.
-    static let itemHeight: CGFloat = 46
-    /// Alto de cada pestaña cuando la barra se contrae al desplazar.
-    static let compactItemHeight: CGFloat = 44
-    /// Tamaño del icono contraído.
-    ///
-    /// Al desaparecer el rótulo el icono crece para ocupar ese hueco: si
-    /// mantuviera su tamaño, la barra contraída se vería medio vacía.
-    static let compactIconSize: CGFloat = 24
-    static let iconSize: CGFloat = 16
-    static let innerPadding: CGFloat = 7
-    static let outerVerticalPadding: CGFloat = 10
+    /// Alto de cada pestaña con el rótulo visible (64 de cápsula − 2 × 4).
+    static let itemHeight: CGFloat = 56
+    /// Alto de cada pestaña cuando la barra se contrae al desplazar (54 − 2 × 4).
+    static let compactItemHeight: CGFloat = 46
+    static let innerPadding: CGFloat = 4
+    static let outerVerticalPadding: CGFloat = 8
+    /// Margen lateral de la cápsula; al contraerse se estrecha.
+    static let horizontalInset: CGFloat = 16
+    static let compactHorizontalInset: CGFloat = 64
 
     static var expandedHeight: CGFloat {
         itemHeight + innerPadding * 2 + outerVerticalPadding * 2

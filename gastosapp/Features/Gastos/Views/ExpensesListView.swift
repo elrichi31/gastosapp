@@ -58,7 +58,17 @@ struct ExpensesListView: View {
     @State private var originFilter = "all"
     @State private var selectedCategoryID: Int?
     @State private var selectedTags: Set<String> = []
-    @State private var searchText = ""
+    @State private var localSearchText = ""
+    @Environment(AppNavigator.self) private var navigator: AppNavigator?
+
+    /// El texto vive en el navegador para que el buscador de la barra superior
+    /// filtre esta lista; sin navegador (vistas previas) es local.
+    private var searchText: String {
+        get { navigator?.expenseQuery ?? localSearchText }
+        nonmutating set {
+            if let navigator { navigator.expenseQuery = newValue } else { localSearchText = newValue }
+        }
+    }
     @State private var showsFilters = false
     @State private var showsTags = false
     @State private var presentedExpenseSheet: ExpenseSheet?
@@ -88,7 +98,9 @@ struct ExpensesListView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             List {
-                sectionRow { searchField }
+                if navigator == nil {
+                    sectionRow { searchField }
+                }
 
                 // El bloque va siempre, también en un mes sin gastos: además del
                 // total lleva la navegación de mes, así que ocultarlo dejaría
@@ -204,7 +216,7 @@ struct ExpensesListView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(AppTheme.secondaryText)
                 .accessibilityHidden(true)
-            TextField("Buscar", text: $searchText, prompt: Text("Buscar").foregroundStyle(AppTheme.tertiaryText))
+            TextField("Buscar", text: Binding(get: { searchText }, set: { searchText = $0 }), prompt: Text("Buscar").foregroundStyle(AppTheme.tertiaryText))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)

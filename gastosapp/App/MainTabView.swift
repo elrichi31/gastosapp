@@ -5,13 +5,19 @@ struct MainTabView: View {
         case inicio, gastos, presupuestos, stats
     }
 
-    @State private var seleccion: Tab = .inicio
+    @Environment(ExpenseStore.self) private var store
+    @Environment(BudgetStore.self) private var budgets
+    @State private var navigator = AppNavigator()
+    @State private var inbox = AppInbox()
     @State private var chrome = TabBarChrome()
 
     var body: some View {
+        @Bindable var navigator = navigator
         currentTabView
         .environment(\.floatingTabBarHeight, FloatingTabBarMetrics.reservedHeight)
         .environment(chrome)
+        .environment(navigator)
+        .environment(inbox)
         // La barra va en un `overlay`, no en un `safeAreaInset`: así no inyecta
         // ningún espacio implícito en el contenido. Todo el hueco bajo la barra
         // lo pide cada pantalla con `.floatingTabBarInset()`, que es lo único
@@ -20,16 +26,34 @@ struct MainTabView: View {
         // empuja un `NavigationStack`, y la explícita— y unas pantallas
         // quedaban tapadas mientras otras reservaban el doble.
         .overlay(alignment: .bottom) {
-            PillTabBar(seleccion: $seleccion, isCompact: chrome.isCompact)
-                .padding(.horizontal, 12)
+            PillTabBar(seleccion: $navigator.selectedTab, isCompact: chrome.isCompact)
+                .padding(.horizontal, chrome.isCompact ? FloatingTabBarMetrics.compactHorizontalInset : FloatingTabBarMetrics.horizontalInset)
                 .padding(.bottom, FloatingTabBarMetrics.outerVerticalPadding)
         }
         .ignoresSafeArea(.keyboard)
-        .sensoryFeedback(.selection, trigger: seleccion)
-        .onChange(of: seleccion) { _, _ in
+        .sensoryFeedback(.selection, trigger: navigator.selectedTab)
+        .onChange(of: navigator.selectedTab) { _, _ in
+            navigator.panel = nil
             withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                 chrome.isCompact = false
             }
+        }
+        .sheet(isPresented: $navigator.showsProfile) {
+            ProfileView(onClose: { navigator.showsProfile = false })
+        }
+        .sheet(isPresented: $navigator.showsNewExpense) {
+            NavigationStack {
+                AddExpenseSheet { _ in navigator.showsNewExpense = false }
+            }
+        }
+        .task(id: store.canAccessProtectedEndpoints) {
+            await inbox.refresh(store: store, budgets: budgets)
+        }
+        .onChange(of: budgets.budgets) { Task { await inbox.refresh(store: store, budgets: budgets) } }
+        .onChange(of: store.gastos) { inbox.rebuild(store: store) }
+        .onChange(of: store.recurringExpenses) { inbox.rebuild(store: store) }
+        .onChange(of: navigator.panel) { _, panel in
+            if panel == .inbox { Task { await inbox.refresh(store: store, budgets: budgets) } }
         }
     }
 
@@ -37,15 +61,15 @@ struct MainTabView: View {
         tabContent
             // La identidad por pestaña es lo que le da a SwiftUI algo que
             // transicionar: sin el `id` cambiaría el contenido en seco.
-            .id(seleccion)
+            .id(navigator.selectedTab)
             .transition(.opacity)
     }
 
     @ViewBuilder
     private var tabContent: some View {
-        switch seleccion {
+        switch navigator.selectedTab {
         case .inicio:
-            HomeView(onOpenTab: { seleccion = $0 })
+            HomeView(onOpenTab: { navigator.open($0) })
         case .gastos:
             GastosView()
         case .presupuestos:
@@ -56,32 +80,30 @@ struct MainTabView: View {
     }
 }
 
+/// Barra de pestañas del canvas: cápsula oscura translúcida, la pestaña activa
+/// con un fondo claro sutil y, al desplazar, más estrecha y sin rótulos.
 private struct PillTabBar: View {
     @Binding var seleccion: MainTabView.Tab
     let isCompact: Bool
     @Namespace private var indicator
 
     private let items: [(tab: MainTabView.Tab, icon: String, title: String)] = [
-        (.inicio, "house.fill", "Inicio"),
-        (.gastos, "creditcard.fill", "Gastos"),
-        (.presupuestos, "target", "Presupuestos"),
-        (.stats, "chart.bar.fill", "Análisis")
+        (.inicio, "house", "Resumen"),
+        (.gastos, "doc.text", "Gastos"),
+        (.presupuestos, "chart.pie", "Plan"),
+        (.stats, "chart.bar", "Análisis")
     ]
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(items, id: \.tab) { item in
                 botonTab(tab: item.tab, icono: item.icon, titulo: item.title)
             }
         }
         .padding(FloatingTabBarMetrics.innerPadding)
-        .appChromeBackground(Capsule())
+        .background(AppTheme.chromeBackground(Capsule()))
         .accessibilityElement(children: .contain)
-    }
-
-    /// Cuánto se reduce el icono cuando el rótulo está visible.
-    private var iconShrinkFactor: CGFloat {
-        FloatingTabBarMetrics.iconSize / FloatingTabBarMetrics.compactIconSize
+        .accessibilityLabel("Principal")
     }
 
     private func botonTab(tab: MainTabView.Tab, icono: String, titulo: String) -> some View {
@@ -92,34 +114,24 @@ private struct PillTabBar: View {
             }
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: icono)
-                    .font(.system(size: FloatingTabBarMetrics.compactIconSize, weight: .semibold))
-                    .scaleEffect(isCompact ? 1 : iconShrinkFactor, anchor: .center)
-                    .frame(height: FloatingTabBarMetrics.compactIconSize)
-                    .symbolEffect(.bounce, value: activo)
+                Image(systemName: activo ? icono + ".fill" : icono)
+                    .font(.system(size: 20, weight: activo ? .semibold : .regular))
+                    .frame(height: 24)
                 if !isCompact {
                     Text(titulo)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.1)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .padding(.horizontal, 2)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                 }
             }
-            .foregroundStyle(activo ? AppTheme.accent : AppTheme.tertiaryText)
+            .foregroundStyle(activo ? AppTheme.primaryText : AppTheme.secondaryText)
             .frame(maxWidth: .infinity)
             .frame(height: isCompact ? FloatingTabBarMetrics.compactItemHeight : FloatingTabBarMetrics.itemHeight)
             .background {
                 if activo {
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [AppTheme.accent.opacity(0.22), AppTheme.accent.opacity(0.10)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .overlay(Capsule().strokeBorder(AppTheme.accent.opacity(0.20), lineWidth: 0.75))
+                        .fill(AppTheme.primaryText.opacity(0.1))
                         .matchedGeometryEffect(id: "tab", in: indicator)
                 }
             }
@@ -127,7 +139,6 @@ private struct PillTabBar: View {
         }
         .buttonStyle(.pressable(scale: 0.9))
         .accessibilityLabel(titulo)
-        .accessibilityValue(activo ? "Seleccionado" : "")
         .accessibilityAddTraits(activo ? .isSelected : [])
     }
 }

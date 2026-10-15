@@ -7,6 +7,7 @@ struct GastosView: View {
 
     @Environment(ExpenseStore.self) private var store
     @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+    @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var sectionMode: GastosSectionMode = .movimientos
     @State private var path: [Route] = []
 
@@ -34,11 +35,18 @@ struct GastosView: View {
                     .floatingTabBarInset()
                 }
             }
+            .appTopBarPanels()
             .safeAreaInset(edge: .top, spacing: 0) {
-                GastosHeaderBar(
-                    sectionMode: $sectionMode,
-                    onAddTap: { path.append(.addExpense) }
-                )
+                VStack(spacing: 14) {
+                    if navigator != nil {
+                        AppTopBar(mode: sectionMode == .movimientos ? .filter : .panel)
+                            .padding(.horizontal, -4)
+                    }
+                    GastosHeaderBar(
+                        sectionMode: $sectionMode,
+                        onAddTap: navigator == nil ? { path.append(.addExpense) } : nil
+                    )
+                }
                 .padding(.horizontal, 20)
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
@@ -47,6 +55,18 @@ struct GastosView: View {
                         .opacity(chrome?.isScrolled == true ? 1 : 0)
                 }
             }
+        }
+        .onAppear(perform: consumePendingSection)
+        .onChange(of: navigator?.pendingGastosSection) { consumePendingSection() }
+    }
+
+    /// Abre la sección que pidió la bandeja o la búsqueda desde otra pestaña.
+    private func consumePendingSection() {
+        guard let section = navigator?.pendingGastosSection else { return }
+        navigator?.pendingGastosSection = nil
+        path.removeAll()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            sectionMode = section
         }
     }
 
