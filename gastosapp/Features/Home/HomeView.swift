@@ -10,7 +10,6 @@ struct HomeView: View {
     }
 
     @Environment(ExpenseStore.self) private var store
-    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(BudgetStore.self) private var budgetStore
     /// Cambia de pestaña desde los enlaces «Ver todos» y «Ajustar».
     var onOpenTab: (MainTabView.Tab) -> Void = { _ in }
@@ -163,8 +162,7 @@ struct HomeView: View {
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
-                    AppHeaderScrim()
-                        .opacity(chrome?.isScrolled == true ? 1 : 0)
+                    ScrollAwareHeaderScrim()
                 }
         }
         .task {
@@ -342,7 +340,7 @@ struct HomeView: View {
                     metrics: metrics,
                     dailyAllowance: dailyBudgetAllowance(using: snapshot),
                     lines: pulse.budgetLines,
-                    onAdjust: { onOpenTab(.presupuestos) }
+                    onAdjust: { openTab(.presupuestos) }
                 )
             } else {
                 HomeNoBudgetCard { presentedQuickAction = .budget }
@@ -359,7 +357,7 @@ struct HomeView: View {
 
             HomeRecentExpensesSection(
                 expenses: Array(snapshot.monthExpenses.prefix(5)),
-                onSeeAll: { onOpenTab(.gastos) }
+                onSeeAll: { openTab(.gastos) }
             )
 
             let upcoming = upcomingRecurring
@@ -384,6 +382,10 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func openTab(_ tab: MainTabView.Tab) {
+        if let navigator { navigator.open(tab) } else { onOpenTab(tab) }
     }
 
     private var pendingEmailCount: Int {

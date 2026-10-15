@@ -383,6 +383,26 @@ struct AppHeaderScrim: View {
     }
 }
 
+/// Velo de encabezado que aparece al desplazar.
+///
+/// Lee `TabBarChrome` por su cuenta: si la pantalla lo leyera en su `body`,
+/// cada vez que el velo aparece o desaparece se recalcularía la pantalla
+/// entera. Y sólo dibuja el desenfoque cuando se ve; con opacidad 0 el
+/// material se seguía componiendo en cada fotograma.
+struct ScrollAwareHeaderScrim: View {
+    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+
+    var body: some View {
+        ZStack {
+            if chrome?.isScrolled == true {
+                AppHeaderScrim()
+                    .transition(.opacity)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// Velo inferior: el mismo cristal que `AppHeaderScrim`, fundido hacia arriba.
 ///
 /// Va detrás de las acciones fijas al pie (como «Guardar gasto») para que el

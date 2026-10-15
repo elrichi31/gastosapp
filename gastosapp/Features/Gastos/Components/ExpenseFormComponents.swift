@@ -189,6 +189,22 @@ struct FormAmountEntry: View {
     var hint: (text: String, color: Color)?
     var focus: FocusState<Bool>.Binding
 
+    /// Tamaño según cuántos caracteres tiene el monto.
+    ///
+    /// Antes se usaba `minimumScaleFactor`, que iOS resuelve en el primer
+    /// dibujo: al editar un gasto el monto aparecía encogido y crecía de golpe
+    /// al tocar una cifra. Con un tamaño calculado es igual siempre.
+    private var fontSize: CGFloat {
+        switch text.count {
+        case 0...5: return 64
+        case 6: return 58
+        case 7: return 52
+        case 8: return 46
+        case 9: return 42
+        default: return 38
+        }
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             Text(label)
@@ -196,22 +212,22 @@ struct FormAmountEntry: View {
                 .foregroundStyle(AppTheme.tertiaryText)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("$")
-                    .font(.system(size: 36, weight: .semibold))
+                    .font(.system(size: fontSize * 0.56, weight: .semibold))
                     .foregroundStyle(AppTheme.tertiaryText)
                 TextField("", text: $text, prompt: Text("0").foregroundStyle(AppTheme.placeholderText))
                     .keyboardType(.decimalPad)
                     .focused(focus)
-                    .font(.system(size: 64, weight: .semibold))
+                    .font(.system(size: fontSize, weight: .semibold))
                     .tracking(-2)
                     .monospacedDigit()
                     .multilineTextAlignment(.center)
                     .foregroundStyle(AppTheme.primaryText)
                     .tint(AppTheme.accent)
                     .fixedSize()
-                    .minimumScaleFactor(0.5)
                     .accessibilityLabel("Monto en dólares")
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 76)
+            .animation(.snappy(duration: 0.2), value: fontSize)
             .contentShape(.rect)
             .onTapGesture { focus.wrappedValue = true }
 

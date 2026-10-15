@@ -6,7 +6,6 @@ struct GastosView: View {
     }
 
     @Environment(ExpenseStore.self) private var store
-    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var sectionMode: GastosSectionMode = .movimientos
     @State private var path: [Route] = []
@@ -48,8 +47,7 @@ struct GastosView: View {
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
-                    AppHeaderScrim()
-                        .opacity(chrome?.isScrolled == true ? 1 : 0)
+                    ScrollAwareHeaderScrim()
                 }
             }
         }

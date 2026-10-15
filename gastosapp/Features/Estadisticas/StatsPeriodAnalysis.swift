@@ -29,6 +29,11 @@ struct StatsPeriodAnalysis {
         var id: Int { index }
     }
 
+    struct CumulativePoint {
+        let index: Int
+        let total: Double
+    }
+
     struct CategoryLine: Identifiable {
         let category: Categoria
         let total: Double
@@ -83,6 +88,9 @@ struct StatsPeriodAnalysis {
 
     let points: [Point]
     let previousPoints: [Point]
+    /// Acumulados para el modo «Acumulado» del gráfico, calculados una vez.
+    let cumulative: [CumulativePoint]
+    let previousCumulative: [CumulativePoint]
     let categories: [CategoryLine]
     let weekdayTotals: [Double]
     let weekdayDays: [Int]
@@ -180,6 +188,18 @@ struct StatsPeriodAnalysis {
 
         total = sum(expenses)
         previousTotal = previous.map(sum)
+
+        var running = 0.0
+        cumulative = points.filter { !$0.isFuture }.map { point in
+            running += point.total
+            return CumulativePoint(index: point.index, total: running)
+        }
+        running = 0
+        let lastIndex = points.last?.index ?? 0
+        previousCumulative = previousPoints.filter { $0.index <= lastIndex }.map { point in
+            running += point.total
+            return CumulativePoint(index: point.index, total: running)
+        }
 
         let previousByCategory = previous.map { items in
             Dictionary(grouping: items, by: \.categoriaId).mapValues(sum)

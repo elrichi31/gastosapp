@@ -183,7 +183,7 @@ struct ExpensesListView: View {
         .onChange(of: originFilter) { rebuildSnapshot() }
         .onChange(of: selectedCategoryID) { rebuildSnapshot() }
         .onChange(of: selectedTags) { rebuildSnapshot() }
-        .onChange(of: searchText) { rebuildSnapshot() }
+        .onChange(of: searchText) { rebuildSnapshot(animated: false) }
         .sheet(item: $presentedExpenseSheet) { sheet in
             NavigationStack {
                 switch sheet {
@@ -971,20 +971,27 @@ struct ExpensesListView: View {
         )
     }
 
-    private func rebuildSnapshot() {
+    /// Recalcula la lista. Al escribir en el buscador va sin animación: animar
+    /// la lista entera a cada tecla era lo que la hacía ir a tirones.
+    private func rebuildSnapshot(animated: Bool = true) {
         let query = cleanSearchText
+        let next = ExpensesListSnapshot(
+            expenses: store.gastos,
+            monthStart: mesActual,
+            calendar: Self.cal,
+            recurrenceMatches: { matchesRecurrence($0) && matchesCategoryAndTags($0) },
+            paymentMatches: matchesPaymentMethod,
+            searchMatches: { matchesSearch($0, query: query) }
+        )
+        guard animated else {
+            snapshot = next
+            return
+        }
         // El total vive dentro del snapshot, así que la animación tiene que
         // envolver esta asignación: si sólo se anima `mesActual`, la cifra
         // cambia de golpe y no rueda.
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-            snapshot = ExpensesListSnapshot(
-                expenses: store.gastos,
-                monthStart: mesActual,
-                calendar: Self.cal,
-                recurrenceMatches: { matchesRecurrence($0) && matchesCategoryAndTags($0) },
-                paymentMatches: matchesPaymentMethod,
-                searchMatches: { matchesSearch($0, query: query) }
-            )
+            snapshot = next
         }
     }
 }

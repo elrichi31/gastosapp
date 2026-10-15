@@ -28,9 +28,9 @@ struct MainTabView: View {
         // empuja un `NavigationStack`, y la explícita— y unas pantallas
         // quedaban tapadas mientras otras reservaban el doble.
         .overlay(alignment: .bottom) {
-            PillTabBar(seleccion: $navigator.selectedTab, isCompact: chrome.isCompact)
-                .padding(.horizontal, chrome.isCompact ? FloatingTabBarMetrics.compactHorizontalInset : FloatingTabBarMetrics.horizontalInset)
-                .padding(.bottom, FloatingTabBarMetrics.outerVerticalPadding)
+            // La barra lee `chrome` por su cuenta: así al contraerse sólo se
+            // recalcula ella y no la vista principal con la pantalla activa.
+            FloatingTabBar(seleccion: $navigator.selectedTab, chrome: chrome)
         }
         .ignoresSafeArea(.keyboard)
         .sensoryFeedback(.selection, trigger: navigator.selectedTab)
@@ -72,7 +72,7 @@ struct MainTabView: View {
     private var tabContent: some View {
         switch navigator.selectedTab {
         case .inicio:
-            HomeView(onOpenTab: { navigator.open($0) })
+            HomeView()
         case .gastos:
             GastosView()
         case .presupuestos:
@@ -80,6 +80,18 @@ struct MainTabView: View {
         case .stats:
             StatsView()
         }
+    }
+}
+
+private struct FloatingTabBar: View {
+    @Binding var seleccion: MainTabView.Tab
+    /// Se pasa directo: el `overlay` queda fuera del `.environment(chrome)`.
+    let chrome: TabBarChrome
+
+    var body: some View {
+        PillTabBar(seleccion: $seleccion, isCompact: chrome.isCompact)
+            .padding(.horizontal, chrome.isCompact ? FloatingTabBarMetrics.compactHorizontalInset : FloatingTabBarMetrics.horizontalInset)
+            .padding(.bottom, FloatingTabBarMetrics.outerVerticalPadding)
     }
 }
 

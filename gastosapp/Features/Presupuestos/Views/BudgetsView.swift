@@ -17,7 +17,6 @@ struct BudgetsView: View {
 
     @Environment(ExpenseStore.self) private var session
     @Environment(BudgetStore.self) private var budgets
-    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var presentedSheet: PresentedSheet?
     @State private var budgetToDelete: BudgetMonthly?
@@ -85,8 +84,7 @@ struct BudgetsView: View {
                     .padding(.top, AppScreenMetrics.headerTopPadding)
                     .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                     .background {
-                        AppHeaderScrim()
-                            .opacity(chrome?.isScrolled == true ? 1 : 0)
+                        ScrollAwareHeaderScrim()
                     }
             }
             .task { await loadAnnualData() }

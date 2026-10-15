@@ -10,11 +10,9 @@ struct StatsView: View {
         case projection = "Proyección"
     }
 
-    private enum EvolutionMode: Hashable { case perPoint, cumulative }
     private enum Section: Hashable { case habits, payments, top }
 
     @Environment(ExpenseStore.self) private var expenses
-    @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
     @Environment(AppNavigator.self) private var navigator: AppNavigator?
     @State private var tab: Tab = .detail
     @State private var period: StatsPeriod = .month(
@@ -22,9 +20,6 @@ struct StatsView: View {
         month: Calendar.current.component(.month, from: Date())
     )
     @State private var analysis = StatsPeriodAnalysis(period: .all, allExpenses: [])
-    @State private var evolutionMode: EvolutionMode = .perPoint
-    @State private var selectedPoint: Int?
-    @State private var showsDailyData = false
     @State private var openGroups: Set<Section> = []
     @State private var selectedWeekday: Int?
     @State private var weeksPerDay = false
@@ -83,8 +78,7 @@ struct StatsView: View {
                 .padding(.top, AppScreenMetrics.headerTopPadding)
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background {
-                    AppHeaderScrim()
-                        .opacity(chrome?.isScrolled == true ? 1 : 0)
+                    ScrollAwareHeaderScrim()
                 }
         }
         .task {
@@ -98,9 +92,7 @@ struct StatsView: View {
         }
         .onChange(of: expenses.gastos) { rebuild() }
         .onChange(of: period) {
-            selectedPoint = nil
             selectedWeekday = nil
-            if !analysisIsRange { evolutionMode = .perPoint }
             rebuild()
         }
     }
@@ -186,7 +178,10 @@ struct StatsView: View {
             )
             .padding(.horizontal, 20)
         } else {
-            totalSection
+            // Vista propia: arrastrar por el gráfico sólo recalcula el gráfico,
+            // no todas las secciones de Análisis.
+            StatsEvolutionSection(analysis: analysis)
+                .id(analysis.period)
             ledger
             highlights
             categorySection
@@ -196,214 +191,6 @@ struct StatsView: View {
             if openGroups.contains(.payments) { paymentsContent }
             groupHeader(.top, icon: "arrow.up.right", title: "Mayores gastos", subtitle: "Los más altos del período")
             if openGroups.contains(.top) { topContent }
-        }
-    }
-
-    private var totalSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Gasto total · \(analysis.title)")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(AppTheme.secondaryText)
-                splitAmount(analysis.total)
-                HStack(spacing: 8) {
-                    HomeSpendDelta(percent: analysis.totalDelta, style: .pill)
-                    Text(analysis.comparisonText)
-                }
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
-            }
-
-            segmented(
-                [EvolutionMode.perPoint, .cumulative],
-                selection: $evolutionMode,
-                height: 36,
-                fontSize: 13,
-                minWidth: 96
-            ) { $0 == .perPoint ? (analysis.isRange ? "Por día" : "Por mes") : "Acumulado" }
-            .fixedSize()
-
-            Text(readout)
-                .font(.footnote)
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(minHeight: 18, alignment: .leading)
-                .contentTransition(.numericText())
-
-            evolutionChart
-
-            HStack {
-                Text(analysis.points.first?.label ?? "")
-                Spacer()
-                Text(analysis.points.isEmpty ? "" : analysis.points[analysis.points.count / 2].label)
-                Spacer()
-                Text(analysis.points.last?.label ?? "")
-            }
-            .font(.caption)
-            .monospacedDigit()
-            .foregroundStyle(AppTheme.tertiaryText)
-            .padding(.top, -6)
-
-            HStack(spacing: 18) {
-                legend(color: AppTheme.accent, dashed: false, text: "Actual")
-                if evolutionMode == .cumulative, let label = analysis.previousLabel {
-                    legend(color: AppTheme.tertiaryText, dashed: true, text: label)
-                }
-                Spacer()
-                Text("Máx. \(money(evolutionMax))")
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.tertiaryText)
-            }
-            .font(.caption)
-            .foregroundStyle(AppTheme.secondaryText)
-
-            dailyDataDisclosure
-        }
-        .padding(.horizontal, 20)
-    }
-
-    private var cumulative: [(index: Int, total: Double)] {
-        var running = 0.0
-        return analysis.points.filter { !$0.isFuture }.map { point in
-            running += point.total
-            return (point.index, running)
-        }
-    }
-
-    private var previousCumulative: [(index: Int, total: Double)] {
-        var running = 0.0
-        return analysis.previousPoints.map { point in
-            running += point.total
-            return (point.index, running)
-        }
-    }
-
-    private var evolutionMax: Double {
-        switch evolutionMode {
-        case .perPoint: return analysis.points.map(\.total).max() ?? 0
-        case .cumulative: return max(cumulative.last?.total ?? 0, previousCumulative.last?.total ?? 0)
-        }
-    }
-
-    private var readout: String {
-        guard let selectedPoint, let point = analysis.points.first(where: { $0.index == selectedPoint }) else {
-            return analysis.isRange ? "Toca el gráfico para ver cada día" : "Toca el gráfico para ver cada mes"
-        }
-        if evolutionMode == .cumulative, let running = cumulative.first(where: { $0.index == selectedPoint }) {
-            return "\(point.label) · \(money(running.total)) acumulado"
-        }
-        let count = point.count == 1 ? "1 gasto" : "\(point.count) gastos"
-        return point.count == 0 ? "\(point.label) · sin gastos" : "\(point.label) · \(money(point.total)) · \(count)"
-    }
-
-    private var evolutionChart: some View {
-        Chart {
-            switch evolutionMode {
-            case .perPoint:
-                ForEach(analysis.points) { point in
-                    BarMark(
-                        x: .value("Día", String(point.index)),
-                        y: .value("Gasto", point.isFuture ? 0 : point.total),
-                        width: .ratio(0.62)
-                    )
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3))
-                    .foregroundStyle(barColor(point))
-                }
-            case .cumulative:
-                ForEach(previousCumulative.filter { $0.index <= (analysis.points.last?.index ?? 0) }, id: \.index) { item in
-                    LineMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Anterior"))
-                        .foregroundStyle(AppTheme.tertiaryText)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
-                        .interpolationMethod(.monotone)
-                }
-                ForEach(cumulative, id: \.index) { item in
-                    LineMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Actual"))
-                        .foregroundStyle(AppTheme.accent)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        .interpolationMethod(.monotone)
-                    AreaMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Actual"))
-                        .foregroundStyle(LinearGradient(colors: [AppTheme.accent.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.monotone)
-                }
-            }
-            if let selectedPoint {
-                RuleMark(x: .value("Día", String(selectedPoint)))
-                    .foregroundStyle(AppTheme.primaryText.opacity(0.55))
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-            }
-        }
-        .chartXSelection(value: Binding(
-            get: { selectedPoint.map(String.init) },
-            set: { selectedPoint = $0.flatMap(Int.init) }
-        ))
-        .chartXScale(domain: analysis.points.map { String($0.index) })
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartPlotStyle { plot in
-            plot
-                .overlay(alignment: .bottom) { Rectangle().fill(AppTheme.separator).frame(height: 1) }
-                .overlay(alignment: .top) { Rectangle().fill(AppTheme.separator.opacity(0.5)).frame(height: 1) }
-        }
-        .frame(height: 150)
-        .accessibilityLabel(analysis.isRange ? "Gasto diario de \(analysis.title)" : "Gasto mensual del historial")
-    }
-
-    private func barColor(_ point: StatsPeriodAnalysis.Point) -> Color {
-        if point.index == selectedPoint { return AppTheme.primaryText }
-        if analysis.isInProgress, point.index == analysis.elapsedDays { return AppTheme.accent }
-        return analysis.isInProgress || !analysis.isRange ? AppTheme.primaryText.opacity(0.22) : AppTheme.accent.opacity(0.75)
-    }
-
-    private func legend(color: Color, dashed: Bool, text: String) -> some View {
-        HStack(spacing: 7) {
-            if dashed {
-                Rectangle()
-                    .stroke(color, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
-                    .frame(width: 14, height: 0)
-            } else {
-                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 12, height: 8)
-            }
-            Text(text)
-        }
-    }
-
-    private var dailyDataDisclosure: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { showsDailyData.toggle() }
-            } label: {
-                HStack {
-                    Label(analysis.isRange ? "Ver datos por día" : "Ver datos por mes", systemImage: "tablecells")
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
-                        .rotationEffect(.degrees(showsDailyData ? 180 : 0))
-                }
-                .foregroundStyle(AppTheme.primaryText)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .background(Capsule().fill(AppTheme.popoverSurface))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-
-            if showsDailyData {
-                VStack(spacing: 0) {
-                    ForEach(analysis.points.filter { !$0.isFuture }.reversed()) { point in
-                        HStack {
-                            Text(point.label).foregroundStyle(AppTheme.secondaryText)
-                            Spacer()
-                            Text(point.count == 0 ? "—" : money(point.total)).foregroundStyle(AppTheme.primaryText)
-                        }
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .padding(.vertical, 8)
-                        .overlay(alignment: .top) { AppHairline() }
-                    }
-                }
-                .padding(.top, 6)
-            }
         }
     }
 
@@ -1021,6 +808,264 @@ struct StatsView: View {
             }
         }
         .frame(height: 12)
+    }
+
+    private func splitAmount(_ value: Double) -> some View {
+        let whole = Double(Int(value)).formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        let cents = (Locale.current.decimalSeparator ?? ".") + String(format: "%02d", Int((value * 100).rounded()) % 100)
+        return (Text(whole).font(.system(size: 44, weight: .semibold)).foregroundStyle(AppTheme.primaryText)
+                + Text(cents).font(.system(size: 26, weight: .semibold)).foregroundStyle(AppTheme.tertiaryText))
+            .tracking(-1.5)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .contentTransition(.numericText(value: value))
+            .accessibilityLabel(money(value))
+    }
+
+    private func money(_ value: Double) -> String {
+        value.formatted(.currency(code: "USD").precision(.fractionLength(2)))
+    }
+}
+
+/// Total del período y gráfico de evolución con su propio estado.
+///
+/// Separado de `StatsView` porque `chartXSelection` cambia la selección en
+/// cada movimiento del dedo: dentro de la pantalla grande eso recalculaba
+/// todas las secciones de Análisis a cada fotograma.
+private struct StatsEvolutionSection: View {
+    private enum EvolutionMode: Hashable { case perPoint, cumulative }
+
+    let analysis: StatsPeriodAnalysis
+    @State private var evolutionMode: EvolutionMode = .perPoint
+    @State private var selectedPoint: Int?
+    @State private var showsDailyData = false
+
+    var body: some View { totalSection }
+
+    private var totalSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Gasto total · \(analysis.title)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppTheme.secondaryText)
+                splitAmount(analysis.total)
+                HStack(spacing: 8) {
+                    HomeSpendDelta(percent: analysis.totalDelta, style: .pill)
+                    Text(analysis.comparisonText)
+                }
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+            }
+
+            segmented(
+                [EvolutionMode.perPoint, .cumulative],
+                selection: $evolutionMode,
+                height: 36,
+                fontSize: 13,
+                minWidth: 96
+            ) { $0 == .perPoint ? (analysis.isRange ? "Por día" : "Por mes") : "Acumulado" }
+            .fixedSize()
+
+            Text(readout)
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.primaryText)
+                .frame(minHeight: 18, alignment: .leading)
+                .contentTransition(.numericText())
+
+            evolutionChart
+
+            HStack {
+                Text(analysis.points.first?.label ?? "")
+                Spacer()
+                Text(analysis.points.isEmpty ? "" : analysis.points[analysis.points.count / 2].label)
+                Spacer()
+                Text(analysis.points.last?.label ?? "")
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .foregroundStyle(AppTheme.tertiaryText)
+            .padding(.top, -6)
+
+            HStack(spacing: 18) {
+                legend(color: AppTheme.accent, dashed: false, text: "Actual")
+                if evolutionMode == .cumulative, let label = analysis.previousLabel {
+                    legend(color: AppTheme.tertiaryText, dashed: true, text: label)
+                }
+                Spacer()
+                Text("Máx. \(money(evolutionMax))")
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.tertiaryText)
+            }
+            .font(.caption)
+            .foregroundStyle(AppTheme.secondaryText)
+
+            dailyDataDisclosure
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var cumulative: [StatsPeriodAnalysis.CumulativePoint] { analysis.cumulative }
+    private var previousCumulative: [StatsPeriodAnalysis.CumulativePoint] { analysis.previousCumulative }
+
+    private var evolutionMax: Double {
+        switch evolutionMode {
+        case .perPoint: return analysis.points.map(\.total).max() ?? 0
+        case .cumulative: return max(cumulative.last?.total ?? 0, previousCumulative.last?.total ?? 0)
+        }
+    }
+
+    private var readout: String {
+        guard let selectedPoint, let point = analysis.points.first(where: { $0.index == selectedPoint }) else {
+            return analysis.isRange ? "Toca el gráfico para ver cada día" : "Toca el gráfico para ver cada mes"
+        }
+        if evolutionMode == .cumulative, let running = cumulative.first(where: { $0.index == selectedPoint }) {
+            return "\(point.label) · \(money(running.total)) acumulado"
+        }
+        let count = point.count == 1 ? "1 gasto" : "\(point.count) gastos"
+        return point.count == 0 ? "\(point.label) · sin gastos" : "\(point.label) · \(money(point.total)) · \(count)"
+    }
+
+    private var evolutionChart: some View {
+        Chart {
+            switch evolutionMode {
+            case .perPoint:
+                ForEach(analysis.points) { point in
+                    BarMark(
+                        x: .value("Día", String(point.index)),
+                        y: .value("Gasto", point.isFuture ? 0 : point.total),
+                        width: .ratio(0.62)
+                    )
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3))
+                    .foregroundStyle(barColor(point))
+                }
+            case .cumulative:
+                ForEach(previousCumulative, id: \.index) { item in
+                    LineMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Anterior"))
+                        .foregroundStyle(AppTheme.tertiaryText)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                        .interpolationMethod(.monotone)
+                }
+                ForEach(cumulative, id: \.index) { item in
+                    LineMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Actual"))
+                        .foregroundStyle(AppTheme.accent)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .interpolationMethod(.monotone)
+                    AreaMark(x: .value("Día", String(item.index)), y: .value("Acumulado", item.total), series: .value("Serie", "Actual"))
+                        .foregroundStyle(LinearGradient(colors: [AppTheme.accent.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
+                        .interpolationMethod(.monotone)
+                }
+            }
+            if let selectedPoint {
+                RuleMark(x: .value("Día", String(selectedPoint)))
+                    .foregroundStyle(AppTheme.primaryText.opacity(0.55))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+            }
+        }
+        .chartXSelection(value: Binding(
+            get: { selectedPoint.map(String.init) },
+            set: { selectedPoint = $0.flatMap(Int.init) }
+        ))
+        .chartXScale(domain: analysis.points.map { String($0.index) })
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartPlotStyle { plot in
+            plot
+                .overlay(alignment: .bottom) { Rectangle().fill(AppTheme.separator).frame(height: 1) }
+                .overlay(alignment: .top) { Rectangle().fill(AppTheme.separator.opacity(0.5)).frame(height: 1) }
+        }
+        .frame(height: 150)
+        .accessibilityLabel(analysis.isRange ? "Gasto diario de \(analysis.title)" : "Gasto mensual del historial")
+    }
+
+    private func barColor(_ point: StatsPeriodAnalysis.Point) -> Color {
+        if point.index == selectedPoint { return AppTheme.primaryText }
+        if analysis.isInProgress, point.index == analysis.elapsedDays { return AppTheme.accent }
+        return analysis.isInProgress || !analysis.isRange ? AppTheme.primaryText.opacity(0.22) : AppTheme.accent.opacity(0.75)
+    }
+
+    private func legend(color: Color, dashed: Bool, text: String) -> some View {
+        HStack(spacing: 7) {
+            if dashed {
+                Rectangle()
+                    .stroke(color, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
+                    .frame(width: 14, height: 0)
+            } else {
+                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 12, height: 8)
+            }
+            Text(text)
+        }
+    }
+
+    private var dailyDataDisclosure: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { showsDailyData.toggle() }
+            } label: {
+                HStack {
+                    Label(analysis.isRange ? "Ver datos por día" : "Ver datos por mes", systemImage: "tablecells")
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .rotationEffect(.degrees(showsDailyData ? 180 : 0))
+                }
+                .foregroundStyle(AppTheme.primaryText)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Capsule().fill(AppTheme.popoverSurface))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+
+            if showsDailyData {
+                VStack(spacing: 0) {
+                    ForEach(analysis.points.filter { !$0.isFuture }.reversed()) { point in
+                        HStack {
+                            Text(point.label).foregroundStyle(AppTheme.secondaryText)
+                            Spacer()
+                            Text(point.count == 0 ? "—" : money(point.total)).foregroundStyle(AppTheme.primaryText)
+                        }
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .padding(.vertical, 8)
+                        .overlay(alignment: .top) { AppHairline() }
+                    }
+                }
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    private func segmented<Value: Hashable>(
+        _ values: [Value],
+        selection: Binding<Value>,
+        height: CGFloat,
+        fontSize: CGFloat,
+        minWidth: CGFloat? = nil,
+        label: @escaping (Value) -> String
+    ) -> some View {
+        HStack(spacing: 0) {
+            ForEach(values, id: \.self) { value in
+                let isSelected = selection.wrappedValue == value
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selection.wrappedValue = value }
+                } label: {
+                    Text(label(value))
+                        .font(.system(size: fontSize, weight: isSelected ? .semibold : .medium))
+                        .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.secondaryText)
+                        .padding(.horizontal, 12)
+                        .frame(minWidth: minWidth, maxWidth: minWidth == nil && height >= 40 ? .infinity : nil, minHeight: height)
+                        .background(Capsule().fill(isSelected ? AppTheme.primaryText : .clear))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(height >= 40 ? 4 : 3)
+        .background(Capsule().fill(AppTheme.popoverSurface))
     }
 
     private func splitAmount(_ value: Double) -> some View {
