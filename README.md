@@ -39,7 +39,7 @@ gastosapp/
 │   └── ...
 └── Features/
     ├── Home/           Inicio: estado del mes y accesos rápidos
-    ├── Gastos/         Movimientos, recurrentes y calendario
+    ├── Gastos/         Movimientos y recurrentes
     ├── Presupuestos/   Presupuesto mensual y por categoría
     ├── Estadisticas/   Análisis anual y por mes
     └── Profile/        Preferencias y objetivo de ahorro

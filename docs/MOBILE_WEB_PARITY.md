@@ -4,22 +4,21 @@ Referencia: `control-gastos` main `3694cf6`. Los cambios son locales, sin despli
 
 | Función | Acceso en iOS |
 | --- | --- |
-| Etiquetas de gastos, búsqueda con `#` y filtro manual/correo | Gastos → Movimientos; Nuevo gasto / Editar |
-| Etiquetas en movimientos de presupuesto | Presupuestos → categoría → crear/editar movimiento |
+| Etiquetas de gastos, búsqueda con `#` y filtro manual/correo | Gastos (buscador de la barra superior, chips de etiquetas y Filtros); Nuevo gasto / Editar |
+| Etiquetas en movimientos de presupuesto | Plan → mes → desplegar categoría → agregar/editar gasto |
 | Compra en el exterior y desglose ISD/IVA/porcentaje propio | Formularios de gastos, recurrentes, suscripciones y aceptación de correo |
 | Conservación de etiquetas e impuestos sin conexión | Cola local de gastos, incluida edición y recuperación del caché anterior |
-| Recurrentes semanales, mensuales y anuales; días 29–31 | Gastos → Recurrentes → agregar/editar |
+| Recurrentes semanales, mensuales y anuales; días 29–31 | «+» → Recurrente; Gastos → Recurrentes → desplegar → Editar |
 | Fecha de fin y estado activo | Editor de recurrentes, incluidas suscripciones existentes |
-| Pausar/reanudar y omitir próximo cobro | Deslizar un recurrente hacia la derecha; omitir pide confirmación |
+| Pausar/reanudar y omitir próximo cobro | Gastos → Recurrentes → desplegar (interruptor Activo y «Saltar»); saltar pide confirmación |
 | Historial de precios y costo anual | Recurrentes |
-| Calendario con reglas anuales y agenda del servidor | Gastos → Calendario |
-| Revisión de importación de Yahoo | Gastos → Correo |
+| Revisión de importación de Yahoo | Bandeja de la barra superior → movimientos del correo; aviso en Resumen |
 | Nuevos, duplicados, devoluciones, alias, tu parte e impuestos | Revisar movimiento de correo; las mutaciones esperan confirmación del servidor |
-| Proyecciones, mes anterior, categorías, modelos y validación histórica | Análisis → ¿Cómo cerrarás el mes? |
-| Compromisos y disponible diario | Inicio → Disponible del mes |
+| Proyecciones, mes anterior, categorías, modelos y validación histórica | Análisis → Proyección |
+| Compromisos y disponible diario | Resumen → Ver detalle del mes → Disponible del mes |
 | Avisos al cruzar 80% o superar el presupuesto de categoría | Tras guardar/editar gastos o aceptar movimientos de correo; aviso dentro de la app |
 | Registro con confirmación de correo | Login → Crear cuenta |
-| Conexiones ChatGPT y revocación de sesiones | Perfil → Conexiones y seguridad |
+| Conexiones ChatGPT y revocación de sesiones | Cuenta (avatar de la barra superior) → Conexiones MCP y sesiones |
 
 ## Backend y activación
 
