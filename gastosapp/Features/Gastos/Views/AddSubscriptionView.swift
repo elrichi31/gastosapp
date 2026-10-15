@@ -104,6 +104,8 @@ struct AddSubscriptionView: View {
         [.mensual, .semanal, .anual]
     }
 
+    @FocusState private var amountFocused: Bool
+
     var body: some View {
         ScrollView {
             VStack(spacing: 22) {
@@ -120,11 +122,26 @@ struct AddSubscriptionView: View {
                     catalogoGrid
                 }
             }
-            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
+            .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, AppScreenMetrics.contentBottomPadding)
         }
         .scrollDismissesKeyboard(.interactively)
+        .background(AppTheme.screenBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if servicioConfigurado && !isPickingProvider {
+                FormStickySaveBar {
+                    ExpensePrimarySaveButton(
+                        isSaving: expenseStore.isSavingExpense,
+                        isEnabled: puedeGuardar,
+                        title: isEditing ? "Guardar cambios" : "Guardar suscripción",
+                        disabledHint: montoNumerico <= 0 ? "Ingresa un monto" : nil
+                    ) {
+                        Task { await guardar() }
+                    }
+                }
+            }
+        }
         .task {
             await expenseStore.loadCatalogsIfNeeded()
             aplicarSeleccionInicial()
@@ -136,14 +153,15 @@ struct AddSubscriptionView: View {
 
     // MARK: - Encabezado
 
+    @ViewBuilder
     private var encabezado: some View {
+        if showsCloseButton {
         AppScreenHeader(
             eyebrow: servicioConfigurado ? "Ajusta monto, ciclo y método de pago" : "Elige el proveedor",
             title: isEditing ? "Editar suscripción" : (servicioConfigurado ? "Configurar" : "Nueva suscripción")
         ) {
-            if showsCloseButton {
-                AppCircleButton(icon: "xmark", label: "Cerrar") { dismiss() }
-            }
+            AppCircleButton(icon: "xmark", label: "Cerrar") { dismiss() }
+        }
         }
     }
 
@@ -169,14 +187,11 @@ struct AddSubscriptionView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(AppTheme.controlSurface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(AppTheme.border, lineWidth: 1)
-                )
+            Capsule()
+                .fill(AppTheme.surface)
+                .overlay(Capsule().strokeBorder(AppTheme.border, lineWidth: 1))
         )
     }
 
@@ -241,7 +256,6 @@ struct AddSubscriptionView: View {
             montoCard
             ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
             detallesCard
-            botonGuardar
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
@@ -317,152 +331,66 @@ struct AddSubscriptionView: View {
     }
 
     private var montoCard: some View {
-        VStack(spacing: 14) {
-            Text("Monto por cobro")
-                .font(.caption2.weight(.semibold))
-                .textCase(.uppercase)
-                .tracking(1.1)
-                .foregroundStyle(AppTheme.statementSecondary)
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Spacer(minLength: 0)
-                Text("$")
-                    .font(.system(size: 30, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-                TextField(
-                    "",
-                    text: $monto,
-                    prompt: Text("0").foregroundStyle(AppTheme.onStatement.opacity(0.22))
-                )
-                .keyboardType(.decimalPad)
-                .font(.system(size: 64, weight: .bold, design: .default))
-                .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.onStatement)
-                .tint(AppTheme.accent)
-                .multilineTextAlignment(.leading)
-                .fixedSize()
-                Spacer(minLength: 0)
-            }
-
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.accent.opacity(0.0), AppTheme.accent.opacity(0.7), AppTheme.accent.opacity(0.0)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(width: 60, height: 3)
-                .opacity(monto.isEmpty ? 0.2 : 1)
-                .animation(.easeInOut(duration: 0.2), value: monto.isEmpty)
-
-            if montoNumerico > 0 && ciclo != .mensual {
-                Text("≈ $\(formatear(montoNumerico * ciclo.factorMensual)) / mes")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-        .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-        .background(tarjetaFondo)
+        FormAmountEntry(
+            label: foreignEnabled ? "Precio sin impuestos" : "Monto por cobro",
+            text: $monto,
+            hint: montoNumerico > 0 && ciclo != .mensual
+                ? ("≈ $\(formatear(montoNumerico * ciclo.factorMensual)) / mes", AppTheme.secondaryAccent)
+                : nil,
+            focus: $amountFocused
+        )
     }
 
     private var detallesCard: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                iconoCircular("repeat", color: AppTheme.secondaryAccent)
-                Text("Ciclo")
-                    .foregroundStyle(AppTheme.primaryText)
-                Spacer()
-                Menu {
-                    Picker("Ciclo", selection: $ciclo) {
-                        ForEach(ciclosDisponibles) { c in
-                            Text(c.rawValue).tag(c)
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                FormSectionTitle(title: "Ciclo")
+                HStack(spacing: 8) {
+                    ForEach(ciclosDisponibles) { option in
+                        let isSelected = ciclo == option
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { ciclo = option }
+                        } label: {
+                            Text(option.rawValue)
+                                .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
+                                .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(Capsule().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
+                                .contentShape(Capsule())
                         }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(ciclo.rawValue).foregroundStyle(AppTheme.secondaryText)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2)
-                            .foregroundStyle(AppTheme.tertiaryText)
+                        .buttonStyle(.pressable(scale: 0.95))
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
 
-            divisor
-
-            HStack(spacing: 14) {
-                iconoCircular("calendar", color: AppTheme.accent)
-                DatePicker("", selection: $proximaFecha, displayedComponents: .date)
-                    .labelsHidden()
-                    .tint(AppTheme.accent)
-                Spacer()
-                Text("Próximo cobro")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            divisor
-
-            HStack(spacing: 14) {
-                iconoCircular(metodoPago.icono, color: AppTheme.secondaryAccent)
-                Text("Método de pago")
-                    .foregroundStyle(AppTheme.primaryText)
-                Spacer()
-                Menu {
-                    Picker("Método", selection: $metodoPago) {
-                        ForEach(MetodoPago.allCases) { m in
-                            Label(m.rawValue, systemImage: m.icono).tag(m)
+            FormGroupedRows {
+                FormLabeledRow(label: "Próximo cobro") {
+                    DatePicker("Próximo cobro", selection: $proximaFecha, displayedComponents: .date)
+                        .labelsHidden()
+                        .tint(AppTheme.accent)
+                }
+                FormLabeledRow(label: "Pago", showsDivider: false) {
+                    Menu {
+                        Picker("Método", selection: $metodoPago) {
+                            ForEach(MetodoPago.allCases) { m in
+                                Label(m.rawValue, systemImage: m.icono).tag(m)
+                            }
                         }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(metodoPago.rawValue).foregroundStyle(AppTheme.secondaryText)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2)
-                            .foregroundStyle(AppTheme.tertiaryText)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: metodoPago.icono)
+                            Text(metodoPago.rawValue)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.tertiaryText)
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(AppTheme.primaryText)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
         }
-        .background(tarjetaFondo)
-    }
-
-    private var botonGuardar: some View {
-        Button {
-            Task { await guardar() }
-        } label: {
-            HStack(spacing: 10) {
-                if expenseStore.isSavingExpense {
-                    ProgressView()
-                        .tint(puedeGuardar ? AppTheme.onAccent : AppTheme.tertiaryText)
-                }
-                Text(expenseStore.isSavingExpense ? "Guardando…" : (isEditing ? "Guardar cambios" : "Guardar suscripción"))
-                    .font(.headline)
-            }
-            .foregroundStyle(puedeGuardar ? AppTheme.onAccent : AppTheme.tertiaryText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                LinearGradient(
-                    colors: puedeGuardar
-                        ? [AppTheme.accent, AppTheme.accent]
-                        : [AppTheme.disabledFill, AppTheme.disabledFill],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .disabled(!puedeGuardar)
     }
 
     private var estadoCard: some View {
@@ -548,27 +476,14 @@ struct AddSubscriptionView: View {
     // MARK: - Helpers
 
     private var tarjetaFondo: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(AppTheme.controlSurface)
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(AppTheme.surface)
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(AppTheme.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AppTheme.separator, lineWidth: 1)
             )
     }
 
-    private var divisor: some View {
-        Divider()
-            .background(AppTheme.border)
-            .padding(.leading, 56)
-    }
-
-    private func iconoCircular(_ nombre: String, color: Color) -> some View {
-        Image(systemName: nombre)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(AppTheme.primaryText)
-            .frame(width: 28, height: 28)
-            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
 
     private func formatear(_ valor: Double) -> String {
         MoneyInput.format(valor)

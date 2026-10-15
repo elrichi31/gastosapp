@@ -48,88 +48,65 @@ struct RecurringExpensesListView: View {
         }
     }
 
-    private var activeItems: [RecurringExpense] {
-        store.recurringExpenses.filter { $0.activo && $0.nextChargeDate != nil }
-    }
-
-    private var upcomingItems: [RecurringExpense] {
-        Array(activeItems.sorted { ($0.nextChargeDate ?? .distantFuture) < ($1.nextChargeDate ?? .distantFuture) }.prefix(3))
-    }
-
-    private var monthlyFixedEstimate: Double {
-        activeItems.reduce(0) { $0 + monthlyEstimate(for: $1) }
-    }
+    @State private var expandedID: RecurringExpense.ID?
 
     var body: some View {
         ZStack {
             AppTheme.screenBackground.ignoresSafeArea()
 
-            List {
-                headerRow {
-                    filtersCard
-                }
-
-                if store.isLoadingRecurringExpenses && store.recurringExpenses.isEmpty {
-                    headerRow {
-                        loadingCard
-                    }
-                } else if items.isEmpty {
-                    headerRow {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    if store.isLoadingRecurringExpenses && store.recurringExpenses.isEmpty {
+                        ProgressView()
+                            .tint(AppTheme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 48)
+                    } else if store.recurringExpenses.isEmpty {
                         emptyCard
-                    }
-                } else {
-                    headerRow {
-                        upcomingSummaryCard
-                    }
-
-                    headerRow { NavigationLink("Historial de precios") { RecurringPriceHistoryView() } }
-                    if let error = store.saveErrorMessage { headerRow { Text(error).foregroundStyle(AppTheme.negative) } }
-                    ForEach(items) { item in
-                        RecurringExpenseCard(item: item)
-                            .contentShape(Rectangle())
-                            .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                Button(item.activo ? "Pausar" : "Reanudar") { Task { _ = await store.toggleRecurring(item) } }.tint(AppTheme.secondaryAccent)
-                                if item.activo {
-                                    Button("Omitir cobro") { recurringToSkip = item }.tint(AppTheme.warning)
-                                }
+                    } else {
+                        summary
+                        filtersRow
+                        if let error = store.saveErrorMessage {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.negative)
+                        }
+                        listCard
+                        NavigationLink {
+                            RecurringPriceHistoryView()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                Text("Historial de precios")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(AppTheme.primaryText)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(AppTheme.tertiaryText)
                             }
-                            .disabled(store.isSavingExpense)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button {
-                                    recurringToEdit = item
-                                } label: {
-                                    nativeSwipeIcon("pencil", tint: AppTheme.accent)
-                                }
-                                .tint(AppTheme.backgroundBottom)
-                                .accessibilityLabel("Editar")
-
-                                Button(role: .destructive) {
-                                    recurringToDelete = item
-                                } label: {
-                                    nativeSwipeIcon("trash", tint: AppTheme.negative)
-                                }
-                                .tint(AppTheme.backgroundBottom)
-                                .accessibilityLabel("Eliminar")
-                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 52)
+                            .background(groupBackground)
+                        }
+                        .buttonStyle(.pressable(scale: 0.98))
                     }
                 }
-
-                bottomSafeRow
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .tracksScrollChrome()
             .floatingTabBarInset()
             .refreshable {
                 await store.loadRecurringExpenses(force: true)
             }
         }
-        .confirmationDialog("¿Omitir el próximo cobro?", isPresented: Binding(get: { recurringToSkip != nil }, set: { if !$0 { recurringToSkip = nil } }), titleVisibility: .visible) {
+        .confirmationDialog("¿Saltar el próximo cobro?", isPresented: Binding(get: { recurringToSkip != nil }, set: { if !$0 { recurringToSkip = nil } }), titleVisibility: .visible) {
             if let item = recurringToSkip {
-                Button("Omitir cobro de " + item.descripcion) { Task { _ = await store.skipRecurringCharge(item); recurringToSkip = nil } }
+                Button("Saltar cobro de " + item.descripcion) { Task { _ = await store.skipRecurringCharge(item); recurringToSkip = nil } }
             }
         } message: { Text("La regla seguirá activa para los siguientes cobros.") }
         .task {
@@ -143,11 +120,16 @@ struct RecurringExpensesListView: View {
                     existingExpense: recurring,
                     onSaved: closeEditorAndRefresh
                 )
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cerrar") { recurringToEdit = nil }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    FormSheetHeader(title: recurring.isSubscriptionLike ? "Editar suscripción" : "Editar recurrente") {
+                        recurringToEdit = nil
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+                    .background(AppTheme.backgroundTop)
                 }
+                .toolbar(.hidden, for: .navigationBar)
             }
         }
         .appConfirmationDialog(
@@ -167,106 +149,250 @@ struct RecurringExpensesListView: View {
         }
     }
 
-    private func headerRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+    // MARK: - Resumen
+
+    /// Costo anual de los activos repartido por categoría, de mayor a menor.
+    private var annualByCategory: [(category: Categoria, total: Double)] {
+        Dictionary(grouping: store.recurringExpenses.filter(\.activo), by: \.categoria)
+            .map { ($0.key, $0.value.reduce(0) { $0 + $1.estimatedMonthlyAmount * 12 }) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
     }
 
-    private var bottomSafeRow: some View {
-        Color.clear
-            .frame(height: AppScreenMetrics.contentBottomPadding)
-            .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .accessibilityHidden(true)
-    }
+    private var summary: some View {
+        let activeCount = store.recurringExpenses.filter(\.activo).count
+        let monthly = store.recurringExpenses.filter(\.activo).reduce(0) { $0 + $1.estimatedMonthlyAmount }
+        let segments = annualByCategory
+        let annual = segments.reduce(0) { $0 + $1.total }
 
-    private var filtersCard: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Filter.allCases) { item in
-                    Button {
-                        filter = item
-                    } label: {
-                        Text(item.title)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(filter == item ? .black : AppTheme.primaryText)
-                            .padding(.horizontal, 12)
-                            .frame(height: 30)
-                            .background(
-                                Capsule()
-                                    .fill(filter == item ? AppTheme.accent : AppTheme.controlSurface)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var upcomingSummaryCard: some View {
-        VStack(spacing: 18) {
-            VStack(spacing: 10) {
-                Text("Fijos estimados")
-                    .font(.caption2.weight(.semibold))
-                    .textCase(.uppercase)
-                    .tracking(1.1)
-                    .foregroundStyle(AppTheme.secondaryText)
-
-                Text("Costo anual: " + currency(activeItems.reduce(0) { $0 + $1.estimatedMonthlyAmount * 12 }))
-                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
-                Text(currency(monthlyFixedEstimate))
-                    .font(AppTheme.number(44, .bold))
+        return VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Al mes")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppTheme.tertiaryText)
+                splitAmount(monthly)
+                Text("\(currency(annual)) al año · \(activeCount == 1 ? "1 activo" : "\(activeCount) activos")")
+                    .font(.footnote)
                     .monospacedDigit()
-                    .contentTransition(.numericText(value: monthlyFixedEstimate))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(AppTheme.tertiaryText)
             }
-            .frame(maxWidth: .infinity)
 
-            if upcomingItems.isEmpty {
-                Text("No tienes cargos activos próximos.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(upcomingItems) { item in
-                        upcomingRow(item)
+            if !segments.isEmpty {
+                GeometryReader { proxy in
+                    let available = proxy.size.width - CGFloat(max(segments.count - 1, 0)) * 3
+                    HStack(spacing: 3) {
+                        ForEach(segments, id: \.category.id) { segment in
+                            Capsule()
+                                .fill(segment.category.color)
+                                .frame(width: max(6, available * segment.total / max(annual, 0.01)))
+                        }
                     }
                 }
+                .frame(height: 10)
+                .accessibilityHidden(true)
+
+                ChipFlowLayout(spacing: 16) {
+                    ForEach(segments, id: \.category.id) { segment in
+                        HStack(spacing: 6) {
+                            Circle().fill(segment.category.color).frame(width: 8, height: 8)
+                            Text("\(segment.category.nombre) · \(Int((segment.total / max(annual, 0.01) * 100).rounded()))%")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.tertiaryText)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Reparto del costo anual por categoría")
             }
         }
-        .padding(.vertical, 6)
     }
 
-    private func upcomingRow(_ item: RecurringExpense) -> some View {
-        HStack(spacing: 12) {
-            CategoryGlyph(categoria: item.categoria, size: 34)
+    private var filtersRow: some View {
+        HStack(spacing: 8) {
+            ForEach(Filter.allCases) { item in
+                let isSelected = filter == item
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { filter = item }
+                } label: {
+                    Text(item.title)
+                        .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                        .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+                        .padding(.horizontal, 14)
+                        .frame(height: 36)
+                        .background(Capsule().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
+                }
+                .buttonStyle(.pressable(scale: 0.95))
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.descripcion)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                Text(nextChargeRelativeLabel(for: item))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
+    // MARK: - Lista
+
+    @ViewBuilder
+    private var listCard: some View {
+        if items.isEmpty {
+            Text("No hay cargos en este filtro.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .background(groupBackground)
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    row(item)
+                    if index < items.count - 1 { AppHairline() }
+                }
+            }
+            .background(groupBackground)
+            .clipShape(.rect(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func row(_ item: RecurringExpense) -> some View {
+        let isOpen = expandedID == item.id
+        let color = item.categoria.color
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    expandedID = isOpen ? nil : item.id
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    CategoryGlyph(categoria: item.categoria, size: 44, tint: color, background: color.opacity(0.16), isCircular: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.descripcion)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppTheme.primaryText)
+                            .lineLimit(1)
+                        Text(item.activo ? "\(item.frecuencia.title) · \(nextChargeRelativeLabel(for: item))" : "Pausado · \(item.frecuencia.title)")
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.tertiaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Text(currency(item.monto))
+                        .font(.system(size: 16, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.primaryText)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppTheme.tertiaryText)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .opacity(item.activo ? 1 : 0.55)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Muestra detalles y acciones")
+            .accessibilityValue(isOpen ? "Desplegado" : "Plegado")
+
+            if isOpen {
+                details(item)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private func details(_ item: RecurringExpense) -> some View {
+        let shortDate = Date.FormatStyle().day().month(.abbreviated).year().locale(Locale(identifier: "es"))
+        let facts: [(String, String)] = [
+            ("Próximo cobro", item.nextChargeDate.map { $0.formatted(shortDate) } ?? "—"),
+            ("Costo anual", currency(item.estimatedMonthlyAmount * 12)),
+            ("Método", item.metodoPago.shortLabel),
+            (item.fechaFin == nil ? "Desde" : "Hasta", (item.fechaFin ?? item.fechaInicio).formatted(shortDate))
+        ]
+        return VStack(spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(facts, id: \.0) { fact in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fact.0)
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.tertiaryText)
+                        Text(fact.1)
+                            .font(.system(size: 15, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(AppTheme.insetSurface))
+                    .accessibilityElement(children: .combine)
+                }
             }
 
-            Spacer(minLength: 8)
+            Toggle(isOn: Binding(
+                get: { item.activo },
+                set: { _ in Task { _ = await store.toggleRecurring(item) } }
+            )) {
+                Text(item.activo ? "Activo" : "Pausado")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+            }
+            .tint(AppTheme.accent)
+            .disabled(store.isSavingExpense)
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
+            .frame(height: 52)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(AppTheme.insetSurface))
 
-            Text(currency(item.monto))
-                .font(AppTheme.number(15, .semibold))
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
+            HStack(spacing: 8) {
+                if item.activo {
+                    actionButton("Saltar", icon: "forward.end", tint: AppTheme.primaryText, fill: AppTheme.popoverSurface) {
+                        recurringToSkip = item
+                    }
+                    .accessibilityLabel("Saltar el próximo cobro de \(item.descripcion)")
+                }
+                actionButton("Editar", icon: "pencil", tint: AppTheme.primaryText, fill: AppTheme.popoverSurface) {
+                    recurringToEdit = item
+                }
+                .accessibilityLabel("Editar \(item.descripcion)")
+                actionButton("Eliminar", icon: "trash", tint: AppTheme.negative, fill: AppTheme.negative.opacity(0.14)) {
+                    recurringToDelete = item
+                }
+                .accessibilityLabel("Eliminar \(item.descripcion)")
+            }
+            .disabled(store.isSavingExpense)
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 2)
+        .padding(.bottom, 16)
+    }
+
+    private func actionButton(_ title: String, icon: String, tint: Color, fill: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Capsule().fill(fill))
+        }
+        .buttonStyle(.pressable(scale: 0.96))
+    }
+
+    private var groupBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(AppTheme.surface)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppTheme.separator, lineWidth: 1))
+    }
+
+    private func splitAmount(_ value: Double) -> some View {
+        let whole = Double(Int(value)).formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        let cents = (Locale.current.decimalSeparator ?? ".") + String(format: "%02d", Int((value * 100).rounded()) % 100)
+        return (Text(whole).font(.system(size: 52, weight: .semibold)).foregroundStyle(AppTheme.primaryText)
+                + Text(cents).font(.system(size: 30, weight: .semibold)).foregroundStyle(AppTheme.tertiaryText))
+            .tracking(-1.8)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .contentTransition(.numericText(value: value))
+            .accessibilityLabel(currency(value))
     }
 
     private func closeEditorAndRefresh() {
@@ -281,35 +407,20 @@ struct RecurringExpensesListView: View {
         }
     }
 
-    private var loadingCard: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .tint(AppTheme.accent)
-            Text("Cargando programados")
-                .font(.headline)
-                .foregroundStyle(AppTheme.primaryText)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 36)
-        .background(AppTheme.cardBackground())
-    }
-
     private var emptyCard: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "repeat.circle")
-                .font(.system(size: 40, weight: .semibold))
-                .foregroundStyle(AppTheme.placeholderText)
-            Text("Sin cargos programados")
-                .font(.headline)
+        VStack(spacing: 10) {
+            Text("Sin recurrentes")
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
-            Text("Crea un recurrente o una suscripción y aparecerá aquí.")
+            Text("Se registran solos cada semana, mes o año. Crea uno con el botón +.")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
+                .foregroundStyle(AppTheme.tertiaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .background(AppTheme.cardBackground())
+        .padding(.horizontal, 20)
+        .padding(.vertical, 36)
+        .background(groupBackground)
     }
 
     private func monthlyEstimate(for item: RecurringExpense) -> Double {
@@ -322,14 +433,6 @@ struct RecurringExpensesListView: View {
 
     private func currency(_ value: Double) -> String {
         value.formatted(.currency(code: "USD").precision(.fractionLength(2)))
-    }
-
-    private func nativeSwipeIcon(_ systemName: String, tint: Color) -> some View {
-        Image(systemName: systemName)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(tint)
-            .font(.system(size: 21, weight: .bold))
-            .frame(width: 30, height: 30)
     }
 
     private var deleteRecurringMessage: String {

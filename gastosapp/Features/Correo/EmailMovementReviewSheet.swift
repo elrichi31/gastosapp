@@ -104,10 +104,10 @@ struct EmailMovementReviewSheet: View {
     }
     private func resolutionButton(_ title: String, saveNew: Bool) -> some View {
         Button { saveAsNew = saveNew; selectedCandidate = nil; focusedField = nil } label: {
-            Text(title).font(.subheadline.weight(.semibold))
-                .foregroundStyle(saveAsNew == saveNew ? AppTheme.accent : AppTheme.secondaryText)
+            Text(title).font(.system(size: 15, weight: saveAsNew == saveNew ? .semibold : .medium))
+                .foregroundStyle(saveAsNew == saveNew ? AppTheme.backgroundTop : AppTheme.primaryText)
                 .frame(maxWidth: .infinity, minHeight: 46)
-                .background(saveAsNew == saveNew ? AppTheme.accent.opacity(0.14) : AppTheme.controlSurface, in: Capsule())
+                .background(saveAsNew == saveNew ? AppTheme.primaryText : AppTheme.popoverSurface, in: Capsule())
         }.buttonStyle(.plain).accessibilityAddTraits(saveAsNew == saveNew ? .isSelected : [])
     }
 
@@ -122,8 +122,9 @@ struct EmailMovementReviewSheet: View {
             Text(base < row.monto && base > 0 ? "Solo se registrará tu parte; quedará marcado como compartido." : "Si compartiste el consumo, introduce solo lo que pagaste tú.")
                 .font(.caption).foregroundStyle(AppTheme.secondaryText)
             if base > row.monto { Text("Tu parte no puede superar el consumo original.").font(.caption).foregroundStyle(AppTheme.warning) }
-            BudgetEditorMenuField(title: "Categoría", value: category?.nombre ?? "Elegir") {
-                ForEach(session.categorias) { category in Button(category.nombre) { categoryID = category.id } }
+            VStack(alignment: .leading, spacing: 10) {
+                FormSectionTitle(title: "Categoría")
+                CategoryChipPicker(categories: session.categorias, selectedID: $categoryID)
             }
             ForeignTaxFields(enabled: $foreignEnabled, selected: $selected, customRate: $customRate, base: base)
         }

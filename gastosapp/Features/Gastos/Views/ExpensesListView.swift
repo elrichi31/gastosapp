@@ -165,12 +165,7 @@ struct ExpensesListView: View {
                     AddExpenseView {
                         presentedExpenseSheet = nil
                     }
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        editSheetHeader
-                            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                            .padding(.top, 10)
-                            .padding(.bottom, 10)
-                    }
+                    .safeAreaInset(edge: .top, spacing: 0) { sheetHeader("Nuevo gasto") }
                 case let .detail(expense):
                     ExpenseDetailSheet(
                         expense: expense,
@@ -181,12 +176,7 @@ struct ExpensesListView: View {
                     AddExpenseView(editingExpense: expense) {
                         presentedExpenseSheet = nil
                     }
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        editSheetHeader
-                            .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                            .padding(.top, 10)
-                            .padding(.bottom, 10)
-                    }
+                    .safeAreaInset(edge: .top, spacing: 0) { sheetHeader("Editar gasto") }
                 }
             }
             .presentationDragIndicator(.visible)
@@ -482,7 +472,7 @@ struct ExpensesListView: View {
     }
 
     private var tagCloud: some View {
-        FlowLayout(spacing: 6) {
+        ChipFlowLayout(spacing: 6) {
             ForEach(monthTags, id: \.self) { tag in
                 tagChip(tag, height: 32, fontSize: 14, weight: .semibold)
             }
@@ -821,14 +811,12 @@ struct ExpensesListView: View {
         }
     }
 
-    private var editSheetHeader: some View {
-        HStack {
-            AppCircleButton(icon: "xmark", label: "Cerrar edición") {
-                presentedExpenseSheet = nil
-            }
-
-            Spacer()
-        }
+    private func sheetHeader(_ title: String) -> some View {
+        FormSheetHeader(title: title) { presentedExpenseSheet = nil }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(AppTheme.backgroundTop)
     }
 
     private var bottomSafeRow: some View {
@@ -959,54 +947,6 @@ struct ExpensesListView: View {
                 searchMatches: { matchesSearch($0, query: query) }
             )
         }
-    }
-}
-
-/// Distribuye chips en filas que se parten al llegar al borde.
-private struct FlowLayout: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(subviews, width: proposal.width ?? .infinity)
-        let height = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
-        let width = rows.map(\.width).max() ?? 0
-        return CGSize(width: proposal.width ?? width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for row in arrange(subviews, width: bounds.width) {
-            var x = bounds.minX
-            for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
-                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += row.height + spacing
-        }
-    }
-
-    private struct Row {
-        var indices: [Int] = []
-        var width: CGFloat = 0
-        var height: CGFloat = 0
-    }
-
-    private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
-        var rows: [Row] = [Row()]
-        for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
-            let needed = rows[rows.count - 1].indices.isEmpty ? size.width : rows[rows.count - 1].width + spacing + size.width
-            if needed > width, !rows[rows.count - 1].indices.isEmpty {
-                rows.append(Row())
-            }
-            var row = rows[rows.count - 1]
-            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
-            row.height = max(row.height, size.height)
-            row.indices.append(index)
-            rows[rows.count - 1] = row
-        }
-        return rows
     }
 }
 

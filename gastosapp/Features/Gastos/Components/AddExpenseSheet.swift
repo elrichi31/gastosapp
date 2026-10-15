@@ -17,6 +17,22 @@ struct AddExpenseSheet: View {
             }
         }
 
+        var title: String {
+            switch self {
+            case .normal: return "Normal"
+            case .recurrente: return "Recurrente"
+            case .suscripcion: return "Suscripción"
+            }
+        }
+
+        var sheetTitle: String {
+            switch self {
+            case .normal: return "Nuevo gasto"
+            case .recurrente: return "Nuevo recurrente"
+            case .suscripcion: return "Nueva suscripción"
+            }
+        }
+
         var accessibilityLabel: String {
             switch self {
             case .normal:
@@ -41,61 +57,21 @@ struct AddExpenseSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, 12)
-                .padding(.bottom, 14)
-                .background(AppTheme.backgroundBottom)
+            VStack(spacing: 16) {
+                FormSheetHeader(title: mode.sheetTitle, closeIcon: "xmark", onClose: dismiss.callAsFunction)
+                    .contentTransition(.opacity)
+                FormSegmentedTabs(values: ComposerMode.allCases, selection: $mode) { $0.title }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(AppTheme.backgroundTop)
 
             content
         }
-        .navigationBarBackButtonHidden(true)
+        .background(AppTheme.screenBackground.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
         .swipeBackBehavior()
-    }
-
-    private var topBar: some View {
-        HStack(spacing: 12) {
-            closeButton
-            composerSelector
-        }
-    }
-
-    private var closeButton: some View {
-        Button(action: dismiss.callAsFunction) {
-            Image(systemName: "chevron.left")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText)
-                .frame(width: 42, height: 42)
-                .background(SelectorCircleBackground())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cerrar")
-    }
-
-    private var composerSelector: some View {
-        HStack(spacing: 6) {
-            ForEach(ComposerMode.allCases, id: \.self, content: composerButton)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(6)
-        .background(GastosCapsuleBackground())
-    }
-
-    private func composerButton(_ mode: ComposerMode) -> some View {
-        let isSelected = self.mode == mode
-        return Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                self.mode = mode
-            }
-        } label: {
-            Image(systemName: mode.icon)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(isSelected ? .black : AppTheme.secondaryText)
-                .frame(width: 52, height: 42)
-                .background(Capsule().fill(isSelected ? AppTheme.accent : .clear))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(mode.accessibilityLabel)
     }
 
     @ViewBuilder
@@ -118,13 +94,5 @@ struct AddExpenseSheet: View {
     private func saveRecurringExpense() {
         onSaved(true)
         dismiss()
-    }
-}
-
-private struct SelectorCircleBackground: View {
-    var body: some View {
-        Circle()
-            .fill(AppTheme.controlSurface)
-            .overlay(Circle().stroke(AppTheme.border, lineWidth: 1))
     }
 }

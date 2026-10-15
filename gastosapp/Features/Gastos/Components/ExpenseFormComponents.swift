@@ -96,6 +96,8 @@ struct ExpensePrimarySaveButton: View {
     let isSaving: Bool
     let isEnabled: Bool
     var title: String = "Guardar gasto"
+    /// Texto del botón deshabilitado: dice qué falta en lugar de repetir la acción.
+    var disabledHint: String?
     let action: () -> Void
 
     var body: some View {
@@ -103,27 +105,302 @@ struct ExpensePrimarySaveButton: View {
             HStack(spacing: 10) {
                 if isSaving {
                     ProgressView()
-                        .tint(isEnabled ? AppTheme.onAccent : AppTheme.tertiaryText)
+                        .tint(AppTheme.onAccent)
                 }
-                Text(isSaving ? "Guardando…" : title)
-                    .font(.headline)
+                Text(isSaving ? "Guardando…" : (isEnabled ? title : disabledHint ?? title))
+                    .font(.system(size: 17, weight: .bold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isEnabled ? AppTheme.onAccent : AppTheme.tertiaryText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .foregroundStyle(isEnabled || isSaving ? AppTheme.onAccent : AppTheme.tertiaryText)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(Capsule().fill(isEnabled || isSaving ? AppTheme.accent : AppTheme.popoverSurface))
+            .contentShape(Capsule())
         }
+        .buttonStyle(.pressable(scale: 0.98))
         .disabled(!isEnabled)
     }
+}
 
-    private var background: LinearGradient {
-        LinearGradient(
-            colors: isEnabled
-                ? [AppTheme.accent, AppTheme.accent]
-                : [AppTheme.disabledFill, AppTheme.disabledFill],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+// MARK: - Piezas del canvas «Nuevo gasto»
+
+/// Encabezado de hoja: cerrar a la izquierda y título centrado.
+struct FormSheetHeader: View {
+    let title: String
+    var closeIcon = "xmark"
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryText)
+                .accessibilityAddTraits(.isHeader)
+            HStack {
+                Button(action: onClose) {
+                    Image(systemName: closeIcon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(Circle().fill(AppTheme.popoverSurface))
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Cerrar")
+                Spacer()
+            }
+        }
+    }
+}
+
+/// Selector de tipo con pastilla blanca, como «Normal / Recurrente».
+struct FormSegmentedTabs<Value: Hashable>: View {
+    let values: [Value]
+    @Binding var selection: Value
+    let title: (Value) -> String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(values, id: \.self) { value in
+                let isSelected = value == selection
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selection = value }
+                } label: {
+                    Text(title(value))
+                        .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                        .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.secondaryText)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Capsule().fill(isSelected ? AppTheme.primaryText : .clear))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Capsule().fill(AppTheme.popoverSurface))
+    }
+}
+
+/// Monto grande centrado con el símbolo atenuado y una línea de ayuda debajo.
+struct FormAmountEntry: View {
+    let label: String
+    @Binding var text: String
+    var hint: (text: String, color: Color)?
+    var focus: FocusState<Bool>.Binding
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(label)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(AppTheme.tertiaryText)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text("$")
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(AppTheme.tertiaryText)
+                TextField("", text: $text, prompt: Text("0").foregroundStyle(AppTheme.placeholderText))
+                    .keyboardType(.decimalPad)
+                    .focused(focus)
+                    .font(.system(size: 64, weight: .semibold))
+                    .tracking(-2)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(AppTheme.primaryText)
+                    .tint(AppTheme.accent)
+                    .fixedSize()
+                    .minimumScaleFactor(0.5)
+                    .accessibilityLabel("Monto en dólares")
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(.rect)
+            .onTapGesture { focus.wrappedValue = true }
+
+            if let hint {
+                HStack(spacing: 6) {
+                    Circle().fill(hint.color).frame(width: 6, height: 6)
+                    Text(hint.text)
+                }
+                .font(.footnote)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 18)
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+}
+
+/// Grupo de filas con etiqueta fija a la izquierda.
+struct FormGroupedRows<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.surface)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppTheme.separator, lineWidth: 1))
+            )
+    }
+}
+
+struct FormLabeledRow<Content: View>: View {
+    let label: String
+    var showsDivider = true
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .frame(width: 84, alignment: .leading)
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+        .overlay(alignment: .bottom) {
+            if showsDivider { Rectangle().fill(AppTheme.separator).frame(height: 1) }
+        }
+    }
+}
+
+/// Título de sección de formulario, con texto secundario opcional a la derecha.
+struct FormSectionTitle: View {
+    let title: String
+    var trailing: String?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryText)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            if let trailing {
+                Text(trailing)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.tertiaryText)
+            }
+        }
+    }
+}
+
+/// Chips de categoría: punto de color y, al elegir, borde y fondo del mismo color.
+struct CategoryChipPicker: View {
+    let categories: [Categoria]
+    @Binding var selectedID: Int
+    var onPick: (Int) -> Void = { _ in }
+
+    var body: some View {
+        ChipFlowLayout(spacing: 8) {
+            ForEach(categories) { category in
+                let isSelected = category.id == selectedID
+                let color = category.color
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        selectedID = category.id
+                        onPick(category.id)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle().fill(color).frame(width: 8, height: 8)
+                        Text(category.nombre).lineLimit(1)
+                    }
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                    .background(
+                        Capsule()
+                            .fill(isSelected ? color.opacity(0.16) : AppTheme.popoverSurface)
+                            .overlay(Capsule().strokeBorder(isSelected ? color : .clear, lineWidth: 1.5))
+                    )
+                }
+                .buttonStyle(.pressable(scale: 0.95))
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Categoría")
+    }
+}
+
+/// Tarjetas de método de pago en una fila desplazable.
+struct PaymentMethodPicker: View {
+    let methods: [ExpensePaymentMethod]
+    @Binding var selectedID: Int
+    var onPick: (Int) -> Void = { _ in }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(methods) { method in
+                    let isSelected = method.id == selectedID
+                    Button {
+                        selectedID = method.id
+                        onPick(method.id)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: method.icono)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(method.shortLabel)
+                                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                                    .foregroundStyle(AppTheme.primaryText)
+                                if method.nombre != method.shortLabel {
+                                    Text(method.nombre)
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.tertiaryText)
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(height: 56)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AppTheme.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(isSelected ? AppTheme.accent : AppTheme.separator, lineWidth: 1.5)
+                                )
+                        )
+                    }
+                    .buttonStyle(.pressable(scale: 0.96))
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+        .scrollClipDisabled()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Método de pago")
+    }
+}
+
+/// Botón principal fijo al pie, con un velo que funde el contenido de debajo.
+struct FormStickySaveBar<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .padding(.bottom, 12)
+            .background(
+                LinearGradient(
+                    stops: [
+                        .init(color: AppTheme.backgroundTop.opacity(0), location: 0),
+                        .init(color: AppTheme.backgroundTop, location: 0.38)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea(edges: .bottom)
+            )
     }
 }

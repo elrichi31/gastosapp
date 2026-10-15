@@ -44,7 +44,6 @@ enum RecurringComposerKind: Hashable {
 struct AddRecurringExpenseView: View {
     private enum FocusField: Hashable {
         case descripcion
-        case monto
     }
 
     let kind: RecurringComposerKind
@@ -115,33 +114,156 @@ struct AddRecurringExpenseView: View {
         existingExpense != nil
     }
 
-    var body: some View {
-        ZStack {
-            fondo.ignoresSafeArea()
+    @FocusState private var amountFocused: Bool
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    encabezado
-                    estadoCard
-                    montoCard
-                    ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
-                    VStack(spacing: 12) {
-                        if isEditing { Toggle("Activo", isOn: $active) }
-                        Toggle("Fecha de finalización", isOn: $hasEndDate)
-                        if hasEndDate { DatePicker("Hasta", selection: $endDate, in: fechaInicio..., displayedComponents: .date) }
-                    }.padding(16).background(AppTheme.controlSurface, in: .rect(cornerRadius: 16))
-                    detallesCard
-                    if kind != .suscripcion || categoriaSuscripciones == nil {
-                        categoriaCard
-                    }
-                    metodoPagoCard
-                    botonGuardar
+    private static let weekdayLetters = ["L", "M", "X", "J", "V", "S", "D"]
+    private static let monthShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                estadoCard
+                FormAmountEntry(
+                    label: foreignEnabled ? "Precio sin impuestos" : (kind == .suscripcion ? "Monto por cobro" : "Monto de cada cobro"),
+                    text: $monto,
+                    hint: (scheduleSummary, AppTheme.secondaryAccent),
+                    focus: $amountFocused
+                )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Descripción")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.tertiaryText)
+                    TextField("", text: $descripcion, prompt: Text(kind == .suscripcion ? "Ej: Netflix, Spotify" : "Ej: Netflix, gimnasio").foregroundStyle(AppTheme.placeholderText))
+                        .focused($focusedField, equals: .descripcion)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(AppTheme.primaryText)
+                        .tint(AppTheme.accent)
                 }
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, 12)
-                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(groupBackground)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    FormSectionTitle(title: "Frecuencia")
+                    HStack(spacing: 8) {
+                        ForEach([RecurringFrequency.semanal, .mensual, .anual], id: \.self) { option in
+                            pill(option.title, isSelected: frecuencia == option, height: 44, fontSize: 15) {
+                                frecuencia = option
+                            }
+                        }
+                    }
+                }
+
+                if frecuencia == .semanal {
+                    VStack(alignment: .leading, spacing: 10) {
+                        FormSectionTitle(title: "Día de la semana")
+                        HStack {
+                            ForEach(1...7, id: \.self) { day in
+                                let isSelected = diaSemana == day
+                                Button {
+                                    diaSemana = day
+                                } label: {
+                                    Text(Self.weekdayLetters[day - 1])
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+                                        .frame(width: 44, height: 44)
+                                        .background(Circle().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
+                                }
+                                .buttonStyle(.pressable(scale: 0.92))
+                                .accessibilityLabel(weekdayLabel(for: day))
+                                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                                if day < 7 { Spacer(minLength: 0) }
+                            }
+                        }
+                    }
+                }
+
+                if frecuencia == .anual {
+                    VStack(alignment: .leading, spacing: 10) {
+                        FormSectionTitle(title: "Mes")
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                            ForEach(1...12, id: \.self) { month in
+                                pill(Self.monthShort[month - 1], isSelected: annualMonth == month, height: 44, fontSize: 14) {
+                                    annualMonth = month
+                                }
+                                .accessibilityLabel(StatsView.spanishMonthSymbols[month - 1])
+                            }
+                        }
+                    }
+                }
+
+                if frecuencia != .semanal {
+                    HStack(spacing: 12) {
+                        Text("Día del mes")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppTheme.primaryText)
+                        Spacer(minLength: 8)
+                        stepButton("chevron.left", label: "Día anterior", enabled: diaMes > 1) { diaMes -= 1 }
+                        Text(diaMes >= 31 ? "Último día" : "\(diaMes)")
+                            .font(.system(size: 18, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.primaryText)
+                            .frame(minWidth: 76)
+                            .contentTransition(.numericText(value: Double(diaMes)))
+                            .accessibilityLabel("Día del mes: \(diaMes >= 31 ? "último día" : "\(diaMes)")")
+                        stepButton("chevron.right", label: "Día siguiente", enabled: diaMes < 31) { diaMes += 1 }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(groupBackground)
+                }
+
+                FormGroupedRows {
+                    FormLabeledRow(label: isEditing ? "Próximo cobro" : "Inicio") {
+                        DatePicker("Fecha de inicio", selection: $fechaInicio, displayedComponents: .date)
+                            .labelsHidden()
+                            .tint(AppTheme.accent)
+                    }
+                    if isEditing {
+                        toggleRow("Activo", isOn: $active)
+                    }
+                    toggleRow("¿Tiene fecha de finalización?", isOn: $hasEndDate.animation(.easeOut(duration: 0.18)), showsDivider: hasEndDate)
+                    if hasEndDate {
+                        FormLabeledRow(label: "Fecha de fin", showsDivider: false) {
+                            DatePicker("Fecha de fin", selection: $endDate, in: fechaInicio..., displayedComponents: .date)
+                                .labelsHidden()
+                                .tint(AppTheme.accent)
+                        }
+                    }
+                }
+
+                if kind != .suscripcion || categoriaSuscripciones == nil {
+                    VStack(alignment: .leading, spacing: 10) {
+                        FormSectionTitle(title: "Categoría")
+                        CategoryChipPicker(categories: store.categorias, selectedID: $categoriaId)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    FormSectionTitle(title: "Método de pago")
+                    PaymentMethodPicker(methods: store.metodosPago, selectedID: $metodoPagoId)
+                }
+
+                ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(AppTheme.screenBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FormStickySaveBar {
+                ExpensePrimarySaveButton(
+                    isSaving: store.isSavingExpense,
+                    isEnabled: puedeGuardar,
+                    title: isEditing ? "Guardar cambios" : kind.saveTitle,
+                    disabledHint: disabledHint
+                ) {
+                    Task { await guardar() }
+                }
+            }
         }
         .task {
             await store.loadCatalogsIfNeeded()
@@ -161,324 +283,92 @@ struct AddRecurringExpenseView: View {
         }
     }
 
-    private var fondo: some View {
-        LinearGradient(
-            colors: [
-                AppTheme.backgroundTop,
-                AppTheme.backgroundBottom
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    /// «Cada mes el día 15 · $155,88 al año», como el resumen del canvas.
+    private var scheduleSummary: String {
+        let rule: String
+        switch frecuencia {
+        case .semanal:
+            rule = "Cada \(weekdayLabel(for: diaSemana).lowercased())"
+        case .mensual:
+            rule = "Cada mes " + (diaMes >= 31 ? "el último día" : "el día \(diaMes)")
+        case .anual:
+            rule = "Cada año el " + (diaMes >= 31 ? "último día" : "\(diaMes)") + " de " + StatsView.spanishMonthSymbols[annualMonth - 1]
+        }
+        let perCharge = foreignTax?.total ?? montoNumerico
+        guard perCharge > 0 else { return rule }
+        let timesPerYear: Double = switch frecuencia {
+        case .semanal: 52
+        case .mensual: 12
+        case .anual: 1
+        }
+        let yearly = (perCharge * timesPerYear).formatted(.currency(code: "USD").precision(.fractionLength(2)))
+        return frecuencia == .anual ? rule : "\(rule) · \(yearly) al año"
     }
 
-    private var encabezado: some View {
-        AppScreenHeader(
-            eyebrow: isEditing ? "Actualiza monto, frecuencia o método de pago." : kind.subtitle,
-            title: isEditing ? "Editar cargo recurrente" : kind.title
-        )
+    private var disabledHint: String? {
+        if montoNumerico <= 0 { return "Ingresa un monto" }
+        if descripcion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Agrega una descripción" }
+        if !store.canAccessProtectedEndpoints { return "Inicia sesión para guardar" }
+        if hasEndDate && endDate < fechaInicio { return "Revisa la fecha de fin" }
+        if foreignTax?.isValid == false { return "Revisa los impuestos" }
+        return nil
+    }
+
+    private var groupBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(AppTheme.surface)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppTheme.separator, lineWidth: 1))
+    }
+
+    private func pill(_ title: String, isSelected: Bool, height: CGFloat, fontSize: CGFloat, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { action() }
+        } label: {
+            Text(title)
+                .font(.system(size: fontSize, weight: isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.primaryText)
+                .frame(maxWidth: .infinity, minHeight: height)
+                .background(Capsule().fill(isSelected ? AppTheme.primaryText : AppTheme.popoverSurface))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.pressable(scale: 0.95))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func stepButton(_ icon: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.18)) { action() }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(enabled ? AppTheme.primaryText : AppTheme.placeholderText)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(AppTheme.popoverSurface))
+        }
+        .buttonStyle(.pressable(scale: 0.9))
+        .disabled(!enabled)
+        .accessibilityLabel(label)
+    }
+
+    private func toggleRow(_ title: String, isOn: Binding<Bool>, showsDivider: Bool = true) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppTheme.primaryText)
+        }
+        .tint(AppTheme.accent)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+        .overlay(alignment: .bottom) {
+            if showsDivider { Rectangle().fill(AppTheme.separator).frame(height: 1) }
+        }
     }
 
     @ViewBuilder
     private var estadoCard: some View {
         if let status = estadoActual {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: status.icon)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(status.tint)
-                    .frame(width: 28, height: 28)
-                    .background(status.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(status.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text(status.message)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(tarjetaFondo)
+            ExpenseFormStatusCard(status: ExpenseFormStatus(title: status.title, message: status.message, icon: status.icon, tint: status.tint))
         }
-    }
-
-    private var montoCard: some View {
-        VStack(spacing: 14) {
-            Text(kind == .suscripcion ? "Monto por cobro" : "Monto del gasto")
-                .font(.caption2.weight(.semibold))
-                .textCase(.uppercase)
-                .tracking(1.1)
-                .foregroundStyle(AppTheme.statementSecondary)
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Spacer(minLength: 0)
-                Text("$")
-                    .font(.system(size: 30, weight: .semibold, design: .default))
-                    .foregroundStyle(AppTheme.accent)
-                TextField(
-                    "",
-                    text: $monto,
-                    prompt: Text("0").foregroundStyle(AppTheme.onStatement.opacity(0.22))
-                )
-                .keyboardType(.decimalPad)
-                .font(.system(size: 64, weight: .bold, design: .default))
-                .focused($focusedField, equals: .monto)
-                .foregroundStyle(AppTheme.onStatement)
-                .tint(AppTheme.accent)
-                .multilineTextAlignment(.leading)
-                .fixedSize()
-                Spacer(minLength: 0)
-            }
-
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.accent.opacity(0.0), AppTheme.accent.opacity(0.7), AppTheme.accent.opacity(0.0)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(width: 60, height: 3)
-                .opacity(monto.isEmpty ? 0.2 : 1)
-                .animation(.easeInOut(duration: 0.2), value: monto.isEmpty)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 30)
-        .background(AppTheme.statementBackground(cornerRadius: 32))
-    }
-
-    private var detallesCard: some View {
-        VStack(spacing: 0) {
-            campoTexto(icono: kind == .suscripcion ? "rectangle.stack.fill" : "repeat", placeholder: kind.descriptionPlaceholder, texto: $descripcion)
-            divisor
-            HStack(spacing: 14) {
-                iconoCircular("calendar", color: AppTheme.secondaryAccent)
-                DatePicker("", selection: $fechaInicio, displayedComponents: .date)
-                    .labelsHidden()
-                    .tint(AppTheme.accent)
-                Spacer()
-                Text(isEditing ? "Próximo cobro" : "Primer cobro")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            divisor
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 14) {
-                    iconoCircular("calendar.badge.clock", color: AppTheme.secondaryAccent)
-                    Text("Frecuencia")
-                        .foregroundStyle(AppTheme.primaryText)
-                    Spacer()
-                }
-
-                HStack(spacing: 8) {
-                    frecuenciaPill(.mensual)
-                    frecuenciaPill(.semanal)
-                    frecuenciaPill(.anual)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            divisor
-
-            if frecuencia != .semanal {
-                if frecuencia == .anual {
-                    Picker("Mes del año", selection: $annualMonth) {
-                        ForEach(1...12, id: \.self) { month in Text(StatsView.spanishMonthSymbols[month - 1]).tag(month) }
-                    }.padding(16)
-                }
-                HStack(spacing: 14) {
-                    iconoCircular("number.square.fill", color: AppTheme.accent)
-                    Text("Día del mes")
-                        .foregroundStyle(AppTheme.primaryText)
-                    Spacer()
-                    Menu {
-                        Picker("Día del mes", selection: $diaMes) {
-                            ForEach(1...31, id: \.self) { day in
-                                Text("\(day)").tag(day)
-                            }
-                        }
-                    } label: {
-                        selectorLabel("\(diaMes)")
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-            } else {
-                HStack(spacing: 14) {
-                    iconoCircular("calendar.day.timeline.leading", color: AppTheme.accent)
-                    Text("Día de la semana")
-                        .foregroundStyle(AppTheme.primaryText)
-                    Spacer()
-                    Menu {
-                        Picker("Día de la semana", selection: $diaSemana) {
-                            ForEach(weekdays, id: \.value) { item in
-                                Text(item.label).tag(item.value)
-                            }
-                        }
-                    } label: {
-                        selectorLabel(weekdayLabel(for: diaSemana))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-            }
-        }
-        .background(tarjetaFondo)
-    }
-
-    private var categoriaCard: some View {
-        VStack(spacing: 0) {
-            menuFila(
-                icono: categoriaSeleccionada?.icono ?? "square.grid.2x2.fill",
-                color: categoriaSeleccionada?.color ?? .gray,
-                titulo: "Categoría",
-                valor: categoriaSeleccionada?.nombre ?? "Selecciona"
-            ) {
-                Picker("Categoría", selection: $categoriaId) {
-                    ForEach(store.categorias) { categoria in
-                        Label(categoria.nombre, systemImage: categoria.icono).tag(categoria.id)
-                    }
-                }
-            }
-        }
-        .background(tarjetaFondo)
-    }
-
-    private var metodoPagoCard: some View {
-        VStack(spacing: 0) {
-            menuFila(
-                icono: metodoPagoSeleccionado?.icono ?? "creditcard.fill",
-                color: AppTheme.secondaryAccent,
-                titulo: "Método de pago",
-                valor: metodoPagoSeleccionado?.nombre ?? "Selecciona"
-            ) {
-                Picker("Método de pago", selection: $metodoPagoId) {
-                    ForEach(store.metodosPago) { metodo in
-                        Label(metodo.nombre, systemImage: metodo.icono).tag(metodo.id)
-                    }
-                }
-            }
-        }
-        .background(tarjetaFondo)
-    }
-
-    private var botonGuardar: some View {
-        Button {
-            Task { await guardar() }
-        } label: {
-            HStack(spacing: 10) {
-                if store.isSavingExpense {
-                    ProgressView()
-                        .tint(puedeGuardar ? AppTheme.onAccent : AppTheme.tertiaryText)
-                }
-                Text(store.isSavingExpense ? "Guardando…" : (isEditing ? "Guardar cambios" : kind.saveTitle))
-                    .font(.headline)
-            }
-            .foregroundStyle(puedeGuardar ? AppTheme.onAccent : AppTheme.tertiaryText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                LinearGradient(
-                    colors: puedeGuardar
-                        ? [AppTheme.accent, AppTheme.accent]
-                        : [AppTheme.disabledFill, AppTheme.disabledFill],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .disabled(!puedeGuardar)
-        .padding(.top, 8)
-    }
-
-    private func frecuenciaPill(_ option: RecurringFrequency) -> some View {
-        let isSelected = frecuencia == option
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                frecuencia = option
-            }
-        } label: {
-            Text(option.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? .black : AppTheme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? AppTheme.accent : AppTheme.controlSurface)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func selectorLabel(_ value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(value)
-                .foregroundStyle(AppTheme.secondaryText)
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.caption2)
-                .foregroundStyle(AppTheme.tertiaryText)
-        }
-    }
-
-    private func campoTexto(icono: String, placeholder: String, texto: Binding<String>) -> some View {
-        HStack(spacing: 14) {
-            iconoCircular(icono, color: AppTheme.secondaryAccent)
-            TextField("", text: texto, prompt: Text(placeholder).foregroundStyle(AppTheme.tertiaryText))
-                .focused($focusedField, equals: .descripcion)
-                .foregroundStyle(AppTheme.primaryText)
-                .tint(AppTheme.accent)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-
-    private func menuFila<Content: View>(
-        icono: String,
-        color: Color,
-        titulo: String,
-        valor: String,
-        @ViewBuilder picker: () -> Content
-    ) -> some View {
-        HStack(spacing: 14) {
-            iconoCircular(icono, color: color)
-            Text(titulo)
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            Menu {
-                picker()
-            } label: {
-                selectorLabel(valor)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-
-    private var tarjetaFondo: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(AppTheme.controlSurface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(AppTheme.border, lineWidth: 1)
-            )
-    }
-
-    private var divisor: some View {
-        Divider()
-            .background(AppTheme.border)
-            .padding(.leading, 56)
     }
 
     private var weekdays: [(value: Int, label: String)] {
@@ -497,14 +387,7 @@ struct AddRecurringExpenseView: View {
         weekdays.first(where: { $0.value == value })?.label ?? "Lunes"
     }
 
-    private func iconoCircular(_ nombre: String, color: Color) -> some View {
-        Image(systemName: nombre)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(AppTheme.primaryText)
-            .frame(width: 28, height: 28)
-            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
+    /// Sólo lo que impide guardar; los avisos informativos ya no ocupan sitio.
     private var estadoActual: (title: String, message: String, icon: String, tint: Color)? {
         if let error = store.saveErrorMessage {
             return ("No se pudo guardar", error, "exclamationmark.triangle.fill", AppTheme.warning)
@@ -520,20 +403,12 @@ struct AddRecurringExpenseView: View {
         if !store.canAccessProtectedEndpoints {
             return (
                 "Falta la sesión",
-                "Inicia sesión en la app para crear cargos recurrentes con tu bearer token.",
+                "Inicia sesión para guardar cargos recurrentes.",
                 "key.fill",
                 AppTheme.secondaryAccent
             )
         }
-        if let categoria = categoriaSuscripciones, kind == .suscripcion {
-            return (
-                "Categoría aplicada",
-                "Esta suscripción se guardará dentro de \(categoria.nombre).",
-                "checkmark.seal.fill",
-                AppTheme.accent
-            )
-        }
-        return ("Listo para programar", "El cargo se guardará como recurrente en el backend.", "repeat.circle.fill", AppTheme.accent)
+        return nil
     }
 
     private func aplicarSeleccionInicial() {

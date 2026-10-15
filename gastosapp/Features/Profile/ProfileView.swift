@@ -42,30 +42,53 @@ struct ProfileView: View {
             AppTheme.screenBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: AppScreenMetrics.sectionSpacing) {
+                VStack(alignment: .leading, spacing: 20) {
                     sessionCard
-                    Button("Conexiones y seguridad", systemImage: "link") { showsConnections = true }
-                        .buttonStyle(.bordered).tint(AppTheme.accent)
-                    appearanceCard
-                    notificationsCard
-                    savingsGoalCard
+                    section("Apariencia") { appearancePicker }
+                    section("Conexiones y seguridad") {
+                        group {
+                            navigationRow(
+                                icon: "link",
+                                title: "Conexiones MCP y sesiones",
+                                subtitle: "ChatGPT y dispositivos con acceso",
+                                showsDivider: false
+                            ) { showsConnections = true }
+                        }
+                    }
+                    section("Notificaciones") { notificationsGroup }
+                    section("Objetivo de ahorro") { savingsGroup }
                     logoutButton
+                        .padding(.top, 8)
                 }
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, AppScreenMetrics.headerTopPadding)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            AppScreenHeader(eyebrow: "Tu cuenta", title: "Perfil") {
+            HStack(spacing: 12) {
                 if let onClose {
-                    AppCircleButton(icon: "xmark", label: "Cerrar", action: onClose)
+                    Button(action: onClose) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AppTheme.primaryText)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(AppTheme.popoverSurface))
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel("Cerrar")
                 }
+                Text("Cuenta")
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-0.6)
+                    .foregroundStyle(AppTheme.primaryText)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
             }
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, AppScreenMetrics.headerBottomPadding)
-                .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
+            .padding(.horizontal, 20)
+            .padding(.top, AppScreenMetrics.headerTopPadding)
+            .padding(.bottom, 12)
+            .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
         .sheet(isPresented: $showsConnections) { ConnectionsView() }
         .onChange(of: weeklySummaryEnabled) { _, _ in
@@ -99,269 +122,208 @@ struct ProfileView: View {
         }
     }
 
-    private var sessionCard: some View {
-        HStack(spacing: 16) {
-            Circle()
-                .fill(AppTheme.accent.opacity(0.18))
-                .frame(width: 58, height: 58)
-                .overlay(Circle().strokeBorder(AppTheme.accent.opacity(0.30), lineWidth: 1))
-                .overlay(
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(AppTheme.accent)
-                )
+    // MARK: - Piezas
 
-            VStack(alignment: .leading, spacing: 3) {
+    private var initials: String {
+        let name = store.currentUser?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let letters = name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }
+        return letters.isEmpty ? "?" : letters.joined().uppercased()
+    }
+
+    private var sessionCard: some View {
+        HStack(spacing: 14) {
+            Text(initials)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 52, height: 52)
+                .background(Circle().fill(AppTheme.accent.opacity(0.18)))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(store.currentUser?.name ?? "Sesión activa")
-                    .font(.title3.bold())
-                    .foregroundStyle(AppTheme.onStatement)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
                     .lineLimit(1)
                 Text(store.currentUser?.email ?? "Sin correo")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.statementSecondary)
+                    .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-
             Spacer(minLength: 0)
         }
-        .padding(24)
-        .background(AppTheme.statementBackground(cornerRadius: 32))
+        .padding(16)
+        .background(AppTheme.cardBackground(cornerRadius: 20))
         .accessibilityElement(children: .combine)
     }
 
-    private var appearanceCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Image(systemName: "circle.lefthalf.filled")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 36, height: 36)
-                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Apariencia")
-                        .font(.title3.bold())
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text("Elige claro, oscuro o sigue el sistema.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-
-            Picker("Apariencia", selection: $appearanceRawValue) {
-                ForEach(AppAppearancePreference.allCases) { option in
-                    Label(option.title, systemImage: option.icon)
-                        .tag(option.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .tint(AppTheme.accent)
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.6)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .padding(.horizontal, 4)
+                .accessibilityAddTraits(.isHeader)
+            content()
         }
-        .padding(.vertical, 4)
     }
 
-    private var notificationsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "bell.badge.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 36, height: 36)
-                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    private func group<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .background(AppTheme.cardBackground(cornerRadius: 20))
+            .clipShape(.rect(cornerRadius: 20, style: .continuous))
+    }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Notificaciones")
-                        .font(.title3.bold())
+    private var appearancePicker: some View {
+        HStack(spacing: 0) {
+            ForEach(AppAppearancePreference.allCases) { option in
+                let isSelected = appearanceRawValue == option.rawValue
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { appearanceRawValue = option.rawValue }
+                } label: {
+                    Text(option.title)
+                        .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                        .foregroundStyle(isSelected ? AppTheme.backgroundTop : AppTheme.secondaryText)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Capsule().fill(isSelected ? AppTheme.primaryText : .clear))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Capsule().fill(AppTheme.popoverSurface))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Tema")
+    }
+
+    private var notificationsGroup: some View {
+        group {
+            settingsToggle(title: "Resumen semanal", subtitle: "Domingos a las 7:00 p.m.", isOn: $weeklySummaryEnabled)
+            settingsToggle(title: "Recordatorio diario", subtitle: "Para registrar gastos antes de cerrar el día.", isOn: $dailyExpenseReminderEnabled)
+            if dailyExpenseReminderEnabled {
+                HStack {
+                    Text("Hora del recordatorio")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(AppTheme.primaryText)
-                    Text("Ajusta avisos semanales y de presupuesto.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
+                    Spacer()
+                    DatePicker("Hora del recordatorio", selection: dailyReminderTime, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .tint(AppTheme.accent)
                 }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 56)
+                .overlay(alignment: .bottom) { AppHairline() }
             }
-
-            VStack(spacing: 0) {
-                settingsToggle(
-                    title: "Resumen semanal",
-                    subtitle: "Domingos a las 7:00 p.m.",
-                    icon: "calendar.badge.clock",
-                    isOn: $weeklySummaryEnabled
-                )
-
-                Divider().overlay(AppTheme.border)
-
-                settingsToggle(
-                    title: "Recordatorio diario",
-                    subtitle: "Para registrar gastos antes de cerrar el día.",
-                    icon: "bell.and.waves.left.and.right.fill",
-                    isOn: $dailyExpenseReminderEnabled
-                )
-
-                if dailyExpenseReminderEnabled {
-                    Divider().overlay(AppTheme.border)
-
-                    HStack(spacing: 12) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(AppTheme.accent)
-                            .frame(width: 30, height: 30)
-                            .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-                        Text("Hora")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(AppTheme.primaryText)
-
-                        Spacer()
-
-                        DatePicker("", selection: dailyReminderTime, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                            .tint(AppTheme.accent)
-                    }
-                    .padding(14)
-                }
-
-                Divider().overlay(AppTheme.border)
-
-                settingsToggle(
-                    title: "Alertas de presupuesto",
-                    subtitle: "Avísame cuando una categoría llegue al umbral.",
-                    icon: "target",
-                    isOn: $budgetAlertsEnabled
-                )
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.insetSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.strongBorder, lineWidth: 1))
-            )
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Umbral de alerta")
-                    .font(.caption.weight(.bold))
-                    .textCase(.uppercase)
-                    .tracking(1.1)
-                    .foregroundStyle(AppTheme.tertiaryText)
-
+            settingsToggle(title: "Alertas de presupuesto", subtitle: "Cuando una categoría llegue al umbral.", isOn: $budgetAlertsEnabled)
+            HStack(spacing: 12) {
+                Text("Umbral")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+                Spacer()
                 Picker("Umbral de alerta", selection: $budgetAlertThreshold) {
                     ForEach(budgetAlertThresholds, id: \.value) { threshold in
                         Text(threshold.title).tag(threshold.value)
                     }
                 }
                 .pickerStyle(.segmented)
-                .tint(AppTheme.accent)
-                .disabled(!budgetAlertsEnabled)
-                .opacity(budgetAlertsEnabled ? 1 : 0.45)
+                .frame(maxWidth: 180)
             }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 56)
+            .disabled(!budgetAlertsEnabled)
+            .opacity(budgetAlertsEnabled ? 1 : 0.45)
         }
-        .padding(.vertical, 4)
     }
 
-    private var savingsGoalCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "banknote.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.secondaryAccent)
-                    .frame(width: 36, height: 36)
-                    .background(AppTheme.secondaryAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Objetivo de ahorro")
-                        .font(.title3.bold())
+    private var savingsGroup: some View {
+        group {
+            settingsToggle(
+                title: "Meta mensual",
+                subtitle: "Resumen calculará cuánto puedes gastar sin tocarla.",
+                isOn: $savingsGoalEnabled,
+                showsDivider: savingsGoalEnabled
+            )
+            if savingsGoalEnabled {
+                HStack(spacing: 12) {
+                    Text("Quiero ahorrar")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(AppTheme.primaryText)
-                    Text("Protege una parte de tu presupuesto mensual.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-            }
-
-            VStack(spacing: 0) {
-                settingsToggle(
-                    title: "Meta mensual",
-                    subtitle: "Inicio calculará cuánto puedes gastar sin tocarla.",
-                    icon: "target",
-                    isOn: $savingsGoalEnabled
-                )
-
-                if savingsGoalEnabled {
-                    Divider().overlay(AppTheme.border)
-
-                    HStack(spacing: 12) {
-                        Image(systemName: "dollarsign")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(AppTheme.secondaryAccent)
-                            .frame(width: 30, height: 30)
-                            .background(AppTheme.secondaryAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Quiero ahorrar")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(AppTheme.primaryText)
-                            Text("Monto objetivo para cada mes.")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.secondaryText)
-                        }
-
-                        Spacer()
-
-                        HStack(spacing: 4) {
-                            Text("$")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(AppTheme.secondaryAccent)
-                            TextField(
-                                "0",
-                                value: $monthlySavingsTarget,
-                                format: .number.precision(.fractionLength(2))
-                            )
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("$").foregroundStyle(AppTheme.tertiaryText)
+                        TextField("0", value: $monthlySavingsTarget, format: .number.precision(.fractionLength(2)))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .font(.headline.weight(.bold))
+                            .monospacedDigit()
                             .foregroundStyle(AppTheme.primaryText)
                             .frame(width: 92)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(height: 40)
-                        .background(
-                            Capsule()
-                                .fill(AppTheme.surface)
-                                .overlay(Capsule().stroke(AppTheme.strongBorder, lineWidth: 1))
-                        )
+                            .accessibilityLabel("Monto a ahorrar cada mes")
                     }
-                    .padding(14)
+                    .font(.system(size: 16, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .frame(height: 40)
+                    .background(Capsule().fill(AppTheme.popoverSurface))
                 }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 60)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.insetSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.strongBorder, lineWidth: 1))
-            )
         }
-        .padding(.vertical, 4)
     }
 
-    private func settingsToggle(title: String, subtitle: String, icon: String, isOn: Binding<Bool>) -> some View {
+    private func settingsToggle(title: String, subtitle: String, isOn: Binding<Bool>, showsDivider: Bool = true) -> some View {
         Toggle(isOn: isOn) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 30, height: 30)
-                    .background(AppTheme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.primaryText)
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .toggleStyle(.switch)
         .tint(AppTheme.accent)
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(minHeight: 60)
+        .overlay(alignment: .bottom) {
+            if showsDivider { AppHairline() }
+        }
+    }
+
+    private func navigationRow(icon: String, title: String, subtitle: String, showsDivider: Bool = true, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(AppTheme.primaryText)
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.tertiaryText)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppTheme.tertiaryText)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 60)
+            .contentShape(.rect)
+            .overlay(alignment: .bottom) {
+                if showsDivider { AppHairline() }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var logoutButton: some View {
@@ -369,19 +331,14 @@ struct ProfileView: View {
             onClose?()
             store.logout()
         } label: {
-            Text("Cerrar sesión")
-                .font(.headline)
+            Label("Cerrar sesión", systemImage: "rectangle.portrait.and.arrow.right")
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppTheme.negative)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(
-                    Capsule()
-                        .fill(AppTheme.negative.opacity(0.12))
-                        .overlay(Capsule().strokeBorder(AppTheme.negative.opacity(0.28), lineWidth: 1))
-                )
+                .frame(maxWidth: .infinity, minHeight: 56)
+                .background(Capsule().fill(AppTheme.popoverSurface))
         }
+        .buttonStyle(.pressable(scale: 0.98))
     }
-
 }
 
 #Preview {

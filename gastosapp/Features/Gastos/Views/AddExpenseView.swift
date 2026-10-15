@@ -3,13 +3,15 @@ import SwiftUI
 struct AddExpenseView: View {
     private enum FocusField: Hashable {
         case descripcion
-        case monto
     }
 
     let editingExpense: Expense?
     var onSaved: () -> Void = {}
 
     @Environment(ExpenseStore.self) private var store
+    @Environment(BudgetStore.self) private var budgetStore
+    @State private var budgetDetail = BudgetDetailStore()
+    @FocusState private var amountFocused: Bool
     @State private var tagsText = ""
     @State private var foreignEnabled = false
     @State private var taxSelection = ["isd"]
@@ -70,29 +72,68 @@ struct AddExpenseView: View {
     }
 
     var body: some View {
-        ZStack {
-            AppTheme.screenBackground.ignoresSafeArea()
-
-            ScrollView {
-                VStack(spacing: 22) {
-                    encabezado
-                    estadoCard
-                    expenseComposerCard
-                    ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico, legacyTotal: editingExpense?.tags?.contains("exterior") == true && editingExpense?.foreignTax == nil)
-                    ExpenseExtrasFields(tagsText: $tagsText)
-                    suggestionCard
-                    categoriaCard
-                    botonGuardar
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                estadoCard
+                FormAmountEntry(
+                    label: foreignEnabled ? "Precio sin impuestos" : "Monto",
+                    text: $monto,
+                    hint: budgetHint,
+                    focus: $amountFocused
+                )
+                FormGroupedRows {
+                    FormLabeledRow(label: "Descripción") {
+                        TextField("", text: $descripcion, prompt: Text("¿En qué gastaste?").foregroundStyle(AppTheme.placeholderText))
+                            .focused($focusedField, equals: .descripcion)
+                            .textInputAutocapitalization(.sentences)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppTheme.primaryText)
+                            .tint(AppTheme.accent)
+                    }
+                    FormLabeledRow(label: "Fecha", showsDivider: false) {
+                        DatePicker("Fecha", selection: $fecha, displayedComponents: .date)
+                            .labelsHidden()
+                            .tint(AppTheme.accent)
+                    }
                 }
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding)
-                .padding(.top, AppScreenMetrics.headerTopPadding)
-                .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+                suggestionCard
+                VStack(alignment: .leading, spacing: 10) {
+                    FormSectionTitle(title: "Categoría")
+                    CategoryChipPicker(categories: store.categorias, selectedID: $categoriaId) { _ in
+                        userPickedCategory = true
+                    }
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    FormSectionTitle(title: "Método de pago")
+                    PaymentMethodPicker(methods: store.metodosPago, selectedID: $metodoPagoId) { _ in
+                        userPickedPaymentMethod = true
+                    }
+                }
+                ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico, legacyTotal: editingExpense?.tags?.contains("exterior") == true && editingExpense?.foreignTax == nil)
+                ExpenseExtrasFields(tagsText: $tagsText)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(AppTheme.screenBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FormStickySaveBar {
+                ExpensePrimarySaveButton(
+                    isSaving: store.isSavingExpense,
+                    isEnabled: puedeGuardar,
+                    title: "\(isEditing ? "Guardar cambios" : "Guardar gasto") · \(totalLabel)",
+                    disabledHint: disabledHint
+                ) {
+                    Task { await guardar() }
+                }
+            }
         }
         .task {
             await store.loadCatalogsIfNeeded()
             aplicarSeleccionInicial()
+            await loadBudgetDetail()
         }
         .onAppear {
             aplicarSeleccionInicial()
@@ -106,13 +147,64 @@ struct AddExpenseView: View {
         .onChange(of: descripcion) { _, _ in
             applySmartSuggestionIfNeeded()
         }
+        .onChange(of: budgetStore.budgets) {
+            Task { await loadBudgetDetail() }
+        }
     }
 
-    private var encabezado: some View {
-        AppScreenHeader(
-            eyebrow: isEditing ? "Corrige monto, categoría, método o fecha" : "Registra rápido sin perder detalle",
-            title: isEditing ? "Editar gasto" : "Nuevo gasto"
-        )
+    private var registeredTotal: Double {
+        foreignTax?.total ?? montoNumerico
+    }
+
+    private var totalLabel: String {
+        money(registeredTotal)
+    }
+
+    private var disabledHint: String? {
+        if montoNumerico <= 0 { return "Ingresa un monto" }
+        if !canPersistExpense { return "Inicia sesión para guardar" }
+        if !ExpenseTags.isValid(expenseTags) { return "Revisa las etiquetas" }
+        if foreignTax?.isValid == false { return "Revisa los impuestos" }
+        return nil
+    }
+
+    /// Cómo quedaría la categoría elegida en el presupuesto del mes con este gasto.
+    private var budgetHint: (text: String, color: Color)? {
+        guard montoNumerico > 0 else {
+            return ("Ingresa un monto para ver el efecto en tu presupuesto", AppTheme.placeholderText)
+        }
+        guard
+            let category = categoriaSeleccionada,
+            let line = budgetDetail.categories.first(where: { $0.categoriaId == category.id }),
+            line.budgetedAmount > 0
+        else { return nil }
+
+        let cal = Calendar.current
+        let spent = store.gastos
+            .filter {
+                $0.categoriaId == category.id && $0.id != editingExpense?.id
+                    && cal.isDate($0.fecha, equalTo: fecha, toGranularity: .month)
+            }
+            .reduce(0) { $0 + $1.monto }
+        let after = spent + registeredTotal
+        let limit = line.budgetedAmount
+        let amounts = "\(money(after)) / \(money(limit))"
+        let ratio = after / limit
+        if ratio > 1 { return ("\(category.nombre) pasaría el presupuesto: \(amounts)", AppTheme.negative) }
+        if ratio >= 0.8 { return ("\(category.nombre) llegaría al \(Int((ratio * 100).rounded()))%: \(amounts)", AppTheme.warning) }
+        return ("\(category.nombre) quedaría en \(amounts)", AppTheme.accent)
+    }
+
+    private func money(_ value: Double) -> String {
+        value.formatted(.currency(code: "USD").precision(.fractionLength(2)))
+    }
+
+    private func loadBudgetDetail() async {
+        let cal = Calendar.current
+        guard let budget = budgetStore.budgets.first(where: {
+            $0.anio == cal.component(.year, from: fecha) && $0.mes == cal.component(.month, from: fecha)
+        }) else { return }
+        await budgetDetail.loadDetail(using: store, budgetID: budget.id)
     }
 
     @ViewBuilder
@@ -120,123 +212,6 @@ struct AddExpenseView: View {
         if let status = estadoActual {
             ExpenseFormStatusCard(status: status)
         }
-    }
-
-    private var expenseComposerCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            compactAmountField
-
-            VStack(spacing: 0) {
-                descripcionField
-                ExpenseFormDivider()
-                fechaField
-                ExpenseFormDivider()
-                metodoPagoInlineField
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(AppTheme.controlSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
-            )
-        }
-    }
-
-    /// Entrada del monto: sin caja, centrada y con los dígitos rodando.
-    ///
-    /// El campo real es invisible y sólo aporta teclado y foco; lo que se ve es
-    /// texto normal. Hace falta ese desdoble porque un `TextField` dibuja su
-    /// contenido de una pieza y no admite transición por carácter: sin él, los
-    /// dígitos aparecerían de golpe.
-    private var compactAmountField: some View {
-        VStack(spacing: 14) {
-            Text("Monto")
-                .font(.caption2.weight(.semibold))
-                .textCase(.uppercase)
-                .tracking(1.1)
-                .foregroundStyle(AppTheme.secondaryText)
-
-            ZStack {
-                TextField("", text: $monto)
-                    .keyboardType(.decimalPad)
-                    .focused($focusedField, equals: .monto)
-                    // Casi invisible en lugar de opacidad 0: un campo
-                    // totalmente transparente puede quedar fuera del recorrido
-                    // de foco según la versión de iOS, y entonces el teclado no
-                    // aparecería nunca.
-                    .opacity(0.01)
-                    .frame(width: 1, height: 1)
-                    .accessibilityLabel("Monto")
-
-                amountDisplay
-                    .accessibilityHidden(true)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = .monto }
-        .sensoryFeedback(.selection, trigger: monto.count)
-    }
-
-    private var amountDisplay: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("$")
-                .font(.system(size: 28, weight: .semibold, design: .default))
-                .foregroundStyle(monto.isEmpty ? AppTheme.placeholderText : AppTheme.accent)
-
-            HStack(spacing: 0) {
-                // La identidad es la posición: al teclear sólo cambia el último
-                // hueco, así que sólo ese dígito entra y los demás se quedan
-                // quietos en lugar de reanimarse todos.
-                ForEach(Array(displayedAmount.enumerated()), id: \.offset) { _, character in
-                    Text(String(character))
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .move(edge: .top).combined(with: .opacity)
-                        ))
-                }
-            }
-            .font(.system(size: 56, weight: .bold, design: .default))
-            .monospacedDigit()
-            .foregroundStyle(monto.isEmpty ? AppTheme.placeholderText : AppTheme.primaryText)
-            .frame(height: 66)
-            .clipped()
-        }
-        .scaleEffect(amountScale, anchor: .center)
-        .animation(.spring(response: 0.3, dampingFraction: 0.68), value: displayedAmount)
-        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: amountScale)
-    }
-
-    private var displayedAmount: String {
-        monto.isEmpty ? "0.00" : monto
-    }
-
-    /// Cuánto encoge la cifra según lo larga que sea, para que nunca desborde.
-    private var amountScale: CGFloat {
-        switch displayedAmount.count {
-        case 0...6: return 1
-        case 7: return 0.88
-        case 8: return 0.78
-        case 9: return 0.68
-        default: return 0.6
-        }
-    }
-
-    private var descripcionField: some View {
-        HStack(spacing: 14) {
-            ExpenseIconBadge(systemName: "text.alignleft", color: AppTheme.secondaryAccent)
-            TextField(
-                "",
-                text: $descripcion,
-                prompt: Text("Descripción opcional").foregroundStyle(AppTheme.tertiaryText)
-            )
-            .focused($focusedField, equals: .descripcion)
-            .textInputAutocapitalization(.sentences)
-            .foregroundStyle(AppTheme.primaryText)
-            .tint(AppTheme.accent)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 54)
     }
 
     @ViewBuilder
@@ -257,117 +232,14 @@ struct AddExpenseView: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(16)
+            .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(AppTheme.controlSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(AppTheme.border, lineWidth: 1))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.accent.opacity(0.08))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppTheme.accent.opacity(0.25), lineWidth: 1))
             )
             .transition(.move(edge: .top).combined(with: .opacity))
         }
-    }
-
-    private var fechaField: some View {
-        HStack(spacing: 14) {
-            ExpenseIconBadge(systemName: "calendar", color: AppTheme.secondaryAccent)
-            Text("Fecha")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            DatePicker("", selection: $fecha, displayedComponents: .date)
-                .labelsHidden()
-                .tint(AppTheme.accent)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 54)
-    }
-
-    private var metodoPagoInlineField: some View {
-        HStack(spacing: 14) {
-            ExpenseIconBadge(systemName: metodoPagoSeleccionado?.icono ?? "creditcard.fill", color: AppTheme.accent)
-            Text("Método")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            Menu {
-                ForEach(store.metodosPago) { metodo in
-                    Button {
-                        userPickedPaymentMethod = true
-                        metodoPagoId = metodo.id
-                    } label: {
-                        Label(metodo.nombre, systemImage: metodo.icono)
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(metodoPagoSeleccionado?.shortLabel ?? "Elegir")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(AppTheme.primaryText)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(AppTheme.tertiaryText)
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 54)
-    }
-
-    private var categoriaCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            AppSectionTitle(title: "Categoría", trailingText: categoriaSeleccionada?.nombre ?? "Elegir")
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 10)], spacing: 10) {
-                ForEach(store.categorias) { categoria in
-                    categoriaButton(categoria)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func categoriaButton(_ categoria: Categoria) -> some View {
-        let isSelected = categoriaId == categoria.id
-        return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
-                userPickedCategory = true
-                categoriaId = categoria.id
-            }
-        } label: {
-            ZStack(alignment: .topTrailing) {
-                CategoryGlyph(
-                    categoria: categoria,
-                    size: 54,
-                    tint: isSelected ? AppTheme.onAccent : AppTheme.primaryText,
-                    background: isSelected ? AppTheme.accent : AppTheme.controlSurface,
-                    borderColor: isSelected ? nil : AppTheme.border
-                )
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.black)
-                        .background(Circle().fill(AppTheme.accent))
-                        .offset(x: 3, y: -3)
-                }
-            }
-            .frame(width: 58, height: 58)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(categoria.nombre)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private var botonGuardar: some View {
-        ExpensePrimarySaveButton(
-            isSaving: store.isSavingExpense,
-            isEnabled: puedeGuardar,
-            title: isEditing ? "Guardar cambios" : "Guardar gasto"
-        ) {
-            Task { await guardar() }
-        }
-        .padding(.top, 8)
     }
 
     private var estadoActual: ExpenseFormStatus? {
@@ -378,8 +250,8 @@ struct AddExpenseView: View {
             return .init(title: "Configura el backend", message: "Antes de guardar necesitas la URL base del backend. Usa el botón de conexión arriba.", icon: "slider.horizontal.3", tint: .yellow)
         }
         if !store.canAccessProtectedEndpoints && !canEditLocalDraft {
-            let action = isEditing ? "editar tus gastos" : "llamar POST /api/gastos con tu bearer token"
-            return .init(title: "Falta la sesión", message: "Inicia sesión en la app para poder \(action).", icon: "key.fill", tint: AppTheme.secondaryAccent)
+            let action = isEditing ? "editar tus gastos" : "guardar gastos"
+            return .init(title: "Falta la sesión", message: "Inicia sesión para \(action).", icon: "key.fill", tint: AppTheme.secondaryAccent)
         }
         if store.isLoadingCatalogs {
             return .init(title: "Sincronizando catálogos", message: "Estoy cargando categorías y métodos desde el backend.", icon: "arrow.triangle.2.circlepath", tint: AppTheme.accent)
