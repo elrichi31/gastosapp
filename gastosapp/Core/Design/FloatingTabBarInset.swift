@@ -71,37 +71,65 @@ private struct FloatingTabBarInsetModifier: ViewModifier {
     }
 }
 
-/// Contrae la barra en cuanto el contenido se separa del principio.
+/// Contrae la barra al desplazar hacia abajo y la vuelve a abrir en cuanto
+/// el usuario desplaza hacia arriba, como en Safari.
 ///
-/// El umbral evita que el rebote elástico de la parte superior la haga
-/// parpadear, y la histéresis (contraer a 40, expandir a 12) evita que oscile
-/// cuando el usuario deja el scroll justo en el límite.
+/// Mide el recorrido acumulado en la dirección actual en lugar del salto de
+/// un solo fotograma, así un temblor del dedo no la hace parpadear. Cerca del
+/// principio siempre está abierta, y el rebote elástico del final se ignora:
+/// al soltarlo el contenido vuelve hacia arriba y la abriría sin querer.
 private struct TabBarCollapseModifier: ViewModifier {
     @Environment(TabBarChrome.self) private var chrome: TabBarChrome?
+    @State private var travel: CGFloat = 0
 
-    private let collapseThreshold: CGFloat = 40
-    private let expandThreshold: CGFloat = 12
+    private struct Position: Equatable {
+        let offset: CGFloat
+        let maxOffset: CGFloat
+    }
+
+    /// Por debajo de esto la barra siempre está abierta.
+    private let topThreshold: CGFloat = 24
+    /// Recorrido en una dirección necesario para cambiar de estado.
+    private let directionThreshold: CGFloat = 18
     private let scrimThreshold: CGFloat = 6
 
     func body(content: Content) -> some View {
         content
-            .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top
-            } action: { _, offset in
+            .onScrollGeometryChange(for: Position.self) { geometry in
+                Position(
+                    offset: geometry.contentOffset.y + geometry.contentInsets.top,
+                    maxOffset: geometry.contentSize.height + geometry.contentInsets.top
+                        + geometry.contentInsets.bottom - geometry.containerSize.height
+                )
+            } action: { old, new in
                 guard let chrome else { return }
 
-                let scrolled = offset > scrimThreshold
+                let scrolled = new.offset > scrimThreshold
                 if scrolled != chrome.isScrolled {
                     withAnimation(.easeOut(duration: 0.22)) {
                         chrome.isScrolled = scrolled
                     }
                 }
 
+                // Rebote del final: ni contraer ni expandir.
+                if new.offset > new.maxOffset || old.offset > old.maxOffset {
+                    travel = 0
+                    return
+                }
+
+                let delta = new.offset - old.offset
+                if (delta > 0) != (travel > 0) { travel = 0 }
+                travel += delta
+
                 let shouldCompact: Bool
-                if chrome.isCompact {
-                    shouldCompact = offset > expandThreshold
+                if new.offset <= topThreshold {
+                    shouldCompact = false
+                } else if travel > directionThreshold {
+                    shouldCompact = true
+                } else if travel < -directionThreshold {
+                    shouldCompact = false
                 } else {
-                    shouldCompact = offset > collapseThreshold
+                    return
                 }
                 guard shouldCompact != chrome.isCompact else { return }
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
@@ -141,7 +169,8 @@ extension View {
     }
 
     /// Aplícalo al `ScrollView` o `List` de una pantalla raíz: contrae la barra
-    /// inferior y avisa al encabezado de que hay contenido pasando por debajo.
+    /// inferior al bajar, la abre al subir y avisa al encabezado de que hay
+    /// contenido pasando por debajo.
     func tracksScrollChrome() -> some View {
         modifier(TabBarCollapseModifier())
     }

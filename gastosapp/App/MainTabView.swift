@@ -88,10 +88,10 @@ private struct PillTabBar: View {
     @Namespace private var indicator
 
     private let items: [(tab: MainTabView.Tab, icon: String, title: String)] = [
-        (.inicio, "house", "Resumen"),
-        (.gastos, "doc.text", "Gastos"),
-        (.presupuestos, "chart.pie", "Plan"),
-        (.stats, "chart.bar", "Análisis")
+        (.inicio, "house.fill", "Resumen"),
+        (.gastos, "doc.text.fill", "Gastos"),
+        (.presupuestos, "chart.pie.fill", "Plan"),
+        (.stats, "chart.bar.fill", "Análisis")
     ]
 
     var body: some View {
@@ -114,8 +114,8 @@ private struct PillTabBar: View {
             }
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: activo ? icono + ".fill" : icono)
-                    .font(.system(size: 20, weight: activo ? .semibold : .regular))
+                Image(systemName: icono)
+                    .font(.system(size: 20, weight: .semibold))
                     .frame(height: 24)
                 if !isCompact {
                     Text(titulo)
