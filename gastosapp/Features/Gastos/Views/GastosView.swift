@@ -87,8 +87,6 @@ struct GastosView: View {
             ExpensesListView()
         case .recurrentes:
             RecurringExpensesListView()
-        case .calendario:
-            FinancialCalendarView()
         case .correo:
             EmailReviewView()
         }
