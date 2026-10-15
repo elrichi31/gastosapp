@@ -135,6 +135,7 @@ struct BudgetMovement: Identifiable, Hashable, Codable {
     var descripcion: String
     var monto: Double
     var fecha: String
+    var tags: [String]? = nil
     var metodoPagoId: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -143,6 +144,7 @@ struct BudgetMovement: Identifiable, Hashable, Codable {
         case descripcion
         case monto
         case fecha
+        case tags
         case metodoPagoId = "metodo_pago_id"
     }
 

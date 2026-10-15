@@ -52,13 +52,13 @@ final class BudgetDetailStore {
         }
     }
 
-    func createMovement(using session: ExpenseStore, budgetID: Int, categoryID: Int, description: String, amount: Double, date: Date, paymentMethodID: Int) async -> Bool {
-        let payload = BudgetMovementPayload(categoryID: categoryID, movementID: nil, description: description, amount: amount, date: date, paymentMethodID: paymentMethodID)
+    func createMovement(using session: ExpenseStore, budgetID: Int, categoryID: Int, description: String, amount: Double, date: Date, paymentMethodID: Int, tags: [String]? = nil) async -> Bool {
+        let payload = BudgetMovementPayload(categoryID: categoryID, movementID: nil, description: description, amount: amount, date: date, paymentMethodID: paymentMethodID, tags: tags)
         return await persistMovement(path: "/api/movimientos-categoria", method: "POST", budgetID: budgetID, payload: payload, session: session)
     }
 
-    func updateMovement(using session: ExpenseStore, budgetID: Int, movementID: Int, description: String, amount: Double, date: Date, paymentMethodID: Int) async -> Bool {
-        let payload = BudgetMovementPayload(categoryID: nil, movementID: movementID, description: description, amount: amount, date: date, paymentMethodID: paymentMethodID)
+    func updateMovement(using session: ExpenseStore, budgetID: Int, movementID: Int, description: String, amount: Double, date: Date, paymentMethodID: Int, tags: [String]? = nil) async -> Bool {
+        let payload = BudgetMovementPayload(categoryID: nil, movementID: movementID, description: description, amount: amount, date: date, paymentMethodID: paymentMethodID, tags: tags)
         return await persistMovement(path: "/api/movimientos-categoria", method: "PUT", budgetID: budgetID, payload: payload, session: session)
     }
 
@@ -256,14 +256,16 @@ private struct BudgetMovementPayload: Encodable {
     let monto: Double
     let fecha: String
     let metodoPagoId: Int
+    let tags: [String]?
 
-    init(categoryID: Int?, movementID: Int?, description: String, amount: Double, date: Date, paymentMethodID: Int) {
+    init(categoryID: Int?, movementID: Int?, description: String, amount: Double, date: Date, paymentMethodID: Int, tags: [String]?) {
         presupuestoCategoriaId = categoryID
         id = movementID
         descripcion = description
         monto = amount
         fecha = AppDateCodec.apiDateString(from: date)
         metodoPagoId = paymentMethodID
+        self.tags = tags
     }
 
     enum CodingKeys: String, CodingKey {
@@ -272,6 +274,7 @@ private struct BudgetMovementPayload: Encodable {
         case descripcion
         case monto
         case fecha
+        case tags
         case metodoPagoId = "metodo_pago_id"
     }
 

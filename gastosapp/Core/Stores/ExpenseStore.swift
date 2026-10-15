@@ -30,104 +30,6 @@ private struct PersistedAuthSession: Codable {
     }
 }
 
-private struct PendingExpenseDraft: Codable, Identifiable {
-    let id: String
-    let localExpenseID: Int
-    let descripcion: String
-    let monto: Double
-    let fecha: Date
-    let categoriaId: Int
-    let metodoPagoId: Int
-    let isRecurrent: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case localExpenseID
-        case descripcion
-        case monto
-        case fecha
-        case categoriaId
-        case metodoPagoId
-        case isRecurrent
-    }
-
-    init(
-        id: String,
-        localExpenseID: Int,
-        descripcion: String,
-        monto: Double,
-        fecha: Date,
-        categoriaId: Int,
-        metodoPagoId: Int,
-        isRecurrent: Bool = false
-    ) {
-        self.id = id
-        self.localExpenseID = localExpenseID
-        self.descripcion = descripcion
-        self.monto = monto
-        self.fecha = fecha
-        self.categoriaId = categoriaId
-        self.metodoPagoId = metodoPagoId
-        self.isRecurrent = isRecurrent
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        localExpenseID = try container.decode(Int.self, forKey: .localExpenseID)
-        descripcion = try container.decode(String.self, forKey: .descripcion)
-        monto = try container.decode(Double.self, forKey: .monto)
-        fecha = try container.decode(Date.self, forKey: .fecha)
-        categoriaId = try container.decode(Int.self, forKey: .categoriaId)
-        metodoPagoId = try container.decode(Int.self, forKey: .metodoPagoId)
-        isRecurrent = try container.decodeIfPresent(Bool.self, forKey: .isRecurrent) ?? false
-    }
-
-    var payload: CreateExpensePayload {
-        CreateExpensePayload(
-            descripcion: descripcion,
-            monto: monto,
-            fecha: AppDateCodec.apiDateString(from: AppDateCodec.repairedCachedDateOnly(fecha)),
-            categoriaId: categoriaId,
-            metodoPagoId: metodoPagoId,
-            isRecurrent: isRecurrent
-        )
-    }
-
-    func asExpense(categorias: [Categoria], metodosPago: [ExpensePaymentMethod]) -> Expense {
-        Expense(
-            id: localExpenseID,
-            descripcion: descripcion,
-            monto: monto,
-            fecha: AppDateCodec.repairedCachedDateOnly(fecha),
-            categoriaId: categoriaId,
-            metodoPagoId: metodoPagoId,
-            categoria: categorias.first(where: { $0.id == categoriaId }) ?? Categoria(id: categoriaId, nombre: "Otros"),
-            metodoPago: metodosPago.first(where: { $0.id == metodoPagoId }) ?? ExpensePaymentMethod(id: metodoPagoId, nombre: "Efectivo"),
-            isRecurrent: isRecurrent
-        )
-    }
-
-    func updated(
-        descripcion: String,
-        monto: Double,
-        fecha: Date,
-        categoriaId: Int,
-        metodoPagoId: Int
-    ) -> PendingExpenseDraft {
-        PendingExpenseDraft(
-            id: id,
-            localExpenseID: localExpenseID,
-            descripcion: descripcion,
-            monto: monto,
-            fecha: fecha,
-            categoriaId: categoriaId,
-            metodoPagoId: metodoPagoId,
-            isRecurrent: isRecurrent
-        )
-    }
-}
-
 private struct PendingExpenseDeletion: Codable, Identifiable {
     let id: Int
     let expense: Expense
@@ -192,12 +94,11 @@ final class ExpenseStore {
     }
     init() {
         let defaults = UserDefaults.standard
-        let storedBaseURL = defaults.string(forKey: Self.baseURLKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let canReuseStoredURL = storedBaseURL?.isEmpty == false && storedBaseURL != "https://zenlor.app"
-        self.baseURL = canReuseStoredURL ? storedBaseURL! : LocalAPIConfig.baseURL
-        if !canReuseStoredURL {
-            defaults.set(LocalAPIConfig.baseURL, forKey: Self.baseURLKey)
-        }
+        self.baseURL = BackendURLPreference.resolve(
+            storedURL: defaults.string(forKey: Self.baseURLKey),
+            configuredURL: LocalAPIConfig.baseURL
+        )
+        defaults.set(self.baseURL, forKey: Self.baseURLKey)
         self.pendingExpenseDrafts = Self.loadPendingExpenseDrafts()
         self.pendingExpenseDeletions = Self.loadPendingExpenseDeletions()
         self.categorias = Self.loadCachedValue([Categoria].self, key: Self.cachedCategoriesKey) ?? Categoria.fallback
@@ -599,13 +500,14 @@ final class ExpenseStore {
         defer { isLoadingRecurringExpenses = false }
 
         do {
-            let remoteRecurring = try await request(
-                [RemoteRecurringExpense].self,
-                path: "/api/gastos-recurrentes",
+            let month = String(AppDateCodec.apiDateString(from: Date()).prefix(7))
+            let plan = try await request(
+                RecurringPlanResponse.self,
+                path: "/api/dashboard/recurring-plan?month=\(month)",
                 requiresAuth: true
             )
 
-            recurringExpenses = remoteRecurring
+            recurringExpenses = plan.rules
                 .map { $0.asRecurringExpense(categorias: categorias, metodosPago: metodosPago) }
                 .sorted { lhs, rhs in
                     if lhs.activo != rhs.activo { return lhs.activo && !rhs.activo }
@@ -631,7 +533,9 @@ final class ExpenseStore {
         monto: Double,
         fecha: Date,
         categoria: Categoria,
-        metodoPago: ExpensePaymentMethod
+        metodoPago: ExpensePaymentMethod,
+        tags: [String]? = nil,
+        foreignTax: ForeignTax? = nil
     ) async -> Bool {
         guard hasBaseURLConfigured else {
             saveErrorMessage = "Configura la URL del backend antes de guardar."
@@ -642,6 +546,7 @@ final class ExpenseStore {
             return false
         }
 
+        let previousExpenses = gastos
         isSavingExpense = true
         defer { isSavingExpense = false }
 
@@ -652,7 +557,9 @@ final class ExpenseStore {
             monto: monto,
             fecha: fecha,
             categoriaId: categoria.id,
-            metodoPagoId: metodoPago.id
+            metodoPagoId: metodoPago.id,
+            tags: tags,
+            foreignTax: foreignTax
         )
 
         do {
@@ -674,6 +581,7 @@ final class ExpenseStore {
             lastSyncDate = Date()
             hasLoadedExpensesOnce = true
             showSyncStatus("Gasto guardado")
+            if let alert = await budgetCrossingMessage(before: previousExpenses) { showSyncStatus(alert) }
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
             return true
         } catch {
@@ -697,7 +605,9 @@ final class ExpenseStore {
         fecha: Date,
         categoria: Categoria,
         metodoPago: ExpensePaymentMethod,
-        isRecurrent: Bool
+        isRecurrent: Bool,
+        tags: [String]? = nil,
+        foreignTax: ForeignTax? = nil
     ) async -> Bool {
         if id < 0 {
             updatePendingExpenseLocally(
@@ -707,7 +617,9 @@ final class ExpenseStore {
                 fecha: fecha,
                 categoria: categoria,
                 metodoPago: metodoPago,
-                isRecurrent: isRecurrent
+                isRecurrent: isRecurrent,
+                tags: tags,
+                foreignTax: foreignTax
             )
             saveErrorMessage = nil
             expensesErrorMessage = nil
@@ -724,6 +636,7 @@ final class ExpenseStore {
             return false
         }
 
+        let previousExpenses = gastos
         isSavingExpense = true
         defer { isSavingExpense = false }
 
@@ -734,7 +647,9 @@ final class ExpenseStore {
                 fecha: AppDateCodec.apiDateString(from: fecha),
                 categoriaId: categoria.id,
                 metodoPagoId: metodoPago.id,
-                isRecurrent: isRecurrent
+                isRecurrent: isRecurrent,
+                tags: tags,
+                foreignTax: foreignTax
             )
             let body = try JSONEncoder().encode(payload)
             let response = try await request(
@@ -755,7 +670,9 @@ final class ExpenseStore {
                     metodoPagoId: metodoPago.id,
                     categoria: categoria,
                     metodoPago: metodoPago,
-                    isRecurrent: isRecurrent
+                    isRecurrent: isRecurrent,
+                    tags: tags,
+                    foreignTax: foreignTax
                 )
 
             add(updatedExpense)
@@ -764,6 +681,7 @@ final class ExpenseStore {
             expensesErrorMessage = nil
             lastSyncDate = Date()
             showSyncStatus("Cambios guardados")
+            if let alert = await budgetCrossingMessage(before: previousExpenses) { showSyncStatus(alert) }
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
             return true
         } catch {
@@ -782,7 +700,10 @@ final class ExpenseStore {
         metodoPago: ExpensePaymentMethod,
         frecuencia: RecurringFrequency,
         diaMes: Int?,
-        diaSemana: Int?
+        diaSemana: Int?,
+        fechaFin: Date? = nil,
+        annualMonth: Int? = nil,
+        foreignTax: ForeignTax? = nil
     ) async -> Bool {
         guard hasBaseURLConfigured else {
             saveErrorMessage = "Configura la URL del backend antes de guardar."
@@ -802,11 +723,13 @@ final class ExpenseStore {
                 monto: monto,
                 categoriaId: categoria.id,
                 metodoPagoId: metodoPago.id,
+                annualMonth: frecuencia == .anual ? annualMonth : nil,
                 frecuencia: frecuencia.rawValue,
                 diaSemana: frecuencia == .semanal ? diaSemana : nil,
-                diaMes: frecuencia == .mensual ? diaMes : nil,
+                diaMes: frecuencia != .semanal ? diaMes : nil,
                 fechaInicio: AppDateCodec.apiDateString(from: fechaInicio),
-                fechaFin: nil,
+                fechaFin: fechaFin.map { AppDateCodec.apiDateString(from: $0) },
+                foreignTax: foreignTax,
                 activo: true
             )
 
@@ -843,7 +766,10 @@ final class ExpenseStore {
         frecuencia: RecurringFrequency,
         diaMes: Int?,
         diaSemana: Int?,
-        activo: Bool
+        activo: Bool,
+        fechaFin: Date? = nil,
+        annualMonth: Int? = nil,
+        foreignTax: ForeignTax? = nil
     ) async -> Bool {
         guard hasBaseURLConfigured else {
             saveErrorMessage = "Configura la conexión antes de guardar cambios."
@@ -863,11 +789,13 @@ final class ExpenseStore {
                 monto: monto,
                 categoriaId: categoria.id,
                 metodoPagoId: metodoPago.id,
+                annualMonth: frecuencia == .anual ? annualMonth : nil,
                 frecuencia: frecuencia.rawValue,
                 diaSemana: frecuencia == .semanal ? diaSemana : nil,
-                diaMes: frecuencia == .mensual ? diaMes : nil,
+                diaMes: frecuencia != .semanal ? diaMes : nil,
                 fechaInicio: AppDateCodec.apiDateString(from: fechaInicio),
-                fechaFin: nil,
+                fechaFin: fechaFin.map { AppDateCodec.apiDateString(from: $0) },
+                foreignTax: foreignTax,
                 activo: activo
             )
 
@@ -1121,7 +1049,7 @@ final class ExpenseStore {
         }
     }
 
-    private func request<T: Decodable>(
+    func request<T: Decodable>(
         _ type: T.Type,
         path: String,
         method: String = "GET",
@@ -1356,7 +1284,9 @@ final class ExpenseStore {
         fecha: Date,
         categoria: Categoria,
         metodoPago: ExpensePaymentMethod,
-        isRecurrent: Bool
+        isRecurrent: Bool,
+        tags: [String]? = nil,
+        foreignTax: ForeignTax? = nil
     ) {
         if let index = pendingExpenseDrafts.firstIndex(where: { $0.localExpenseID == id }) {
             pendingExpenseDrafts[index] = pendingExpenseDrafts[index].updated(
@@ -1364,7 +1294,9 @@ final class ExpenseStore {
                 monto: monto,
                 fecha: fecha,
                 categoriaId: categoria.id,
-                metodoPagoId: metodoPago.id
+                metodoPagoId: metodoPago.id,
+                tags: tags,
+                foreignTax: foreignTax
             )
             persistPendingExpenseDrafts()
         }
@@ -1379,7 +1311,9 @@ final class ExpenseStore {
                 metodoPagoId: metodoPago.id,
                 categoria: categoria,
                 metodoPago: metodoPago,
-                isRecurrent: isRecurrent
+                isRecurrent: isRecurrent,
+                tags: tags,
+                foreignTax: foreignTax
             )
         )
         persistCachedExpenses()

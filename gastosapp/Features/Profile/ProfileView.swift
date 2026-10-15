@@ -4,6 +4,7 @@ struct ProfileView: View {
     /// `nil` cuando la vista no se presenta de forma modal.
     var onClose: (() -> Void)?
 
+    @State private var showsConnections = false
     @Environment(ExpenseStore.self) private var store
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.system.rawValue
     @AppStorage(LocalNotificationManager.weeklySummaryEnabledKey) private var weeklySummaryEnabled = true
@@ -43,6 +44,8 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: AppScreenMetrics.sectionSpacing) {
                     sessionCard
+                    Button("Conexiones y seguridad", systemImage: "link") { showsConnections = true }
+                        .buttonStyle(.bordered).tint(AppTheme.accent)
                     appearanceCard
                     notificationsCard
                     savingsGoalCard
@@ -64,6 +67,7 @@ struct ProfileView: View {
                 .padding(.bottom, AppScreenMetrics.headerBottomPadding)
                 .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
+        .sheet(isPresented: $showsConnections) { ConnectionsView() }
         .onChange(of: weeklySummaryEnabled) { _, _ in
             Task {
                 await LocalNotificationManager.prepareWeeklySummary(expenses: store.gastos)

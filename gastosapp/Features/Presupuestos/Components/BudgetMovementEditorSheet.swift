@@ -11,6 +11,7 @@ struct BudgetMovementEditorSheet: View {
     let movement: BudgetMovement?
     let onSaved: () -> Void
 
+    @State private var tagsText = ""
     @State private var description = ""
     @State private var amount = ""
     @State private var date = Date()
@@ -19,6 +20,7 @@ struct BudgetMovementEditorSheet: View {
     private enum Field: Hashable { case description, amount }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             BudgetEditorHeader(
                 title: movement == nil ? "Nuevo gasto" : "Editar gasto",
@@ -28,6 +30,7 @@ struct BudgetMovementEditorSheet: View {
                 onClose: dismiss.callAsFunction
             )
             fields
+            ExpenseExtrasFields(tagsText: $tagsText)
             if let error = detailStore.saveErrorMessage {
                 BudgetEditorErrorCard(message: error)
             }
@@ -38,6 +41,7 @@ struct BudgetMovementEditorSheet: View {
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AppTheme.screenBackground.ignoresSafeArea())
+        }
         .onAppear(perform: seedInitialValues)
     }
 
@@ -65,7 +69,7 @@ struct BudgetMovementEditorSheet: View {
     }
 
     private var canSave: Bool {
-        !cleanDescription.isEmpty && parsedAmount > 0 && paymentMethodID != 0 && !detailStore.isSaving
+        ExpenseTags.isValid(ExpenseTags.normalize(tagsText)) && !cleanDescription.isEmpty && parsedAmount > 0 && paymentMethodID != 0 && !detailStore.isSaving
     }
 
     private var cleanDescription: String {
@@ -90,6 +94,7 @@ struct BudgetMovementEditorSheet: View {
     }
 
     private func seedEditingValues(_ movement: BudgetMovement) {
+        tagsText = (movement.tags ?? []).joined(separator: ", ")
         description = movement.descripcion
         amount = MoneyInput.format(movement.monto)
         date = movement.parsedDate
@@ -114,7 +119,8 @@ struct BudgetMovementEditorSheet: View {
                 description: cleanDescription,
                 amount: parsedAmount,
                 date: date,
-                paymentMethodID: paymentMethodID
+                paymentMethodID: paymentMethodID,
+                tags: ExpenseTags.normalize(tagsText)
             )
         }
         return await detailStore.createMovement(
@@ -124,7 +130,8 @@ struct BudgetMovementEditorSheet: View {
             description: cleanDescription,
             amount: parsedAmount,
             date: date,
-            paymentMethodID: paymentMethodID
+            paymentMethodID: paymentMethodID,
+                tags: ExpenseTags.normalize(tagsText)
         )
     }
 }

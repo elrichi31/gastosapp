@@ -18,6 +18,7 @@ struct RecurringExpensesListView: View {
     }
 
     @Environment(ExpenseStore.self) private var store
+    @State private var recurringToSkip: RecurringExpense?
     @State private var filter: Filter = .all
     @State private var recurringToDelete: RecurringExpense?
     @State private var recurringToEdit: RecurringExpense?
@@ -81,12 +82,21 @@ struct RecurringExpensesListView: View {
                         upcomingSummaryCard
                     }
 
+                    headerRow { NavigationLink("Historial de precios") { RecurringPriceHistoryView() } }
+                    if let error = store.saveErrorMessage { headerRow { Text(error).foregroundStyle(AppTheme.negative) } }
                     ForEach(items) { item in
                         RecurringExpenseCard(item: item)
                             .contentShape(Rectangle())
                             .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button(item.activo ? "Pausar" : "Reanudar") { Task { _ = await store.toggleRecurring(item) } }.tint(AppTheme.secondaryAccent)
+                                if item.activo {
+                                    Button("Omitir cobro") { recurringToSkip = item }.tint(AppTheme.warning)
+                                }
+                            }
+                            .disabled(store.isSavingExpense)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button {
                                     recurringToEdit = item
@@ -117,23 +127,27 @@ struct RecurringExpensesListView: View {
                 await store.loadRecurringExpenses(force: true)
             }
         }
+        .confirmationDialog("¿Omitir el próximo cobro?", isPresented: Binding(get: { recurringToSkip != nil }, set: { if !$0 { recurringToSkip = nil } }), titleVisibility: .visible) {
+            if let item = recurringToSkip {
+                Button("Omitir cobro de " + item.descripcion) { Task { _ = await store.skipRecurringCharge(item); recurringToSkip = nil } }
+            }
+        } message: { Text("La regla seguirá activa para los siguientes cobros.") }
         .task {
             await store.loadCatalogsIfNeeded()
             await store.loadRecurringExpensesIfNeeded()
         }
         .sheet(item: $recurringToEdit) { recurring in
-            if recurring.isSubscriptionLike {
-                AddSubscriptionView(
-                    showsCloseButton: true,
-                    existingExpense: recurring,
-                    onSaved: closeEditorAndRefresh
-                )
-            } else {
+            NavigationStack {
                 AddRecurringExpenseView(
-                    kind: .recurrente,
+                    kind: recurring.isSubscriptionLike ? .suscripcion : .recurrente,
                     existingExpense: recurring,
                     onSaved: closeEditorAndRefresh
                 )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cerrar") { recurringToEdit = nil }
+                    }
+                }
             }
         }
         .appConfirmationDialog(
@@ -202,6 +216,8 @@ struct RecurringExpensesListView: View {
                     .tracking(1.1)
                     .foregroundStyle(AppTheme.secondaryText)
 
+                Text("Costo anual: " + currency(activeItems.reduce(0) { $0 + $1.estimatedMonthlyAmount * 12 }))
+                    .font(.caption).foregroundStyle(AppTheme.secondaryText)
                 Text(currency(monthlyFixedEstimate))
                     .font(AppTheme.number(44, .bold))
                     .monospacedDigit()

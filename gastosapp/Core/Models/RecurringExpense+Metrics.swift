@@ -3,6 +3,8 @@ import Foundation
 extension RecurringExpense {
     var estimatedMonthlyAmount: Double {
         switch frecuencia {
+        case .anual:
+            return monto / 12
         case .mensual:
             return monto
         case .semanal:
@@ -19,6 +21,7 @@ extension RecurringExpense {
 
         if days == 0 { return "Hoy" }
         if days == 1 { return "Mañana" }
+        if days < 0 { return "Vencido hace \(-days) días" }
         return "En \(days) días"
     }
 }

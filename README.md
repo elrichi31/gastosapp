@@ -19,7 +19,10 @@ que está fuera del repositorio a propósito.
 cp LocalAPIConfig.example.swift gastosapp/Configuration/LocalAPIConfig.swift
 ```
 
-Abre ese archivo y reemplaza `baseURL` por la URL de tu backend. Después,
+El backend de producción es `https://spend.zenlorlabs.com`. Para otro entorno,
+reemplaza `baseURL` en ese archivo. Las URLs antiguas guardadas de producción
+se migran al backend configurado al iniciar la app, conservando la sesión y los
+gastos pendientes. Después,
 `gastosapp.xcodeproj` compila y corre normalmente.
 
 ## Estructura
@@ -53,3 +56,10 @@ vistas.
 propaga el `safeAreaInset` del contenedor a las vistas que un `NavigationStack`
 empuja, sólo a su raíz. Las pantallas empujadas usan `.floatingTabBarInset()`
 para que su contenido no quede debajo de la barra de pestañas.
+
+## Funciones compartidas con la web
+
+La app incluye etiquetas, compras en el exterior, recurrentes anuales y omisión de
+cobros, importación de correo, proyecciones y administración de conexiones.
+Consulta [la guía de paridad móvil](docs/MOBILE_WEB_PARITY.md) para los accesos,
+requisitos de backend y verificación.

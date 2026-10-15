@@ -9,6 +9,9 @@ struct BudgetMovementListRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
+                if let tags = movement.tags, !tags.isEmpty {
+                    Text(tags.map { "#" + $0 }.joined(separator: " ")).font(.caption2).foregroundStyle(AppTheme.accent)
+                }
                 Text(movement.descripcion)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.primaryText)

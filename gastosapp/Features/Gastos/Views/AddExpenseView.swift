@@ -10,6 +10,18 @@ struct AddExpenseView: View {
     var onSaved: () -> Void = {}
 
     @Environment(ExpenseStore.self) private var store
+    @State private var tagsText = ""
+    @State private var foreignEnabled = false
+    @State private var taxSelection = ["isd"]
+    @State private var customRate = ""
+    private var foreignTax: ForeignTax? {
+        foreignEnabled ? ForeignTax(base: ForeignTax.cents(montoNumerico), selected: taxSelection, customRate: customRate) : nil
+    }
+    private var expenseTags: [String] {
+        var tags = ExpenseTags.normalize(tagsText)
+        if foreignEnabled && !tags.contains("exterior") { tags.append("exterior") }
+        return tags
+    }
     @State private var descripcion: String = ""
     @State private var monto: String = ""
     @State private var fecha: Date = Date()
@@ -39,7 +51,7 @@ struct AddExpenseView: View {
     }
 
     private var puedeGuardar: Bool {
-        montoNumerico > 0 &&
+        montoNumerico > 0 && ExpenseTags.isValid(expenseTags) && (foreignTax?.isValid ?? true) &&
         categoriaSeleccionada != nil &&
         metodoPagoSeleccionado != nil &&
         canPersistExpense &&
@@ -66,6 +78,8 @@ struct AddExpenseView: View {
                     encabezado
                     estadoCard
                     expenseComposerCard
+                    ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico, legacyTotal: editingExpense?.tags?.contains("exterior") == true && editingExpense?.foreignTax == nil)
+                    ExpenseExtrasFields(tagsText: $tagsText)
                     suggestionCard
                     categoriaCard
                     botonGuardar
@@ -379,7 +393,11 @@ struct AddExpenseView: View {
     private func aplicarSeleccionInicial() {
         if let editingExpense, !hasAppliedInitialValues {
             descripcion = editingExpense.descripcion
-            monto = MoneyInput.format(editingExpense.monto)
+            monto = MoneyInput.format(editingExpense.foreignTax?.base ?? editingExpense.monto)
+            tagsText = (editingExpense.tags ?? []).joined(separator: ", ")
+            foreignEnabled = editingExpense.foreignTax != nil
+            taxSelection = editingExpense.foreignTax?.selected ?? ["isd"]
+            customRate = editingExpense.foreignTax?.customRate ?? ""
             fecha = editingExpense.fecha
             categoriaId = editingExpense.categoriaId
             metodoPagoId = editingExpense.metodoPagoId
@@ -402,6 +420,10 @@ struct AddExpenseView: View {
     }
 
     private func limpiarFormulario() {
+        tagsText = ""
+        foreignEnabled = false
+        taxSelection = ["isd"]
+        customRate = ""
         descripcion = ""
         monto = ""
         fecha = Date()
@@ -422,19 +444,23 @@ struct AddExpenseView: View {
             ok = await store.updateExpense(
                 id: editingExpense.id,
                 descripcion: cleanDescription,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fecha: fecha,
                 categoria: categoria,
                 metodoPago: metodoPago,
-                isRecurrent: editingExpense.isRecurrent
+                isRecurrent: editingExpense.isRecurrent,
+                tags: expenseTags,
+                foreignTax: foreignTax
             )
         } else {
             ok = await store.createExpense(
                 descripcion: cleanDescription,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fecha: fecha,
                 categoria: categoria,
-                metodoPago: metodoPago
+                metodoPago: metodoPago,
+                tags: expenseTags,
+                foreignTax: foreignTax
             )
         }
 

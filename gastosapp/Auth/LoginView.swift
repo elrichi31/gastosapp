@@ -8,6 +8,7 @@ struct LoginView: View {
 
     @Environment(ExpenseStore.self) private var store
 
+    @State private var showsRegistration = false
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
@@ -29,6 +30,7 @@ struct LoginView: View {
                         .padding(.top, 24)
                     card
                         .padding(.top, 28)
+                    Button("Crear cuenta") { showsRegistration = true }.padding(.top, 20)
                     footer
                         .padding(.top, 24)
                     Spacer(minLength: 24)
@@ -39,6 +41,7 @@ struct LoginView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .sheet(isPresented: $showsRegistration) { RegisterView() }
         .tint(AppTheme.accent)
         .background(AppTheme.screenBackground.ignoresSafeArea())
     }

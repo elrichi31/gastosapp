@@ -8,6 +8,12 @@ struct AddSubscriptionView: View {
     var existingExpense: RecurringExpense? = nil
     var onSaved: (() -> Void)? = nil
 
+    @State private var foreignEnabled = false
+    @State private var taxSelection = ["isd"]
+    @State private var customRate = ""
+    private var foreignTax: ForeignTax? {
+        foreignEnabled ? ForeignTax(base: ForeignTax.cents(montoNumerico), selected: taxSelection, customRate: customRate) : nil
+    }
     @State private var seleccionado: Provider? = nil
     @State private var busqueda: String = ""
     @State private var nombreServicio: String = ""
@@ -67,7 +73,7 @@ struct AddSubscriptionView: View {
 
     private var puedeGuardar: Bool {
         servicioConfigurado &&
-        montoNumerico > 0 &&
+        montoNumerico > 0 && (foreignTax?.isValid ?? true) &&
         categoriaSuscripciones != nil &&
         metodoPagoRemoto != nil &&
         !expenseStore.isSavingExpense
@@ -95,7 +101,7 @@ struct AddSubscriptionView: View {
     }
 
     private var ciclosDisponibles: [CicloFacturacion] {
-        [.mensual, .semanal]
+        [.mensual, .semanal, .anual]
     }
 
     var body: some View {
@@ -233,6 +239,7 @@ struct AddSubscriptionView: View {
         VStack(spacing: 22) {
             providerHeaderCard(provider)
             montoCard
+            ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
             detallesCard
             botonGuardar
         }
@@ -479,8 +486,8 @@ struct AddSubscriptionView: View {
             montoNumerico > 0
         else { return }
 
-        let frecuencia: RecurringFrequency = ciclo == .semanal ? .semanal : .mensual
-        let diaMes = frecuencia == .mensual ? min(max(Calendar.current.component(.day, from: proximaFecha), 1), 28) : nil
+        let frecuencia: RecurringFrequency = ciclo == .semanal ? .semanal : ciclo == .anual ? .anual : .mensual
+        let diaMes = frecuencia != .semanal ? (existingExpense?.diaMes ?? min(max(Calendar.current.component(.day, from: proximaFecha), 1), 31)) : nil
         let diaSemana = frecuencia == .semanal ? Self.weekdayNumber(for: proximaFecha) : nil
 
         let ok: Bool
@@ -488,25 +495,30 @@ struct AddSubscriptionView: View {
             ok = await expenseStore.updateRecurringExpense(
                 id: existingExpense.id,
                 descripcion: nombreServicioLimpio,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fechaInicio: proximaFecha,
                 categoria: categoria,
                 metodoPago: metodoPago,
                 frecuencia: frecuencia,
                 diaMes: diaMes,
                 diaSemana: diaSemana,
-                activo: existingExpense.activo
+                activo: existingExpense.activo,
+                fechaFin: existingExpense.fechaFin,
+                annualMonth: existingExpense.annualMonth ?? Calendar.current.component(.month, from: proximaFecha),
+                foreignTax: foreignTax
             )
         } else {
             ok = await expenseStore.createRecurringExpense(
                 descripcion: nombreServicioLimpio,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fechaInicio: proximaFecha,
                 categoria: categoria,
                 metodoPago: metodoPago,
                 frecuencia: frecuencia,
                 diaMes: diaMes,
-                diaSemana: diaSemana
+                diaSemana: diaSemana,
+                annualMonth: existingExpense?.annualMonth ?? Calendar.current.component(.month, from: proximaFecha),
+                foreignTax: foreignTax
             )
         }
 
@@ -523,9 +535,12 @@ struct AddSubscriptionView: View {
         guard nombreServicio.isEmpty && monto.isEmpty else { return }
 
         nombreServicio = existingExpense.descripcion
-        monto = MoneyInput.format(existingExpense.monto)
-        proximaFecha = existingExpense.nextChargeDate ?? existingExpense.fechaInicio
-        ciclo = existingExpense.frecuencia == .semanal ? .semanal : .mensual
+        monto = MoneyInput.format(existingExpense.foreignTax?.base ?? existingExpense.monto)
+        foreignEnabled = existingExpense.foreignTax != nil
+        taxSelection = existingExpense.foreignTax?.selected ?? ["isd"]
+        customRate = existingExpense.foreignTax?.customRate ?? ""
+        proximaFecha = existingExpense.fechaInicio
+        ciclo = existingExpense.frecuencia == .semanal ? .semanal : existingExpense.frecuencia == .anual ? .anual : .mensual
         metodoPago = Self.metodoPagoLocal(from: existingExpense.metodoPago)
         seleccionado = Self.providerMatch(for: existingExpense.descripcion)
     }

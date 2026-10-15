@@ -1,0 +1,403 @@
+{
+  "today": "2026-10-10",
+  "month": "2026-10",
+  "days": 31,
+  "recorded": 77,
+  "recordedToDate": 77,
+  "futureRecorded": 0,
+  "committed": 20,
+  "variableRemaining": 153.56,
+  "projected": 250.56,
+  "floor": 97,
+  "range": {
+    "low": 239.94,
+    "high": 252.13
+  },
+  "method": "weekday",
+  "methodLabel": "Patrón semanal",
+  "errorTypical": 4.92,
+  "status": "validated",
+  "trainingMonths": [
+    "2026-07",
+    "2026-08",
+    "2026-09"
+  ],
+  "backtest": [
+    {
+      "month": "2026-04",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-01",
+        "2026-02",
+        "2026-03"
+      ],
+      "predictions": {
+        "pace": 230,
+        "weekday": 225.85,
+        "blend": 227.92
+      }
+    },
+    {
+      "month": "2026-05",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-02",
+        "2026-03",
+        "2026-04"
+      ],
+      "predictions": {
+        "pace": 237.67,
+        "weekday": 234.62,
+        "blend": 236.14
+      }
+    },
+    {
+      "month": "2026-06",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-03",
+        "2026-04",
+        "2026-05"
+      ],
+      "predictions": {
+        "pace": 230,
+        "weekday": 222.49,
+        "blend": 226.25
+      }
+    },
+    {
+      "month": "2026-07",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-04",
+        "2026-05",
+        "2026-06"
+      ],
+      "predictions": {
+        "pace": 237.67,
+        "weekday": 231.46,
+        "blend": 234.56
+      }
+    },
+    {
+      "month": "2026-08",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-05",
+        "2026-06",
+        "2026-07"
+      ],
+      "predictions": {
+        "pace": 237.67,
+        "weekday": 230.49,
+        "blend": 234.08
+      }
+    },
+    {
+      "month": "2026-09",
+      "actual": 224,
+      "trainingMonths": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "predictions": {
+        "pace": 230,
+        "weekday": 222.43,
+        "blend": 226.21
+      }
+    }
+  ],
+  "models": [
+    {
+      "method": "pace",
+      "label": "Ritmo del mes",
+      "projected": 258,
+      "mae": 9.83,
+      "wape": 4.390624999999997,
+      "errors": [
+        6,
+        13.669999999999987,
+        6,
+        13.669999999999987,
+        13.669999999999987,
+        6
+      ]
+    },
+    {
+      "method": "weekday",
+      "label": "Patrón semanal",
+      "projected": 250.56,
+      "mae": 4.92,
+      "wape": 2.194940476190476,
+      "errors": [
+        1.8499999999999943,
+        10.620000000000005,
+        -1.509999999999991,
+        7.460000000000008,
+        6.490000000000009,
+        -1.5699999999999932
+      ]
+    },
+    {
+      "method": "blend",
+      "label": "Ritmo + historial",
+      "projected": 254.28,
+      "mae": 6.86,
+      "wape": 3.0624999999999996,
+      "errors": [
+        3.9199999999999875,
+        12.139999999999986,
+        2.25,
+        10.560000000000002,
+        10.080000000000013,
+        2.210000000000008
+      ]
+    }
+  ],
+  "points": [
+    {
+      "day": 1,
+      "date": "2026-10-01",
+      "actual": 6,
+      "forecast": null,
+      "previous": 6
+    },
+    {
+      "day": 2,
+      "date": "2026-10-02",
+      "actual": 13,
+      "forecast": null,
+      "previous": 13
+    },
+    {
+      "day": 3,
+      "date": "2026-10-03",
+      "actual": 21,
+      "forecast": null,
+      "previous": 21
+    },
+    {
+      "day": 4,
+      "date": "2026-10-04",
+      "actual": 30,
+      "forecast": null,
+      "previous": 30
+    },
+    {
+      "day": 5,
+      "date": "2026-10-05",
+      "actual": 40,
+      "forecast": null,
+      "previous": 40
+    },
+    {
+      "day": 6,
+      "date": "2026-10-06",
+      "actual": 51,
+      "forecast": null,
+      "previous": 51
+    },
+    {
+      "day": 7,
+      "date": "2026-10-07",
+      "actual": 56,
+      "forecast": null,
+      "previous": 56
+    },
+    {
+      "day": 8,
+      "date": "2026-10-08",
+      "actual": 62,
+      "forecast": null,
+      "previous": 62
+    },
+    {
+      "day": 9,
+      "date": "2026-10-09",
+      "actual": 69,
+      "forecast": null,
+      "previous": 69
+    },
+    {
+      "day": 10,
+      "date": "2026-10-10",
+      "actual": 77,
+      "forecast": 77,
+      "previous": 77
+    },
+    {
+      "day": 11,
+      "date": "2026-10-11",
+      "actual": null,
+      "forecast": 85.62,
+      "previous": 86
+    },
+    {
+      "day": 12,
+      "date": "2026-10-12",
+      "actual": null,
+      "forecast": 93,
+      "previous": 96
+    },
+    {
+      "day": 13,
+      "date": "2026-10-13",
+      "actual": null,
+      "forecast": 99.15,
+      "previous": 107
+    },
+    {
+      "day": 14,
+      "date": "2026-10-14",
+      "actual": null,
+      "forecast": 105.73,
+      "previous": 112
+    },
+    {
+      "day": 15,
+      "date": "2026-10-15",
+      "actual": null,
+      "forecast": 133.73,
+      "previous": 118
+    },
+    {
+      "day": 16,
+      "date": "2026-10-16",
+      "actual": null,
+      "forecast": 140.49,
+      "previous": 125
+    },
+    {
+      "day": 17,
+      "date": "2026-10-17",
+      "actual": null,
+      "forecast": 148.19,
+      "previous": 133
+    },
+    {
+      "day": 18,
+      "date": "2026-10-18",
+      "actual": null,
+      "forecast": 156.8,
+      "previous": 142
+    },
+    {
+      "day": 19,
+      "date": "2026-10-19",
+      "actual": null,
+      "forecast": 164.19,
+      "previous": 152
+    },
+    {
+      "day": 20,
+      "date": "2026-10-20",
+      "actual": null,
+      "forecast": 170.34,
+      "previous": 163
+    },
+    {
+      "day": 21,
+      "date": "2026-10-21",
+      "actual": null,
+      "forecast": 176.91,
+      "previous": 168
+    },
+    {
+      "day": 22,
+      "date": "2026-10-22",
+      "actual": null,
+      "forecast": 184.91,
+      "previous": 174
+    },
+    {
+      "day": 23,
+      "date": "2026-10-23",
+      "actual": null,
+      "forecast": 191.68,
+      "previous": 181
+    },
+    {
+      "day": 24,
+      "date": "2026-10-24",
+      "actual": null,
+      "forecast": 199.37,
+      "previous": 189
+    },
+    {
+      "day": 25,
+      "date": "2026-10-25",
+      "actual": null,
+      "forecast": 207.99,
+      "previous": 198
+    },
+    {
+      "day": 26,
+      "date": "2026-10-26",
+      "actual": null,
+      "forecast": 215.37,
+      "previous": 208
+    },
+    {
+      "day": 27,
+      "date": "2026-10-27",
+      "actual": null,
+      "forecast": 221.53,
+      "previous": 219
+    },
+    {
+      "day": 28,
+      "date": "2026-10-28",
+      "actual": null,
+      "forecast": 228.1,
+      "previous": 224
+    },
+    {
+      "day": 29,
+      "date": "2026-10-29",
+      "actual": null,
+      "forecast": 236.1,
+      "previous": 224
+    },
+    {
+      "day": 30,
+      "date": "2026-10-30",
+      "actual": null,
+      "forecast": 242.87,
+      "previous": 224
+    },
+    {
+      "day": 31,
+      "date": "2026-10-31",
+      "actual": null,
+      "forecast": 250.56,
+      "previous": null
+    }
+  ],
+  "upcoming": [
+    {
+      "ruleId": 1,
+      "description": "Servicio",
+      "date": "2026-10-15",
+      "amount": 20
+    }
+  ],
+  "warnings": [
+    "Solo considera gastos registrados: correos pendientes, efectivo sin registrar y cambios futuros pueden alterar el cierre.",
+    "El historial no permite comprobar si un día sin gastos fue realmente cero o faltó registrar movimientos.",
+    "Recurrentes vencidos sin registrar y pagos fijos no marcados como recurrentes no se identifican automáticamente."
+  ],
+  "previous": {
+    "month": "2026-09",
+    "total": 224
+  },
+  "dailyAllowance": 5.77,
+  "categories": [
+    {
+      "name": "Comida",
+      "recorded": 77,
+      "previous": 224,
+      "projected": 245.67
+    }
+  ]
+}

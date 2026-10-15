@@ -554,13 +554,15 @@ struct FinancialCalendarView: View {
 
     private func occurrences(for expense: RecurringExpense) -> [FinancialRecurringOccurrence] {
         guard expense.activo else { return [] }
-        let start = max(Self.calendar.startOfDay(for: expense.fechaInicio), visibleMonth)
-        let end = min(expense.fechaFin.map { Self.calendar.startOfDay(for: $0) } ?? monthEnd, monthEnd)
+        let scheduled = expense.scheduledNextDate.flatMap { AppDateCodec.flexibleDate(from: $0) } ?? expense.fechaInicio
+        let start = max(Self.calendar.startOfDay(for: max(expense.fechaInicio, scheduled)), visibleMonth)
+        let end = min(expense.fechaFin.flatMap { Self.calendar.date(byAdding: .day, value: 1, to: Self.calendar.startOfDay(for: $0)) } ?? monthEnd, monthEnd)
         guard start < end else { return [] }
 
         switch expense.frecuencia {
-        case .mensual:
-            let desiredDay = min(max(expense.diaMes ?? Self.calendar.component(.day, from: expense.fechaInicio), 1), 28)
+        case .mensual, .anual:
+            if expense.frecuencia == .anual && (expense.annualMonth ?? Self.calendar.component(.month, from: expense.fechaInicio)) != Self.calendar.component(.month, from: visibleMonth) { return [] }
+            let desiredDay = min(max(expense.diaMes ?? Self.calendar.component(.day, from: expense.fechaInicio), 1), Self.calendar.range(of: .day, in: .month, for: visibleMonth)?.count ?? 28)
             guard let date = Self.calendar.date(from: DateComponents(
                 year: Self.calendar.component(.year, from: visibleMonth),
                 month: Self.calendar.component(.month, from: visibleMonth),

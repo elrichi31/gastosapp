@@ -19,6 +19,9 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
     var categoriaId: Int
     var metodoPagoId: Int
     var categoria: Categoria
+    var annualMonth: Int? = nil
+    var foreignTax: ForeignTax? = nil
+    var scheduledNextDate: String? = nil
     var metodoPago: ExpensePaymentMethod
 
     var isSubscriptionLike: Bool {
@@ -31,12 +34,27 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
         return "Próximo cobro: \(Self.dateLabel(for: nextChargeDate))"
     }
 
-    var nextChargeDate: Date? {
+    var nextChargeDate: Date? { nextChargeDate(referenceDate: Date()) }
+
+    func nextChargeDate(referenceDate: Date) -> Date? {
+        guard activo else { return nil }
+        if let scheduledNextDate, let candidate = AppDateCodec.flexibleDate(from: scheduledNextDate) {
+            return candidateWithinEndDate(candidate, calendar: .current)
+        }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: referenceDate)
         let firstAllowedDate = max(today, calendar.startOfDay(for: fechaInicio))
 
         switch frecuencia {
+        case .anual:
+            for year in calendar.component(.year, from: firstAllowedDate)...(calendar.component(.year, from: firstAllowedDate) + 3) {
+                let month = annualMonth ?? calendar.component(.month, from: fechaInicio)
+                guard let start = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+                      let range = calendar.range(of: .day, in: .month, for: start),
+                      let candidate = calendar.date(from: DateComponents(year: year, month: month, day: min(diaMes ?? 1, range.count))) else { continue }
+                if candidate >= firstAllowedDate { return candidateWithinEndDate(candidate, calendar: calendar) }
+            }
+            return nil
         case .mensual:
             return nextMonthlyChargeDate(from: firstAllowedDate, calendar: calendar)
         case .semanal:
@@ -46,6 +64,8 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
 
     var cadenceLabel: String {
         switch frecuencia {
+        case .anual:
+            return "Cada año • mes \(annualMonth ?? 1), día \(diaMes ?? 1)"
         case .mensual:
             return "Cada mes\(diaMes.map { " • día \($0)" } ?? "")"
         case .semanal:
@@ -57,14 +77,16 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
     }
 
     private func nextMonthlyChargeDate(from date: Date, calendar: Calendar) -> Date? {
-        let desiredDay = min(max(diaMes ?? calendar.component(.day, from: fechaInicio), 1), 28)
+        let desiredDay = min(max(diaMes ?? calendar.component(.day, from: fechaInicio), 1), 31)
         var cursor = date
 
         for _ in 0..<36 {
             let components = calendar.dateComponents([.year, .month], from: cursor)
             if let year = components.year,
                let month = components.month,
-               let candidate = calendar.date(from: DateComponents(year: year, month: month, day: desiredDay)),
+               let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+               let days = calendar.range(of: .day, in: .month, for: monthStart),
+               let candidate = calendar.date(from: DateComponents(year: year, month: month, day: min(desiredDay, days.count))),
                candidate >= date {
                 return candidateWithinEndDate(candidate, calendar: calendar)
             }

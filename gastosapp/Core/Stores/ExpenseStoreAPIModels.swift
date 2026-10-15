@@ -53,6 +53,8 @@ struct RemoteExpense: Decodable {
     let fecha: String
     let categoriaId: Int
     let metodoPagoId: Int
+    let tags: [String]?
+    let foreignTax: ForeignTax?
     let isRecurrent: Bool?
     let categoria: Categoria?
     let metodoPago: ExpensePaymentMethod?
@@ -64,6 +66,8 @@ struct RemoteExpense: Decodable {
         case fecha
         case categoriaId = "categoria_id"
         case metodoPagoId = "metodo_pago_id"
+        case tags
+        case foreignTax = "impuesto_exterior"
         case isRecurrent = "is_recurrent"
         case categoria
         case metodoPago = "metodo_pago"
@@ -89,7 +93,9 @@ struct RemoteExpense: Decodable {
             metodoPagoId: metodoPagoId,
             categoria: resolvedCategoria,
             metodoPago: resolvedMetodo,
-            isRecurrent: isRecurrent ?? false
+            isRecurrent: isRecurrent ?? false,
+            tags: tags,
+            foreignTax: foreignTax
         )
     }
 }
@@ -101,13 +107,28 @@ struct CreateExpensePayload: Encodable {
     let categoriaId: Int
     let metodoPagoId: Int
     let isRecurrent: Bool
+    var tags: [String]? = nil
+    var foreignTax: ForeignTax? = nil
 
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(descripcion, forKey: .descripcion)
+        try c.encode(monto, forKey: .monto)
+        try c.encode(fecha, forKey: .fecha)
+        try c.encode(categoriaId, forKey: .categoriaId)
+        try c.encode(metodoPagoId, forKey: .metodoPagoId)
+        try c.encode(isRecurrent, forKey: .isRecurrent)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encode(foreignTax, forKey: .foreignTax)
+    }
     enum CodingKeys: String, CodingKey {
         case descripcion
         case monto
         case fecha
         case categoriaId = "categoria_id"
         case metodoPagoId = "metodo_pago_id"
+        case tags
+        case foreignTax = "impuesto_exterior"
         case isRecurrent = "is_recurrent"
     }
 }
@@ -119,13 +140,28 @@ struct UpdateExpensePayload: Encodable {
     let categoriaId: Int
     let metodoPagoId: Int
     let isRecurrent: Bool
+    var tags: [String]? = nil
+    var foreignTax: ForeignTax? = nil
 
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(descripcion, forKey: .descripcion)
+        try c.encode(monto, forKey: .monto)
+        try c.encode(fecha, forKey: .fecha)
+        try c.encode(categoriaId, forKey: .categoriaId)
+        try c.encode(metodoPagoId, forKey: .metodoPagoId)
+        try c.encode(isRecurrent, forKey: .isRecurrent)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encode(foreignTax, forKey: .foreignTax)
+    }
     enum CodingKeys: String, CodingKey {
         case descripcion
         case monto
         case fecha
         case categoriaId = "categoria_id"
         case metodoPagoId = "metodo_pago_id"
+        case tags
+        case foreignTax = "impuesto_exterior"
         case isRecurrent = "is_recurrent"
     }
 }
@@ -136,11 +172,14 @@ struct RemoteRecurringExpense: Decodable {
     let monto: Double
     let categoriaId: Int
     let metodoPagoId: Int
+    var annualMonth: Int? = nil
+    var scheduledNextDate: String? = nil
     let frecuencia: RecurringFrequency
     let diaSemana: Int?
     let diaMes: Int?
     let fechaInicio: String
     let fechaFin: String?
+    var foreignTax: ForeignTax? = nil
     let activo: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -149,11 +188,14 @@ struct RemoteRecurringExpense: Decodable {
         case monto
         case categoriaId = "categoria_id"
         case metodoPagoId = "metodo_pago_id"
+        case scheduledNextDate = "proxima_fecha"
+        case annualMonth = "mes_anual"
         case frecuencia
         case diaSemana = "dia_semana"
         case diaMes = "dia_mes"
         case fechaInicio = "fecha_inicio"
         case fechaFin = "fecha_fin"
+        case foreignTax = "impuesto_exterior"
         case activo
     }
 
@@ -166,7 +208,7 @@ struct RemoteRecurringExpense: Decodable {
             AppDateCodec.flexibleDate(from: value)
         }
 
-        return RecurringExpense(
+        var result = RecurringExpense(
             id: id,
             descripcion: descripcion,
             monto: monto,
@@ -181,6 +223,10 @@ struct RemoteRecurringExpense: Decodable {
             categoria: resolvedCategoria,
             metodoPago: resolvedMetodo
         )
+        result.scheduledNextDate = scheduledNextDate
+        result.annualMonth = annualMonth
+        result.foreignTax = foreignTax
+        return result
     }
 }
 
@@ -189,23 +235,43 @@ struct CreateRecurringExpensePayload: Encodable {
     let monto: Double
     let categoriaId: Int
     let metodoPagoId: Int
+    var annualMonth: Int? = nil
     let frecuencia: String
     let diaSemana: Int?
     let diaMes: Int?
     let fechaInicio: String
     let fechaFin: String?
+    var foreignTax: ForeignTax? = nil
     let activo: Bool
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(descripcion, forKey: .descripcion)
+        try c.encode(monto, forKey: .monto)
+        try c.encode(categoriaId, forKey: .categoriaId)
+        try c.encode(metodoPagoId, forKey: .metodoPagoId)
+        try c.encode(annualMonth, forKey: .annualMonth)
+        try c.encode(frecuencia, forKey: .frecuencia)
+        try c.encode(diaSemana, forKey: .diaSemana)
+        try c.encode(diaMes, forKey: .diaMes)
+        try c.encode(fechaInicio, forKey: .fechaInicio)
+        try c.encode(fechaFin, forKey: .fechaFin)
+        try c.encode(activo, forKey: .activo)
+        try c.encode(foreignTax, forKey: .foreignTax)
+    }
 
     enum CodingKeys: String, CodingKey {
         case descripcion
         case monto
         case categoriaId = "categoria_id"
         case metodoPagoId = "metodo_pago_id"
+        case annualMonth = "mes_anual"
         case frecuencia
         case diaSemana = "dia_semana"
         case diaMes = "dia_mes"
         case fechaInicio = "fecha_inicio"
         case fechaFin = "fecha_fin"
+        case foreignTax = "impuesto_exterior"
         case activo
     }
 }

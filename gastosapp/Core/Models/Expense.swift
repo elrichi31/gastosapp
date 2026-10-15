@@ -77,6 +77,8 @@ struct Expense: Identifiable, Hashable, Codable {
     var categoria: Categoria
     var metodoPago: ExpensePaymentMethod
     var isRecurrent: Bool
+    var tags: [String]?
+    var foreignTax: ForeignTax?
 
     init(
         id: Int = Int.random(in: 900_000...999_999),
@@ -87,7 +89,9 @@ struct Expense: Identifiable, Hashable, Codable {
         metodoPagoId: Int? = nil,
         categoria: Categoria,
         metodoPago: ExpensePaymentMethod,
-        isRecurrent: Bool = false
+        isRecurrent: Bool = false,
+        tags: [String]? = nil,
+        foreignTax: ForeignTax? = nil
     ) {
         self.id = id
         self.descripcion = descripcion
@@ -98,5 +102,7 @@ struct Expense: Identifiable, Hashable, Codable {
         self.categoria = categoria
         self.metodoPago = metodoPago
         self.isRecurrent = isRecurrent
+        self.tags = tags
+        self.foreignTax = foreignTax
     }
 }

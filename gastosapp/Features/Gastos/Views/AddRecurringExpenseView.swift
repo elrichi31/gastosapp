@@ -53,6 +53,17 @@ struct AddRecurringExpenseView: View {
 
     @Environment(ExpenseStore.self) private var store
 
+    @State private var seeded = false
+    @State private var foreignEnabled = false
+    @State private var taxSelection = ["isd"]
+    @State private var customRate = ""
+    @State private var annualMonth = Calendar.current.component(.month, from: Date())
+    @State private var hasEndDate = false
+    @State private var endDate = Date()
+    @State private var active = true
+    private var foreignTax: ForeignTax? {
+        foreignEnabled ? ForeignTax(base: ForeignTax.cents(montoNumerico), selected: taxSelection, customRate: customRate) : nil
+    }
     @State private var descripcion = ""
     @State private var monto = ""
     @State private var fechaInicio = Date()
@@ -93,11 +104,11 @@ struct AddRecurringExpenseView: View {
 
     private var puedeGuardar: Bool {
         !descripcion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        montoNumerico > 0 &&
+        montoNumerico > 0 && (foreignTax?.isValid ?? true) &&
         categoriaSeleccionada != nil &&
         metodoPagoSeleccionado != nil &&
         store.canAccessProtectedEndpoints &&
-        !store.isSavingExpense
+        !store.isSavingExpense && (!hasEndDate || endDate >= fechaInicio)
     }
 
     private var isEditing: Bool {
@@ -113,6 +124,12 @@ struct AddRecurringExpenseView: View {
                     encabezado
                     estadoCard
                     montoCard
+                    ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
+                    VStack(spacing: 12) {
+                        if isEditing { Toggle("Activo", isOn: $active) }
+                        Toggle("Fecha de finalización", isOn: $hasEndDate)
+                        if hasEndDate { DatePicker("Hasta", selection: $endDate, in: fechaInicio..., displayedComponents: .date) }
+                    }.padding(16).background(AppTheme.controlSurface, in: .rect(cornerRadius: 16))
                     detallesCard
                     if kind != .suscripcion || categoriaSuscripciones == nil {
                         categoriaCard
@@ -140,7 +157,7 @@ struct AddRecurringExpenseView: View {
             aplicarSeleccionInicial()
         }
         .onChange(of: fechaInicio) { _, newDate in
-            syncScheduleFields(from: newDate)
+            if existingExpense == nil { syncScheduleFields(from: newDate) }
         }
     }
 
@@ -265,6 +282,7 @@ struct AddRecurringExpenseView: View {
                 HStack(spacing: 8) {
                     frecuenciaPill(.mensual)
                     frecuenciaPill(.semanal)
+                    frecuenciaPill(.anual)
                 }
             }
             .padding(.horizontal, 16)
@@ -272,7 +290,12 @@ struct AddRecurringExpenseView: View {
 
             divisor
 
-            if frecuencia == .mensual {
+            if frecuencia != .semanal {
+                if frecuencia == .anual {
+                    Picker("Mes del año", selection: $annualMonth) {
+                        ForEach(1...12, id: \.self) { month in Text(StatsView.spanishMonthSymbols[month - 1]).tag(month) }
+                    }.padding(16)
+                }
                 HStack(spacing: 14) {
                     iconoCircular("number.square.fill", color: AppTheme.accent)
                     Text("Día del mes")
@@ -280,7 +303,7 @@ struct AddRecurringExpenseView: View {
                     Spacer()
                     Menu {
                         Picker("Día del mes", selection: $diaMes) {
-                            ForEach(1...28, id: \.self) { day in
+                            ForEach(1...31, id: \.self) { day in
                                 Text("\(day)").tag(day)
                             }
                         }
@@ -514,12 +537,21 @@ struct AddRecurringExpenseView: View {
     }
 
     private func aplicarSeleccionInicial() {
+        guard !seeded else { return }
+        if existingExpense != nil { seeded = true }
         if let existingExpense {
             descripcion = existingExpense.descripcion
-            monto = MoneyInput.format(existingExpense.monto)
-            fechaInicio = existingExpense.nextChargeDate ?? existingExpense.fechaInicio
+            monto = MoneyInput.format(existingExpense.foreignTax?.base ?? existingExpense.monto)
+            foreignEnabled = existingExpense.foreignTax != nil
+            taxSelection = existingExpense.foreignTax?.selected ?? ["isd"]
+            customRate = existingExpense.foreignTax?.customRate ?? ""
+            hasEndDate = existingExpense.fechaFin != nil
+            endDate = existingExpense.fechaFin ?? Date()
+            active = existingExpense.activo
+            fechaInicio = existingExpense.fechaInicio
             categoriaId = existingExpense.categoriaId
             metodoPagoId = existingExpense.metodoPagoId
+            annualMonth = existingExpense.annualMonth ?? annualMonth
             frecuencia = existingExpense.frecuencia
             diaMes = existingExpense.diaMes ?? diaMes
             diaSemana = existingExpense.diaSemana ?? diaSemana
@@ -536,15 +568,16 @@ struct AddRecurringExpenseView: View {
             metodoPagoId = store.metodosPago.first?.id ?? 0
         }
 
-        if diaMes < 1 || diaMes > 28 {
-            diaMes = min(max(diaMes, 1), 28)
+        if diaMes < 1 || diaMes > 31 {
+            diaMes = min(max(diaMes, 1), 31)
         }
         syncScheduleFields(from: fechaInicio)
     }
 
     private func syncScheduleFields(from date: Date) {
         let calendar = Calendar.current
-        diaMes = min(max(calendar.component(.day, from: date), 1), 28)
+        diaMes = min(max(calendar.component(.day, from: date), 1), 31)
+        annualMonth = calendar.component(.month, from: date)
         diaSemana = Self.weekdayNumber(for: date)
     }
 
@@ -558,25 +591,31 @@ struct AddRecurringExpenseView: View {
             ok = await store.updateRecurringExpense(
                 id: existingExpense.id,
                 descripcion: cleanedDescription,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fechaInicio: fechaInicio,
                 categoria: categoria,
                 metodoPago: metodoPago,
                 frecuencia: frecuencia,
-                diaMes: frecuencia == .mensual ? diaMes : nil,
+                diaMes: frecuencia != .semanal ? diaMes : nil,
                 diaSemana: frecuencia == .semanal ? diaSemana : nil,
-                activo: existingExpense.activo
+                activo: active,
+                fechaFin: hasEndDate ? endDate : nil,
+                annualMonth: annualMonth,
+                foreignTax: foreignTax
             )
         } else {
             ok = await store.createRecurringExpense(
                 descripcion: cleanedDescription,
-                monto: montoNumerico,
+                monto: foreignTax?.total ?? montoNumerico,
                 fechaInicio: fechaInicio,
                 categoria: categoria,
                 metodoPago: metodoPago,
                 frecuencia: frecuencia,
-                diaMes: frecuencia == .mensual ? diaMes : nil,
-                diaSemana: frecuencia == .semanal ? diaSemana : nil
+                diaMes: frecuencia != .semanal ? diaMes : nil,
+                diaSemana: frecuencia == .semanal ? diaSemana : nil,
+                fechaFin: hasEndDate ? endDate : nil,
+                annualMonth: annualMonth,
+                foreignTax: foreignTax
             )
         }
 
