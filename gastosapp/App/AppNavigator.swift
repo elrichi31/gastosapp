@@ -38,7 +38,7 @@ final class AppNavigator {
     var expenseQuery = ""
 
     func closePanel() {
-        withAnimation(.easeOut(duration: 0.18)) {
+        withAnimation(AppMotion.fade) {
             panel = nil
             searchText = ""
         }
@@ -47,7 +47,7 @@ final class AppNavigator {
     func open(_ tab: MainTabView.Tab, section: GastosSectionMode? = nil) {
         closePanel()
         pendingGastosSection = section
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+        withAnimation(AppMotion.standard) {
             selectedTab = tab
         }
     }

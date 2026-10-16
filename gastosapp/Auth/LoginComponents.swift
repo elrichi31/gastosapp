@@ -63,7 +63,7 @@ struct AuthField<Trailing: View>: View {
                         .strokeBorder(isFocused ? AppTheme.strongBorder : .clear, lineWidth: 2)
                 )
         )
-        .animation(.easeOut(duration: 0.16), value: isFocused)
+        .animation(AppMotion.fade, value: isFocused)
     }
 }
 
@@ -110,7 +110,7 @@ struct AuthErrorBanner: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(AppTheme.negative.opacity(0.12)))
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(AppMotion.reveal)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isStaticText)
     }

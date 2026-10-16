@@ -180,7 +180,7 @@ struct ProfileView: View {
             ForEach(AppAppearancePreference.allCases) { option in
                 let isSelected = appearanceRawValue == option.rawValue
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { appearanceRawValue = option.rawValue }
+                    withAnimation(AppMotion.standard) { appearanceRawValue = option.rawValue }
                 } label: {
                     Text(option.title)
                         .font(.system(size: 14, weight: isSelected ? .semibold : .medium))

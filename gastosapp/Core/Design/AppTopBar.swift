@@ -56,7 +56,7 @@ struct AppTopBar: View {
                 .buttonStyle(.pressable)
                 .profileTransitionSource(profileNamespace)
                 .accessibilityLabel("Cuenta: perfil, conexiones y ajustes")
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                .transition(AppMotion.pop)
             }
 
             searchField
@@ -75,7 +75,7 @@ struct AppTopBar: View {
                 .transition(.opacity)
             } else {
                 inboxButton
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .transition(AppMotion.pop)
                 Button {
                     navigator.closePanel()
                     navigator.showsNewExpense = true
@@ -88,10 +88,10 @@ struct AppTopBar: View {
                 }
                 .buttonStyle(.pressable)
                 .accessibilityLabel("Nuevo gasto")
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                .transition(AppMotion.pop)
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.86), value: isSearching)
+        .animation(AppMotion.standard, value: isSearching)
         .onChange(of: searchFocused) { _, focused in
             if focused, mode == .panel { navigator.panel = .search }
         }
@@ -145,7 +145,7 @@ struct AppTopBar: View {
     private var inboxButton: some View {
         let isOpen = navigator.panel == .inbox
         return Button {
-            withAnimation(.easeOut(duration: 0.18)) {
+            withAnimation(AppMotion.fade) {
                 navigator.panel = isOpen ? nil : .inbox
             }
         } label: {

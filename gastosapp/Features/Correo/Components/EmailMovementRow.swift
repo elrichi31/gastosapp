@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// Fila de la bandeja: nombre, banco y fecha, monto y una marca si parece
-/// duplicado o es una devolución. Al tocarla se abre la revisión.
+/// duplicado o es una devolución. Al tocarla se despliega la revisión debajo.
 struct EmailMovementRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let row: EmailMovement
     let category: Categoria?
+    var isExpanded = false
     let onReview: () -> Void
     let onDiscard: () -> Void
     private var isRefund: Bool { row.tipo == "ingreso" }
@@ -35,9 +36,10 @@ struct EmailMovementRow: View {
                     .monospacedDigit()
                     .foregroundStyle(isRefund ? AppTheme.positive : AppTheme.primaryText)
                     .fixedSize()
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppTheme.tertiaryText)
+                    .foregroundStyle(isExpanded ? AppTheme.primaryText : AppTheme.tertiaryText)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, 16)
@@ -47,7 +49,8 @@ struct EmailMovementRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Abre la revisión del movimiento")
+        .accessibilityHint(isExpanded ? "Cierra la revisión del movimiento" : "Abre la revisión del movimiento")
+        .accessibilityAddTraits(isExpanded ? .isSelected : [])
         .contextMenu { Button("Descartar movimiento", systemImage: "trash", role: .destructive, action: onDiscard) }
     }
 

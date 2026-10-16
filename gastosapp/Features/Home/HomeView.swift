@@ -148,7 +148,7 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
-                .animation(.easeOut(duration: 0.2), value: isLoadingHomeData)
+                .animation(AppMotion.fade, value: isLoadingHomeData)
             }
             .tracksScrollChrome()
             .floatingTabBarInset()
@@ -240,7 +240,7 @@ struct HomeView: View {
                 TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
                     .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                     .padding(.bottom, AppScreenMetrics.toastBottomPadding)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(AppMotion.toast)
             }
         }
     }

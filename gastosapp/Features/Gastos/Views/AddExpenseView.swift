@@ -238,7 +238,7 @@ struct AddExpenseView: View {
                     .fill(AppTheme.accent.opacity(0.08))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppTheme.accent.opacity(0.25), lineWidth: 1))
             )
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(AppMotion.reveal)
         }
     }
 
@@ -351,7 +351,7 @@ struct AddExpenseView: View {
         }
 
         activeSuggestion = suggestion
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+        withAnimation(AppMotion.standard) {
             if !userPickedCategory {
                 categoriaId = suggestion.categoria.id
             }

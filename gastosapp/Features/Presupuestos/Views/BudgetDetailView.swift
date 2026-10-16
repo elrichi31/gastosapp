@@ -30,6 +30,7 @@ struct BudgetDetailView: View {
                     header
                     statusCard(spendingSnapshot.monthlyMetrics)
                     content
+                        .animation(AppMotion.fade, value: detailStore.isLoading)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -220,10 +221,8 @@ struct BudgetDetailView: View {
     @ViewBuilder
     private var content: some View {
         if detailStore.isLoading && detailStore.categories.isEmpty {
-            ProgressView()
-                .tint(AppTheme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
+            ListRowsSkeleton(rows: 5, label: "Cargando categorías")
+                .transition(.opacity)
         } else if detailStore.categories.isEmpty {
             emptyCategories
         } else {
@@ -262,7 +261,7 @@ struct BudgetDetailView: View {
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    withAnimation(AppMotion.standard) {
                         if isOpen { expandedCategoryIDs.remove(category.id) } else { expandedCategoryIDs.insert(category.id) }
                     }
                 } label: {

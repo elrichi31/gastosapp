@@ -36,7 +36,7 @@ struct MainTabView: View {
         .sensoryFeedback(.selection, trigger: navigator.selectedTab)
         .onChange(of: navigator.selectedTab) { _, _ in
             navigator.panel = nil
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            withAnimation(AppMotion.standard) {
                 chrome.isCompact = false
             }
         }
@@ -124,7 +124,7 @@ private struct PillTabBar: View {
     private func botonTab(tab: MainTabView.Tab, icono: String, titulo: String) -> some View {
         let activo = seleccion == tab
         return Button {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
+            withAnimation(AppMotion.standard) {
                 seleccion = tab
             }
         } label: {

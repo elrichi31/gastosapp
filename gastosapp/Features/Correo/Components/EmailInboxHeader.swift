@@ -27,7 +27,7 @@ struct EmailInboxHeader: View {
             .accessibilityElement(children: .combine)
             Spacer(minLength: 8)
             circleButton(icon: "magnifyingglass", label: isSearching ? "Cerrar búsqueda" : "Buscar", isOn: isSearching) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { isSearching.toggle() }
+                withAnimation(AppMotion.standard) { isSearching.toggle() }
             }
             Button(action: onSync) {
                 Group {

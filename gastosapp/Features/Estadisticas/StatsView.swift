@@ -53,7 +53,7 @@ struct StatsView: View {
                 }
                 .padding(.top, 4)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
-                .animation(.easeOut(duration: 0.18), value: tab)
+                .animation(AppMotion.fade, value: tab)
             }
             .tracksScrollChrome()
             .floatingTabBarInset()
@@ -346,7 +346,7 @@ struct StatsView: View {
     private func groupHeader(_ group: Section, icon: String, title: String, subtitle: String) -> some View {
         let isOpen = openGroups.contains(group)
         return Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            withAnimation(AppMotion.standard) {
                 if isOpen { openGroups.remove(group) } else { openGroups.insert(group) }
             }
         } label: {
@@ -764,7 +764,7 @@ struct StatsView: View {
             ForEach(values, id: \.self) { value in
                 let isSelected = selection.wrappedValue == value
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selection.wrappedValue = value }
+                    withAnimation(AppMotion.standard) { selection.wrappedValue = value }
                 } label: {
                     Text(label(value))
                         .font(.system(size: fontSize, weight: isSelected ? .semibold : .medium))
@@ -1001,7 +1001,7 @@ private struct StatsEvolutionSection: View {
     private var dailyDataDisclosure: some View {
         VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { showsDailyData.toggle() }
+                withAnimation(AppMotion.standard) { showsDailyData.toggle() }
             } label: {
                 HStack {
                     Label(analysis.isRange ? "Ver datos por día" : "Ver datos por mes", systemImage: "tablecells")
@@ -1050,7 +1050,7 @@ private struct StatsEvolutionSection: View {
             ForEach(values, id: \.self) { value in
                 let isSelected = selection.wrappedValue == value
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selection.wrappedValue = value }
+                    withAnimation(AppMotion.standard) { selection.wrappedValue = value }
                 } label: {
                     Text(label(value))
                         .font(.system(size: fontSize, weight: isSelected ? .semibold : .medium))

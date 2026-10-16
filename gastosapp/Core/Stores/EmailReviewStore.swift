@@ -10,7 +10,10 @@ final class EmailReviewStore {
     var isWorking = false
     var isSyncing = false
     var isSavingAlias = false
+    /// Fallo de una acción (vincular, guardar, alias). Se muestra en la revisión.
     var error: String?
+    /// Fallo al leer la bandeja. Sustituye a la lista.
+    var loadError: String?
     var message: String?
     var tab = "nuevos"
     var query = ""
@@ -18,11 +21,13 @@ final class EmailReviewStore {
     var otherIDs: Set<Int> = []
     private var requestID = UUID()
 
-    func load(using session: ExpenseStore) async {
+    /// `keepsRows` deja la lista visible mientras se recarga tras una acción,
+    /// en lugar de volver al esqueleto.
+    func load(using session: ExpenseStore, keepsRows: Bool = false) async {
         let id = UUID(); requestID = id
-        isLoading = true; error = nil
+        isLoading = true; loadError = nil
         // Clear rows so a tab switch cannot act on the previous tab's data.
-        result = nil
+        if !keepsRows { result = nil }
         defer { if requestID == id { isLoading = false } }
         var components = URLComponents()
         components.queryItems = [URLQueryItem(name: "tab", value: tab), URLQueryItem(name: "page", value: String(page)),
@@ -35,19 +40,19 @@ final class EmailReviewStore {
             isEnabled = data.enabled
             page = data.page ?? 1
         } catch {
-            if requestID == id && !isCancellationError(error) { self.error = error.localizedDescription }
+            if requestID == id && !isCancellationError(error) { loadError = error.localizedDescription }
         }
     }
     func sync(using session: ExpenseStore) async {
         guard !isWorking else { return }
-        isWorking = true; isSyncing = true; error = nil; message = nil
+        isWorking = true; isSyncing = true; loadError = nil; message = nil
         defer { isWorking = false; isSyncing = false }
         do {
             struct Result: Decodable { let nuevos: Int }
             let value = try await session.request(Result.self, path: "/api/email-import/yahoo", method: "POST", requiresAuth: true)
             message = "\(value.nuevos) movimientos nuevos encontrados"
-            await load(using: session)
-        } catch { if !isCancellationError(error) { self.error = error.localizedDescription } }
+            await load(using: session, keepsRows: true)
+        } catch { if !isCancellationError(error) { loadError = error.localizedDescription } }
     }
     func saveAlias(for row: EmailMovement, alias: String, using session: ExpenseStore) async -> Bool {
         let cleanAlias = alias.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -81,7 +86,7 @@ final class EmailReviewStore {
             message = method == "PUT" ? "Alias guardado" : "Movimiento revisado"
             await session.loadExpenses(force: true)
             if let alert = await session.budgetCrossingMessage(before: previousExpenses) { message = alert }
-            await load(using: session)
+            await load(using: session, keepsRows: true)
             return true
         } catch { if !isCancellationError(error) { self.error = error.localizedDescription }; return false }
     }

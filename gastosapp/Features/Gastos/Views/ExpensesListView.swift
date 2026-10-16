@@ -163,6 +163,7 @@ struct ExpensesListView: View {
             .tracksScrollChrome()
             .floatingTabBarInset()
             .environment(\.defaultMinListRowHeight, 1)
+            .animation(AppMotion.fade, value: hasLoaded)
             .refreshable {
                 await store.loadExpenses(force: true)
             }
@@ -443,7 +444,7 @@ struct ExpensesListView: View {
 
                 if !monthTags.isEmpty {
                     accentChip(isOn: showsTags || !selectedTags.isEmpty) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showsTags.toggle() }
+                        withAnimation(AppMotion.standard) { showsTags.toggle() }
                     } label: {
                         Text("#").fontWeight(.bold).foregroundStyle(AppTheme.accent)
                         Text(selectedTags.isEmpty ? "Etiquetas" : "Etiquetas · \(selectedTags.count)")
@@ -452,7 +453,7 @@ struct ExpensesListView: View {
                 }
 
                 accentChip(isOn: showsFilters || advancedFilterCount > 0) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showsFilters.toggle() }
+                    withAnimation(AppMotion.standard) { showsFilters.toggle() }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease").font(.system(size: 13, weight: .bold))
                     Text(advancedFilterCount == 0 ? "Filtros" : "Filtros · \(advancedFilterCount)")
@@ -554,7 +555,7 @@ struct ExpensesListView: View {
                 }
             }
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(AppMotion.reveal)
     }
 
     private func filterPill(
@@ -599,7 +600,7 @@ struct ExpensesListView: View {
                 .foregroundStyle(AppTheme.secondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button("Entendido") {
-                withAnimation { swipeTipDismissed = true }
+                withAnimation(AppMotion.standard) { swipeTipDismissed = true }
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(AppTheme.accent)
@@ -842,7 +843,7 @@ struct ExpensesListView: View {
     }
 
     private func clearFilters() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+        withAnimation(AppMotion.standard) {
             searchText = ""
             selectedCategoryID = nil
             selectedTags = []
@@ -874,7 +875,7 @@ struct ExpensesListView: View {
         let inicioNuevoMes = ExpensesListView.inicioMes(nuevo)
         guard inicioNuevoMes <= ExpensesListView.inicioMes(Date()) else { return }
 
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+        withAnimation(AppMotion.standard) {
             mesActual = inicioNuevoMes
         }
     }
@@ -990,7 +991,7 @@ struct ExpensesListView: View {
         // El total vive dentro del snapshot, así que la animación tiene que
         // envolver esta asignación: si sólo se anima `mesActual`, la cifra
         // cambia de golpe y no rueda.
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+        withAnimation(AppMotion.standard) {
             snapshot = next
         }
     }

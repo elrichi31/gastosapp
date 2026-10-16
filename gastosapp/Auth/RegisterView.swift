@@ -49,8 +49,8 @@ struct RegisterView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(AppTheme.screenBackground.ignoresSafeArea())
         .tint(AppTheme.accent)
-        .animation(.easeOut(duration: 0.2), value: error)
-        .animation(.spring(response: 0.3, dampingFraction: 0.86), value: message)
+        .animation(AppMotion.fade, value: error)
+        .animation(AppMotion.standard, value: message)
     }
 
     private var form: some View {

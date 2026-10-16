@@ -43,7 +43,7 @@ struct ForeignTaxFields: View {
                         .foregroundStyle(AppTheme.tertiaryText)
                 }
                 Spacer(minLength: 8)
-                Toggle("Compra en el exterior", isOn: $enabled.animation(.easeOut(duration: 0.18)))
+                Toggle("Compra en el exterior", isOn: $enabled.animation(AppMotion.fade))
                     .labelsHidden()
                     .tint(AppTheme.accent)
             }

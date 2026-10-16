@@ -164,7 +164,7 @@ struct FormSegmentedTabs<Value: Hashable>: View {
             ForEach(values, id: \.self) { value in
                 let isSelected = value == selection
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selection = value }
+                    withAnimation(AppMotion.standard) { selection = value }
                 } label: {
                     Text(title(value))
                         .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
@@ -317,7 +317,7 @@ struct CategoryChipPicker: View {
                 let isSelected = category.id == selectedID
                 let color = category.color
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    withAnimation(AppMotion.standard) {
                         selectedID = category.id
                         onPick(category.id)
                     }

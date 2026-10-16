@@ -223,7 +223,7 @@ struct AddRecurringExpenseView: View {
                     if isEditing {
                         toggleRow("Activo", isOn: $active)
                     }
-                    toggleRow("¿Tiene fecha de finalización?", isOn: $hasEndDate.animation(.easeOut(duration: 0.18)), showsDivider: hasEndDate)
+                    toggleRow("¿Tiene fecha de finalización?", isOn: $hasEndDate.animation(AppMotion.fade), showsDivider: hasEndDate)
                     if hasEndDate {
                         FormLabeledRow(label: "Fecha de fin", showsDivider: false) {
                             DatePicker("Fecha de fin", selection: $endDate, in: fechaInicio..., displayedComponents: .date)
@@ -322,7 +322,7 @@ struct AddRecurringExpenseView: View {
 
     private func pill(_ title: String, isSelected: Bool, height: CGFloat, fontSize: CGFloat, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { action() }
+            withAnimation(AppMotion.standard) { action() }
         } label: {
             Text(title)
                 .font(.system(size: fontSize, weight: isSelected ? .semibold : .medium))
@@ -337,7 +337,7 @@ struct AddRecurringExpenseView: View {
 
     private func stepButton(_ icon: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            withAnimation(.snappy(duration: 0.18)) { action() }
+            withAnimation(AppMotion.standard) { action() }
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))

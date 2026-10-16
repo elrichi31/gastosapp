@@ -42,7 +42,7 @@ struct GastosHeaderBar: View {
         HStack(spacing: 8) {
             if sectionMode != .movimientos {
                 AppCircleButton(icon: "chevron.left", label: "Volver a Gastos") { select(.movimientos) }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .transition(AppMotion.pop)
             }
 
             Text(sectionMode.title)
@@ -72,7 +72,7 @@ struct GastosHeaderBar: View {
                         )
                 }
                 .buttonStyle(.pressable(scale: 0.95))
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .transition(AppMotion.pop)
             }
 
             if let onAddTap {
@@ -83,7 +83,7 @@ struct GastosHeaderBar: View {
     }
 
     private func select(_ mode: GastosSectionMode) {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(AppMotion.standard) {
             sectionMode = mode
         }
     }

@@ -62,7 +62,7 @@ struct LoginView: View {
         .sheet(isPresented: $showsRegistration) { RegisterView() }
         .tint(AppTheme.accent)
         .background(AppTheme.screenBackground.ignoresSafeArea())
-        .animation(.easeOut(duration: 0.2), value: store.authErrorMessage)
+        .animation(AppMotion.fade, value: store.authErrorMessage)
     }
 
     private var brand: some View {

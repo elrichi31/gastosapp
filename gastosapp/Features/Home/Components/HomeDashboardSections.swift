@@ -214,7 +214,7 @@ struct HomeRecent30DaysSection: View {
                 HStack(alignment: .bottom, spacing: spacing) {
                     ForEach(bars) { bar in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
+                            withAnimation(AppMotion.standard) {
                                 selectedBar = bar
                             }
                         } label: {

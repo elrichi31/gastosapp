@@ -230,7 +230,7 @@ struct AddSubscriptionView: View {
 
     private func celdaProvider(_ p: Provider) -> some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(AppMotion.standard) {
                 seleccionado = p
                 nombreServicio = p.nombre
                 isPickingProvider = false
@@ -257,13 +257,13 @@ struct AddSubscriptionView: View {
             ForeignTaxFields(enabled: $foreignEnabled, selected: $taxSelection, customRate: $customRate, base: montoNumerico)
             detallesCard
         }
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .transition(AppMotion.toast)
     }
 
     private var volverFormularioButton: some View {
         HStack {
             Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                withAnimation(AppMotion.standard) {
                     isPickingProvider = false
                 }
             } label: {
@@ -310,7 +310,7 @@ struct AddSubscriptionView: View {
             }
             Spacer()
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(AppMotion.standard) {
                     isPickingProvider = true
                     busqueda = ""
                 }
@@ -349,7 +349,7 @@ struct AddSubscriptionView: View {
                     ForEach(ciclosDisponibles) { option in
                         let isSelected = ciclo == option
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { ciclo = option }
+                            withAnimation(AppMotion.standard) { ciclo = option }
                         } label: {
                             Text(option.rawValue)
                                 .font(.system(size: 15, weight: isSelected ? .semibold : .medium))

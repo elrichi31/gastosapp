@@ -20,7 +20,7 @@ struct GastosView: View {
                         .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                         .padding(.bottom, AppScreenMetrics.toastBottomPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(AppMotion.toast)
                         .zIndex(2)
                 }
             }
@@ -60,7 +60,7 @@ struct GastosView: View {
         guard let section = navigator?.pendingGastosSection else { return }
         navigator?.pendingGastosSection = nil
         path.removeAll()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(AppMotion.standard) {
             sectionMode = section
         }
     }
@@ -97,7 +97,7 @@ struct GastosView: View {
     }
 
     private func updateSectionAfterSave(_ shouldOpenRecurringSection: Bool) {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(AppMotion.standard) {
             sectionMode = shouldOpenRecurringSection ? .recurrentes : .movimientos
         }
     }

@@ -45,6 +45,7 @@ struct BudgetsView: View {
                             intro
                         }
                         content
+                            .animation(AppMotion.fade, value: budgets.isLoadingBudgets)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
@@ -59,7 +60,7 @@ struct BudgetsView: View {
                         .padding(.horizontal, AppScreenMetrics.horizontalPadding)
                         .padding(.bottom, AppScreenMetrics.toastBottomPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(AppMotion.toast)
                         .zIndex(2)
                 }
             }
@@ -165,10 +166,8 @@ struct BudgetsView: View {
     @ViewBuilder
     private var content: some View {
         if budgets.isLoadingBudgets && budgets.budgets.isEmpty {
-            ProgressView()
-                .tint(AppTheme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
+            ListRowsSkeleton(label: "Cargando presupuestos")
+                .transition(.opacity)
         } else if yearBudgets.isEmpty {
             emptyYear
         } else {
@@ -597,7 +596,7 @@ struct BudgetsView: View {
 
     private func selectYear(_ year: Int) {
         guard year != budgets.selectedYear else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+        withAnimation(AppMotion.standard) {
             budgets.selectedYear = year
         }
         Task { await loadAnnualData(force: true) }

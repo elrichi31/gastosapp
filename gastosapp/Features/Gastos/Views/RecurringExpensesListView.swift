@@ -65,10 +65,8 @@ struct RecurringExpensesListView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     if let header { header }
                     if store.isLoadingRecurringExpenses && store.recurringExpenses.isEmpty {
-                        ProgressView()
-                            .tint(AppTheme.secondaryText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 48)
+                        ListRowsSkeleton(label: "Cargando recurrentes")
+                            .transition(.opacity)
                     } else if store.recurringExpenses.isEmpty {
                         emptyCard
                     } else {
@@ -105,6 +103,7 @@ struct RecurringExpensesListView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
                 .padding(.bottom, AppScreenMetrics.contentBottomPadding)
+                .animation(AppMotion.fade, value: store.isLoadingRecurringExpenses)
             }
             .tracksScrollChrome()
             .floatingTabBarInset()
@@ -218,7 +217,7 @@ struct RecurringExpensesListView: View {
             ForEach(Filter.allCases) { item in
                 let isSelected = filter == item
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { filter = item }
+                    withAnimation(AppMotion.standard) { filter = item }
                 } label: {
                     Text(item.title)
                         .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
@@ -261,7 +260,7 @@ struct RecurringExpensesListView: View {
         let color = item.categoria.color
         return VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                withAnimation(AppMotion.standard) {
                     expandedID = isOpen ? nil : item.id
                 }
             } label: {

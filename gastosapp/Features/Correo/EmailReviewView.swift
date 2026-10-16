@@ -10,13 +10,15 @@ struct EmailReviewView: View {
 
     @Environment(ExpenseStore.self) private var session
     @State private var review = EmailReviewStore()
-    @State private var editing: EmailMovement?
+    /// Movimiento con la revisión desplegada; sólo uno a la vez.
+    @State private var expandedID: Int?
     @State private var discarded: EmailMovement?
     @State private var isSearching = false
     private var selectedTab: EmailReviewTab { EmailReviewTab(rawValue: review.tab) ?? .nuevos }
     private var requestKey: String { "\(review.tab)|\(review.page)|\(review.query)" }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 if let header { header.padding(.bottom, 6) }
@@ -36,15 +38,24 @@ struct EmailReviewView: View {
                 }
                 inbox
             }
+            .animation(AppMotion.fade, value: review.isLoading)
+            .animation(AppMotion.standard, value: review.result?.pendientes.map(\.id))
+            .animation(AppMotion.fade, value: review.message)
             .padding(.horizontal, 20)
             .padding(.top, 4).padding(.bottom, AppScreenMetrics.contentBottomPadding)
+        }
+        .onChange(of: expandedID) { _, id in
+            guard let id else { return }
+            // Deja la fila arriba para que el desplegable entre en pantalla.
+            withAnimation(AppMotion.expand) { proxy.scrollTo(id, anchor: .top) }
+        }
         }
         .background(AppTheme.screenBackground.ignoresSafeArea())
         .tracksScrollChrome().floatingTabBarInset()
         .scrollDismissesKeyboard(.interactively)
         .refreshable { await review.load(using: session) }
         .onChange(of: isSearching) { _, open in if !open { review.query = "" } }
-        .onChange(of: review.tab) { review.page = 1 }
+        .onChange(of: review.tab) { review.page = 1; expandedID = nil }
         .onChange(of: review.query) { review.page = 1 }
         .task(id: requestKey) {
             if !review.query.isEmpty {
@@ -53,7 +64,6 @@ struct EmailReviewView: View {
             guard !Task.isCancelled else { return }
             await review.load(using: session)
         }
-        .sheet(item: $editing) { row in EmailMovementReviewSheet(row: row, review: review) }
         .confirmationDialog("¿Descartar este movimiento?", isPresented: Binding(get: { discarded != nil }, set: { if !$0 { discarded = nil } }), titleVisibility: .visible) {
             if let row = discarded {
                 Button("Descartar", role: .destructive) { Task { _ = await review.apply(["descartar": [row.id]], using: session); discarded = nil } }
@@ -62,7 +72,7 @@ struct EmailReviewView: View {
     }
 
     @ViewBuilder private var inbox: some View {
-        if let error = review.error {
+        if let error = review.loadError {
             HStack(spacing: 12) {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(AppTheme.negative)
@@ -94,12 +104,9 @@ struct EmailReviewView: View {
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppTheme.negative.opacity(0.25), lineWidth: 1))
             )
             .accessibilityElement(children: .combine)
-        } else if review.isLoading {
-            ProgressView()
-                .tint(AppTheme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
-                .accessibilityLabel("Cargando movimientos")
+        } else if review.isLoading && review.result == nil {
+            ListRowsSkeleton(label: "Cargando movimientos")
+                .transition(.opacity)
         } else if let result = review.result {
             VStack(spacing: 0) {
                 if !result.enabled {
@@ -110,16 +117,34 @@ struct EmailReviewView: View {
                         icon: review.query.isEmpty ? "checkmark.circle" : "magnifyingglass")
                 } else {
                     ForEach(Array(result.pendientes.enumerated()), id: \.element.id) { index, row in
-                        EmailMovementRow(row: row, category: session.categorias.first { $0.id == row.categoria_id },
-                            onReview: { editing = row }, onDiscard: { discarded = row })
-                            .disabled(review.isWorking)
+                        let isExpanded = expandedID == row.id
+                        VStack(spacing: 0) {
+                            EmailMovementRow(row: row, category: session.categorias.first { $0.id == row.categoria_id },
+                                isExpanded: isExpanded, onReview: { toggle(row) }, onDiscard: { discarded = row })
+                                .disabled(review.isWorking)
+                            if isExpanded {
+                                EmailMovementReviewPanel(row: row, review: review) {
+                                    withAnimation(AppMotion.expand) { expandedID = nil }
+                                }
+                                .transition(AppMotion.reveal)
+                            }
+                        }
+                        .background(isExpanded ? AppTheme.primaryText.opacity(0.03) : .clear)
+                        .id(row.id)
                         if index < result.pendientes.count - 1 { AppHairline() }
                     }
                 }
             }
             .background(AppTheme.cardBackground())
             .clipShape(.rect(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            .transition(.opacity)
             if result.enabled, (result.pages ?? 1) > 1 { pagination(result).padding(.top, 8) }
+        }
+    }
+
+    private func toggle(_ row: EmailMovement) {
+        withAnimation(AppMotion.expand) {
+            expandedID = expandedID == row.id ? nil : row.id
         }
     }
 

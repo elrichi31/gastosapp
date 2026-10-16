@@ -32,14 +32,14 @@ struct EmailInboxFilters: View {
                 .padding(.horizontal, 14)
                 .frame(height: 44)
                 .background(Capsule().fill(AppTheme.popoverSurface))
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(AppMotion.reveal)
             }
 
             HStack(spacing: 4) {
                 ForEach(EmailReviewTab.allCases) { item in
                     let active = tab == item.rawValue
                     Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { tab = item.rawValue }
+                        withAnimation(AppMotion.standard) { tab = item.rawValue }
                     } label: {
                         HStack(spacing: 6) {
                             Text(item.title)

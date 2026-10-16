@@ -1,10 +1,15 @@
 import SwiftUI
 
-struct EmailMovementReviewSheet: View {
+/// Revisión de un movimiento del correo, desplegada en línea bajo su fila.
+///
+/// Antes era una hoja que subía desde abajo y tapaba la bandeja; ahora se
+/// abre como un desplegable y la fila sigue a la vista. `onFinish` la cierra
+/// tras vincular, guardar o descartar.
+struct EmailMovementReviewPanel: View {
     let row: EmailMovement
     @Bindable var review: EmailReviewStore
+    let onFinish: () -> Void
     @Environment(ExpenseStore.self) private var session
-    @Environment(\.dismiss) private var dismiss
     @State private var description = ""
     @State private var amount = ""
     @State private var categoryID = 0
@@ -20,6 +25,21 @@ struct EmailMovementReviewSheet: View {
     @State private var lastAliasDescription = ""
     @State private var aliasFeedback: String?
     @State private var seeded = false
+
+    /// Los valores que salen de la fila se ponen aquí y no en `onAppear`: si
+    /// no, el panel se abría mostrando la sección equivocada y luego saltaba.
+    init(row: EmailMovement, review: EmailReviewStore, onFinish: @escaping () -> Void) {
+        self.row = row
+        self.review = review
+        self.onFinish = onFinish
+        _description = State(initialValue: row.descripcion)
+        _amount = State(initialValue: MoneyInput.format(row.monto))
+        _categoryID = State(initialValue: row.categoria_id ?? 0)
+        _alias = State(initialValue: row.alias ?? "")
+        _savedAlias = State(initialValue: row.alias ?? "")
+        _lastAliasDescription = State(initialValue: row.descripcion)
+        _saveAsNew = State(initialValue: row.tipo != "ingreso" && row.coincidencias.isEmpty)
+    }
     @FocusState private var focusedField: Field?
     private enum Field: Hashable { case description, amount, alias }
     private var aliasDirty: Bool { row.canHaveAlias && alias.trimmingCharacters(in: .whitespacesAndNewlines) != savedAlias }
@@ -37,39 +57,35 @@ struct EmailMovementReviewSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            BudgetEditorHeader(title: isRefund ? "Revisar devolución" : "Revisar consumo",
-                subtitle: "\(row.origen) · \(dateLabel)", icon: isRefund ? "arrow.uturn.backward" : "envelope",
-                tint: isRefund ? AppTheme.secondaryAccent : AppTheme.accent, onClose: dismiss.callAsFunction)
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding).padding(.top, 24).padding(.bottom, 20)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    originalMovement
-                    if row.canHaveAlias { aliasFields }
-                    if !isRefund && !row.coincidencias.isEmpty { resolutionPicker }
-                    if !isRefund && saveAsNew { newExpenseFields }
-                    else { matchingExpenses }
-                    if let error = review.error {
-                        ExpenseFormStatusCard(status: .init(title: "No se pudo completar", message: error, icon: "exclamationmark.triangle", tint: AppTheme.warning))
-                    }
-                    Button("Descartar movimiento", role: .destructive) { confirmDiscard = true }
-                        .font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.negative)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .padding(.horizontal, AppScreenMetrics.horizontalPadding).padding(.bottom, 24)
+        VStack(alignment: .leading, spacing: 22) {
+            originalMovement
+            if row.canHaveAlias { aliasFields }
+            if !isRefund && !row.coincidencias.isEmpty { resolutionPicker }
+            if !isRefund && saveAsNew {
+                newExpenseFields.transition(AppMotion.reveal)
+            } else {
+                matchingExpenses.transition(AppMotion.reveal)
             }
-            .scrollDismissesKeyboard(.interactively)
+            if let error = review.error {
+                ExpenseFormStatusCard(status: .init(title: "No se pudo completar", message: error, icon: "exclamationmark.triangle", tint: AppTheme.warning))
+                    .transition(AppMotion.reveal)
+            }
+            VStack(spacing: 4) {
+                primaryAction
+                Button("Descartar movimiento", role: .destructive) { confirmDiscard = true }
+                    .font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.negative)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
         }
-        .background(AppTheme.screenBackground.ignoresSafeArea())
-        .safeAreaInset(edge: .bottom, spacing: 0) { primaryAction }
-        .presentationDragIndicator(.visible)
-        .interactiveDismissDisabled(review.isWorking)
+        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 12)
+        .animation(AppMotion.standard, value: saveAsNew)
+        .animation(AppMotion.fade, value: review.error)
         .onAppear(perform: seed)
         .disabled(review.isWorking)
         .confirmationDialog(isRefund ? "¿Descontar esta devolución?" : "¿Vincular el consumo?", isPresented: $confirmLink, titleVisibility: .visible) {
             if let candidate = selectedCandidate {
                 Button(isRefund ? "Descontar devolución" : "Confirmar vínculo") {
-                    Task { if await review.apply(["vincular": [["id": row.id, "gasto_id": candidate.id]]], using: session) { dismiss() } }
+                    Task { if await review.apply(["vincular": [["id": row.id, "gasto_id": candidate.id]]], using: session) { onFinish() } }
                 }
             }
         } message: {
@@ -78,16 +94,14 @@ struct EmailMovementReviewSheet: View {
             }
         }
         .confirmationDialog("¿Descartar este movimiento?", isPresented: $confirmDiscard, titleVisibility: .visible) {
-            Button("Descartar", role: .destructive) { Task { if await review.apply(["descartar": [row.id]], using: session) { dismiss() } } }
+            Button("Descartar", role: .destructive) { Task { if await review.apply(["descartar": [row.id]], using: session) { onFinish() } } }
         } message: { Text("No se guardará como gasto y no volverá a aparecer en pendientes.") }
     }
 
+    /// El monto ya está en la fila; aquí sólo el texto tal como llegó del banco.
     private var originalMovement: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             AppSectionLabel(text: isRefund ? "DEVOLUCIÓN RECIBIDA" : "CONSUMO DETECTADO")
-            Text(row.monto, format: .currency(code: "USD"))
-                .font(.largeTitle.bold()).monospacedDigit().foregroundStyle(AppTheme.primaryText)
-                .lineLimit(1).minimumScaleFactor(0.6)
             Text(row.descripcion_original ?? row.descripcion).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -103,7 +117,10 @@ struct EmailMovementReviewSheet: View {
         }
     }
     private func resolutionButton(_ title: String, saveNew: Bool) -> some View {
-        Button { saveAsNew = saveNew; selectedCandidate = nil; focusedField = nil } label: {
+        Button {
+            withAnimation(AppMotion.standard) { saveAsNew = saveNew; selectedCandidate = nil }
+            focusedField = nil
+        } label: {
             Text(title).font(.system(size: 15, weight: saveAsNew == saveNew ? .semibold : .medium))
                 .foregroundStyle(saveAsNew == saveNew ? AppTheme.backgroundTop : AppTheme.primaryText)
                 .frame(maxWidth: .infinity, minHeight: 46)
@@ -140,7 +157,7 @@ struct EmailMovementReviewSheet: View {
             }
             ForEach(row.coincidencias) { candidate in
                 EmailCandidateRow(candidate: candidate, isSelected: selectedCandidate?.id == candidate.id) {
-                    selectedCandidate = candidate
+                    withAnimation(AppMotion.standard) { selectedCandidate = candidate }
                 }
             }
         }
@@ -196,27 +213,17 @@ struct EmailMovementReviewSheet: View {
                 if saveAsNew && !isRefund { Task { await save() } }
                 else { confirmLink = true }
             }
-            .padding(.horizontal, AppScreenMetrics.horizontalPadding).padding(.vertical, 14)
-            .background(AppTheme.backgroundBottom)
-    }
-    private var dateLabel: String {
-        AppDateCodec.dateOnly(from: row.fecha)?.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "es"))) ?? row.fecha
     }
     private func seed() {
         guard !seeded else { return }
         seeded = true
         review.error = nil; review.message = nil
-        description = row.descripcion; amount = MoneyInput.format(row.monto)
-        categoryID = row.categoria_id ?? session.categorias.first?.id ?? 0
-        alias = row.alias ?? ""
-        savedAlias = alias
-        lastAliasDescription = row.descripcion
-        saveAsNew = !isRefund && row.coincidencias.isEmpty
+        if categoryID == 0 { categoryID = session.categorias.first?.id ?? 0 }
     }
     private func save() async {
         guard canSave, !aliasDirty else { return }
         var item: [String: Any] = ["id": row.id, "categoria_id": categoryID, "monto": base, "descripcion": description.trimmingCharacters(in: .whitespacesAndNewlines)]
         if foreignEnabled { item["impuestos"] = ["selected": selected, "customRate": customRate] }
-        if await review.apply(["aceptar": [item]], using: session) { dismiss() }
+        if await review.apply(["aceptar": [item]], using: session) { onFinish() }
     }
 }

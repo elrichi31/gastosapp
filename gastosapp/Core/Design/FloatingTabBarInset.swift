@@ -106,7 +106,7 @@ private struct TabBarCollapseModifier: ViewModifier {
 
                 let scrolled = new.offset > scrimThreshold
                 if scrolled != chrome.isScrolled {
-                    withAnimation(.easeOut(duration: 0.22)) {
+                    withAnimation(AppMotion.fade) {
                         chrome.isScrolled = scrolled
                     }
                 }
@@ -132,13 +132,13 @@ private struct TabBarCollapseModifier: ViewModifier {
                     return
                 }
                 guard shouldCompact != chrome.isCompact else { return }
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                withAnimation(AppMotion.standard) {
                     chrome.isCompact = shouldCompact
                 }
             }
             .onDisappear {
                 guard let chrome else { return }
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                withAnimation(AppMotion.standard) {
                     chrome.isCompact = false
                     chrome.isScrolled = false
                 }
