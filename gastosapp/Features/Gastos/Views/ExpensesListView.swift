@@ -448,6 +448,7 @@ struct ExpensesListView: View {
                     } label: {
                         Text("#").fontWeight(.bold).foregroundStyle(AppTheme.accent)
                         Text(selectedTags.isEmpty ? "Etiquetas" : "Etiquetas · \(selectedTags.count)")
+                            .contentTransition(.numericText())
                     }
                     .accessibilityLabel(selectedTags.isEmpty ? "Etiquetas" : "Etiquetas, \(selectedTags.count) activas")
                 }
@@ -457,6 +458,7 @@ struct ExpensesListView: View {
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease").font(.system(size: 13, weight: .bold))
                     Text(advancedFilterCount == 0 ? "Filtros" : "Filtros · \(advancedFilterCount)")
+                        .contentTransition(.numericText())
                 }
             }
             .padding(.horizontal, 20)
@@ -465,7 +467,7 @@ struct ExpensesListView: View {
     }
 
     private func categoryChip(title: String, color: Color?, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button { withAnimation(AppMotion.standard, action) } label: {
             HStack(spacing: 8) {
                 if let color {
                     Circle().fill(color).frame(width: 8, height: 8)
@@ -504,12 +506,15 @@ struct ExpensesListView: View {
                 tagChip(tag, height: 32, fontSize: 14, weight: .semibold)
             }
         }
+        .transition(AppMotion.reveal)
     }
 
     private func tagChip(_ tag: String, height: CGFloat, fontSize: CGFloat, weight: Font.Weight) -> some View {
         let isOn = selectedTags.contains(tag)
         return Button {
-            if isOn { selectedTags.remove(tag) } else { selectedTags.insert(tag) }
+            withAnimation(AppMotion.standard) {
+                if isOn { selectedTags.remove(tag) } else { selectedTags.insert(tag) }
+            }
         } label: {
             Text("#\(tag)")
                 .font(.system(size: fontSize, weight: weight))
@@ -525,7 +530,7 @@ struct ExpensesListView: View {
 
     private var filterPillRows: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Origen", selection: $originFilter) {
+            Picker("Origen", selection: $originFilter.animation(AppMotion.standard)) {
                 Text("Todos").tag("all")
                 Text("Manual").tag("manual")
                 Text("Correo").tag("email")
@@ -564,7 +569,7 @@ struct ExpensesListView: View {
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button { withAnimation(AppMotion.standard, action) } label: {
             HStack(spacing: 6) {
                 if let icon {
                     Image(systemName: icon)
