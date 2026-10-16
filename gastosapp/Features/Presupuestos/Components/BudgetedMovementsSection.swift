@@ -47,11 +47,15 @@ struct BudgetedMovementsSection: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
+                    // Como en Gastos: sólo el icono y sin rol destructivo, que
+                    // animaba la fila como borrada antes de confirmar.
+                    Button {
                         onDelete(movement)
                     } label: {
-                        Label("Eliminar", systemImage: "trash")
+                        Image(systemName: "trash")
                     }
+                    .tint(AppTheme.negative)
+                    .accessibilityLabel("Eliminar")
                 }
             }
         }

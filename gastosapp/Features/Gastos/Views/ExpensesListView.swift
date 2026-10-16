@@ -662,7 +662,10 @@ struct ExpensesListView: View {
         .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             // Sólo iconos: el texto bajo cada uno sobraba en un hueco tan estrecho.
-            Button(role: .destructive) {
+            // Sin `role: .destructive`: con ese rol iOS anima la fila como borrada
+            // al tocar, pero el borrado espera a la confirmación y la fila volvía
+            // de golpe. El rojo lo da el `tint`.
+            Button {
                 expenseToDelete = gasto
             } label: {
                 Image(systemName: "trash")
