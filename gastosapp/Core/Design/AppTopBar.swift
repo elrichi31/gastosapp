@@ -67,12 +67,21 @@ struct AppTopBar: View {
                     if mode == .filter { navigator.expenseQuery = "" }
                     navigator.closePanel()
                 }
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppTheme.accent)
+                // Pastilla como el resto de botones de la barra: el texto verde
+                // suelto casi no se veía sobre el velo oscuro del panel.
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryText)
+                .padding(.horizontal, 16)
                 .frame(height: 44)
-                .padding(.horizontal, 2)
-                .buttonStyle(.plain)
-                .transition(.opacity)
+                .background(
+                    Capsule()
+                        .fill(AppTheme.chromeButtonSurface)
+                        .overlay(Capsule().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
+                        .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
+                )
+                .contentShape(Capsule())
+                .buttonStyle(.pressable)
+                .transition(AppMotion.pop)
             } else {
                 inboxButton
                     .transition(AppMotion.pop)
