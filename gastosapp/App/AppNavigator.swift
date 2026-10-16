@@ -36,6 +36,19 @@ final class AppNavigator {
     var searchText = ""
     /// Texto del buscador en Gastos, que filtra la lista en su sitio.
     var expenseQuery = ""
+    /// El buscador abierto es el de Gastos: sugiere categorías, pero en cuanto
+    /// se escribe el panel se aparta y la lista se filtra debajo.
+    var searchFiltersInPlace = false
+
+    /// El panel que se dibuja. En Gastos el de búsqueda sólo se ve mientras
+    /// el buscador está vacío, para no tapar la lista que se está filtrando.
+    var visiblePanel: Panel? {
+        if panel == .search, searchFiltersInPlace,
+           !expenseQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return nil
+        }
+        return panel
+    }
 
     func closePanel() {
         withAnimation(AppMotion.fade) {

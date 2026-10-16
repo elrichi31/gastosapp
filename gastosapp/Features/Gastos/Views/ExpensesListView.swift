@@ -914,19 +914,10 @@ struct ExpensesListView: View {
 
     private func matchesSearch(_ gasto: Expense, query: String) -> Bool {
         guard !query.isEmpty else { return true }
-        return searchTokens(for: gasto)
-            .contains { $0.localizedStandardContains(query) }
-    }
-
-    private func searchTokens(for gasto: Expense) -> [String] {
-        [
-            gasto.descripcion,
-            gasto.categoria.nombre,
-            gasto.metodoPago.nombre,
-            gasto.metodoPago.shortLabel,
-            MoneyInput.format(gasto.monto),
-            headerFecha(Self.cal.startOfDay(for: gasto.fecha))
-        ] + (gasto.tags ?? []).flatMap { [$0, "#" + $0] }
+        // Las reglas comunes de toda la app, más el día tal como sale en la
+        // cabecera de la lista («Hoy», «Ayer»…).
+        return ExpenseSearch.matches(gasto, query: query)
+            || headerFecha(Self.cal.startOfDay(for: gasto.fecha)).localizedStandardContains(query)
     }
 
     private func performDeleteExpenseAndDismiss(_ gasto: Expense) {
