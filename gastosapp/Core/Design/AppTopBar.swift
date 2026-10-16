@@ -187,7 +187,12 @@ private extension View {
     @ViewBuilder
     func profileTransitionSource(_ namespace: Namespace.ID?) -> some View {
         if let namespace {
-            matchedTransitionSource(id: ProfileTransition.sourceID, in: namespace)
+            // Recortado en círculo: sin esto iOS trata el avatar como un
+            // rectángulo y al cerrar Cuenta la burbuja volvía en forma de
+            // cuadrado antes de desaparecer.
+            matchedTransitionSource(id: ProfileTransition.sourceID, in: namespace) { source in
+                source.clipShape(RoundedRectangle(cornerRadius: 22, style: .circular))
+            }
         } else {
             self
         }

@@ -263,7 +263,9 @@ struct HomeView: View {
                     )
             }
             .buttonStyle(.pressable)
-            .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition)
+            .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition) { source in
+                source.clipShape(RoundedRectangle(cornerRadius: 22, style: .circular))
+            }
             .accessibilityLabel("Cuenta: perfil, conexiones y ajustes")
 
             Spacer(minLength: 0)
