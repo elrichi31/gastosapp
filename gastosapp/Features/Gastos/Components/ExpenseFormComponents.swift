@@ -49,14 +49,6 @@ struct ExpenseIconBadge: View {
     }
 }
 
-struct ExpenseFormDivider: View {
-    var body: some View {
-        Divider()
-            .background(AppTheme.border)
-            .padding(.leading, 56)
-    }
-}
-
 struct ExpenseFormMenuRow<PickerContent: View>: View {
     let icon: String
     let color: Color
