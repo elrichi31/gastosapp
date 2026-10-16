@@ -1033,6 +1033,7 @@ final class ExpenseStore {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("\(authorizationScheme) \(normalizedAccessToken)", forHTTPHeaderField: "Authorization")
+        request.markAsJSONIfMutating()
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -1094,6 +1095,7 @@ final class ExpenseStore {
             for (key, value) in additionalHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
+            request.markAsJSONIfMutating()
 
             if requiresAuth {
                 guard !normalizedAccessToken.isEmpty else {

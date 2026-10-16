@@ -313,3 +313,16 @@ enum ExpenseStoreError: LocalizedError {
         }
     }
 }
+
+extension URLRequest {
+    /// El servidor responde 415 («se requiere JSON») a cualquier cambio que no
+    /// llegue como JSON, también a los que no llevan cuerpo, como borrar un
+    /// gasto o sincronizar el correo. Así que todo lo que no sea una lectura se
+    /// marca como JSON y, si no trae cuerpo, envía `{}`.
+    mutating func markAsJSONIfMutating() {
+        let method = (httpMethod ?? "GET").uppercased()
+        guard method != "GET", method != "HEAD" else { return }
+        if httpBody == nil { httpBody = Data("{}".utf8) }
+        setValue("application/json", forHTTPHeaderField: "Content-Type")
+    }
+}
