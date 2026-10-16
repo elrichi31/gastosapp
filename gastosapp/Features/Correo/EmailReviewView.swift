@@ -44,6 +44,14 @@ struct EmailReviewView: View {
             .padding(.horizontal, 20)
             .padding(.top, 4).padding(.bottom, AppScreenMetrics.contentBottomPadding)
         }
+        // En el propio ScrollView y no en el ScrollViewReader que lo envuelve:
+        // el hueco de la barra y el seguimiento del scroll tienen que llegarle
+        // directamente.
+        .tracksScrollChrome().floatingTabBarInset()
+        .scrollDismissesKeyboard(.interactively)
+        // Al recargar la lista se queda en su sitio: vaciarla encogía la
+        // pantalla y la hacía subir y bajar.
+        .refreshable { await review.load(using: session, keepsRows: true) }
         .onChange(of: expandedID) { _, id in
             guard let id else { return }
             // Desplaza lo justo para que el desplegable entre en pantalla; si ya
@@ -52,11 +60,6 @@ struct EmailReviewView: View {
         }
         }
         .background(AppTheme.screenBackground.ignoresSafeArea())
-        .tracksScrollChrome().floatingTabBarInset()
-        .scrollDismissesKeyboard(.interactively)
-        // Al recargar la lista se queda en su sitio: vaciarla encogía la
-        // pantalla y la hacía subir y bajar.
-        .refreshable { await review.load(using: session, keepsRows: true) }
         .onChange(of: isSearching) { _, open in if !open { review.query = "" } }
         .onChange(of: review.tab) { review.page = 1; expandedID = nil }
         .onChange(of: review.query) { review.page = 1 }
@@ -107,7 +110,7 @@ struct EmailReviewView: View {
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppTheme.negative.opacity(0.25), lineWidth: 1))
             )
             .accessibilityElement(children: .combine)
-        } else if review.isLoading && review.result == nil {
+        } else if review.result == nil {
             ListRowsSkeleton(label: "Cargando movimientos")
                 .transition(.opacity)
         } else if let result = review.result {
