@@ -62,10 +62,7 @@ struct MainTabView: View {
 
     private var currentTabView: some View {
         tabContent
-            // La identidad por pestaña es lo que le da a SwiftUI algo que
-            // transicionar: sin el `id` cambiaría el contenido en seco.
-            .id(navigator.selectedTab)
-            .transition(.opacity)
+            .screenSwap(navigator.selectedTab)
     }
 
     @ViewBuilder

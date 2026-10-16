@@ -14,10 +14,7 @@ struct GastosView: View {
         NavigationStack(path: $path) {
             ZStack {
                 currentSection
-                    // La sección nueva entra ya colocada. Si el cambio iba dentro
-                    // de un resorte, iOS animaba también el ajuste del scroll a la
-                    // barra superior y la pantalla subía y bajaba al entrar.
-                    .transaction(value: sectionMode) { $0.animation = nil }
+                    .screenSwap(sectionMode)
 
                 if let toastMessage {
                     TransientStatusToast(text: toastMessage.text, tint: toastMessage.tint, icon: toastMessage.icon)
@@ -64,9 +61,7 @@ struct GastosView: View {
         guard let section = navigator?.pendingGastosSection else { return }
         navigator?.pendingGastosSection = nil
         path.removeAll()
-        // Sin animación: se llega desde otra pestaña o la bandeja y la pestaña
-        // ya anima su propio cambio. Animarlo otra vez hacía que la lista nueva
-        // entrara deslizándose bajo la barra superior.
+        // `screenSwap` ya da la entrada; no hace falta envolverlo en animación.
         sectionMode = section
     }
 

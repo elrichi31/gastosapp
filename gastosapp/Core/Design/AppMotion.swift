@@ -15,6 +15,9 @@ enum AppMotion {
     /// Fundidos breves: mensajes, interruptores, pasar del esqueleto a los datos.
     static let fade: Animation = .easeOut(duration: 0.2)
 
+    /// Entrada de una pantalla nueva al cambiar de pestaña o de sección.
+    static let screen: Animation = .easeOut(duration: 0.18)
+
     /// Respuesta al pulsar un control.
     static let press: Animation = .spring(response: 0.28, dampingFraction: 0.7)
 
@@ -26,6 +29,35 @@ enum AppMotion {
 
     /// Botones y pastillas que aparecen o desaparecen en su sitio.
     static let pop: AnyTransition = .opacity.combined(with: .scale(scale: 0.9))
+}
+
+extension View {
+    /// Cambio de pantalla de la app: la anterior se va al instante y la nueva
+    /// entra ya colocada con un fundido corto.
+    ///
+    /// No es un `.transition(.opacity)` dentro de `withAnimation`: con eso iOS
+    /// animaba también el ajuste del scroll a las barras y la pantalla nueva
+    /// subía y bajaba, y durante el fundido cruzado se veían las dos encimadas.
+    /// Aquí el cambio va sin animación y sólo se anima la opacidad de la nueva,
+    /// cuando ya tiene su sitio.
+    func screenSwap<Value: Hashable>(_ value: Value) -> some View {
+        modifier(FadeInOnAppear())
+            .id(value)
+            .transaction(value: value) { $0.animation = nil }
+    }
+}
+
+private struct FadeInOnAppear: ViewModifier {
+    @State private var isVisible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .onAppear {
+                guard !isVisible else { return }
+                withAnimation(AppMotion.screen) { isVisible = true }
+            }
+    }
 }
 
 /// Esqueleto de una lista de movimientos dentro de una tarjeta: icono, dos
