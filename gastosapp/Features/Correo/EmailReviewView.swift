@@ -20,7 +20,10 @@ struct EmailReviewView: View {
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            // VStack y no LazyVStack: son pocas piezas y la tarjeta de la bandeja
+            // cambia mucho de alto al desplegar una revisión. Con Lazy, SwiftUI
+            // estimaba esos altos al desplazar y el contenido daba saltos.
+            VStack(alignment: .leading, spacing: 16) {
                 if let header { header.padding(.bottom, 6) }
                 EmailInboxHeader(counts: review.counts, isSearching: $isSearching,
                     isSyncing: review.isSyncing, canSync: review.isEnabled == true && !review.isWorking,
@@ -38,22 +41,22 @@ struct EmailReviewView: View {
                 }
                 inbox
             }
-            .animation(AppMotion.fade, value: review.isLoading)
-            .animation(AppMotion.standard, value: review.result?.pendientes.map(\.id))
-            .animation(AppMotion.fade, value: review.message)
             .padding(.horizontal, 20)
             .padding(.top, 4).padding(.bottom, AppScreenMetrics.contentBottomPadding)
         }
         .onChange(of: expandedID) { _, id in
             guard let id else { return }
-            // Deja la fila arriba para que el desplegable entre en pantalla.
-            withAnimation(AppMotion.expand) { proxy.scrollTo(id, anchor: .top) }
+            // Desplaza lo justo para que el desplegable entre en pantalla; si ya
+            // se ve, no mueve nada.
+            withAnimation(AppMotion.expand) { proxy.scrollTo(id, anchor: nil) }
         }
         }
         .background(AppTheme.screenBackground.ignoresSafeArea())
         .tracksScrollChrome().floatingTabBarInset()
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await review.load(using: session) }
+        // Al recargar la lista se queda en su sitio: vaciarla encogía la
+        // pantalla y la hacía subir y bajar.
+        .refreshable { await review.load(using: session, keepsRows: true) }
         .onChange(of: isSearching) { _, open in if !open { review.query = "" } }
         .onChange(of: review.tab) { review.page = 1; expandedID = nil }
         .onChange(of: review.query) { review.page = 1 }
@@ -137,6 +140,7 @@ struct EmailReviewView: View {
             }
             .background(AppTheme.cardBackground())
             .clipShape(.rect(cornerRadius: AppTheme.Radius.card, style: .continuous))
+            .animation(AppMotion.standard, value: result.pendientes.map(\.id))
             .transition(.opacity)
             if result.enabled, (result.pages ?? 1) > 1 { pagination(result).padding(.top, 8) }
         }
