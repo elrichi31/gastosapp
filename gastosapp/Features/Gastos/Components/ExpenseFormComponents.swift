@@ -217,6 +217,10 @@ struct FormAmountEntry: View {
                     .tint(AppTheme.accent)
                     .fixedSize()
                     .accessibilityLabel("Monto en dólares")
+                    .onChange(of: text) { _, value in
+                        let clean = MoneyInput.sanitizedEntry(value)
+                        if clean != value { text = clean }
+                    }
             }
             .frame(maxWidth: .infinity, minHeight: 76)
             .animation(.snappy(duration: 0.2), value: fontSize)

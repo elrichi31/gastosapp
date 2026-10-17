@@ -22,3 +22,13 @@ struct JSONRequestTests {
         #expect(get.httpBody == nil)
     }
 }
+
+struct MoneyEntryTests {
+    @Test func amountEntryKeepsOnlyDigitsAndOneSeparator() {
+        #expect(MoneyInput.sanitizedEntry("12.50") == "12.50")
+        #expect(MoneyInput.sanitizedEntry("0Almuerzo de prueba") == "0")
+        #expect(MoneyInput.sanitizedEntry("1.2.3") == "1.23")
+        #expect(MoneyInput.sanitizedEntry("3,999") == "3,99")
+        #expect(MoneyInput.sanitizedEntry("12345678901") == "123456789")
+    }
+}
