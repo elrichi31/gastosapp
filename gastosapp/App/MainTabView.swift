@@ -49,6 +49,32 @@ struct MainTabView: View {
                 AddExpenseSheet { _ in navigator.showsNewExpense = false }
             }
         }
+        // Un gasto tocado en el buscador se abre aquí, encima de la pestaña en
+        // la que estés, en lugar de llevarte a Gastos.
+        .sheet(item: $navigator.expenseSheet) { sheet in
+            NavigationStack {
+                switch sheet {
+                case let .detail(expense):
+                    ExpenseDetailSheet(
+                        expense: expense,
+                        onClose: { navigator.expenseSheet = nil },
+                        onEdit: { navigator.expenseSheet = .edit(expense) },
+                        onDelete: {
+                            navigator.expenseSheet = nil
+                            Task { await store.deleteExpense(id: expense.id) }
+                        }
+                    )
+                case let .edit(expense):
+                    AddExpenseView(editingExpense: expense) { navigator.expenseSheet = nil }
+                        .safeAreaInset(edge: .top, spacing: 0) {
+                            FormSheetChrome {
+                                FormSheetHeader(title: "Editar gasto") { navigator.expenseSheet = nil }
+                            }
+                        }
+                }
+            }
+            .presentationDragIndicator(.visible)
+        }
         .task(id: store.canAccessProtectedEndpoints) {
             await inbox.refresh(store: store, budgets: budgets)
         }

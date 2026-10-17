@@ -36,6 +36,21 @@ final class AppNavigator {
     var searchText = ""
     /// Texto del buscador en Gastos, que filtra la lista en su sitio.
     var expenseQuery = ""
+    /// Gasto abierto desde el buscador, en detalle o editándolo.
+    var expenseSheet: ExpenseSheet?
+
+    enum ExpenseSheet: Identifiable {
+        case detail(Expense)
+        case edit(Expense)
+
+        var id: String {
+            switch self {
+            case let .detail(expense): "detail-\(expense.id)"
+            case let .edit(expense): "edit-\(expense.id)"
+            }
+        }
+    }
+
     /// El buscador abierto es el de Gastos: sugiere categorías, pero en cuanto
     /// se escribe el panel se aparta y la lista se filtra debajo.
     var searchFiltersInPlace = false

@@ -430,7 +430,8 @@ private struct SearchPanel: View {
             }
             VStack(spacing: 0) {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, expense in
-                    Button { navigator.showExpenses(matching: query) } label: {
+                    // Abre el gasto; el panel sigue detrás para volver a los resultados.
+                    Button { navigator.expenseSheet = .detail(expense) } label: {
                         HStack(spacing: 12) {
                             CategoryGlyph(categoria: expense.categoria, size: 34, tint: expense.categoria.color,
                                 background: expense.categoria.color.opacity(0.16), isCircular: true)
