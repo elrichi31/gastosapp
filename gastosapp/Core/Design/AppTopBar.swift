@@ -24,6 +24,7 @@ struct AppTopBar: View {
                     navigator.expenseQuery = value
                 } else {
                     navigator.searchText = value
+                    navigator.searchFiltersInPlace = false
                     if navigator.panel != .search { navigator.panel = .search }
                 }
             }
@@ -106,6 +107,11 @@ struct AppTopBar: View {
             if focused {
                 navigator.searchFiltersInPlace = mode == .filter
                 navigator.panel = .search
+            } else if mode == .filter, navigator.panel == .search {
+                // En Gastos las sugerencias sólo valen mientras se escribe: si
+                // se baja el teclado y luego se borra el texto, no deben volver
+                // a aparecer solas.
+                navigator.panel = nil
             }
         }
         .onChange(of: navigator.panel) { _, panel in

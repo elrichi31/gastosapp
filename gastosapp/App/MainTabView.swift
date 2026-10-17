@@ -11,6 +11,9 @@ struct MainTabView: View {
     @State private var inbox = AppInbox()
     @State private var chrome = TabBarChrome()
     @Namespace private var profileNamespace
+    /// Fallo al borrar desde el buscador. Plan y Análisis no tienen aviso
+    /// propio, así que sin esto el gasto volvía a la lista sin explicación.
+    @State private var deleteErrorMessage: String?
 
     var body: some View {
         @Bindable var navigator = navigator
@@ -35,7 +38,9 @@ struct MainTabView: View {
         .ignoresSafeArea(.keyboard)
         .sensoryFeedback(.selection, trigger: navigator.selectedTab)
         .onChange(of: navigator.selectedTab) { _, _ in
-            navigator.panel = nil
+            // `closePanel` y no sólo `panel = nil`: también vacía el buscador,
+            // que si no se quedaba con el texto en la pestaña nueva.
+            navigator.closePanel()
             withAnimation(AppMotion.standard) {
                 chrome.isCompact = false
             }
@@ -61,7 +66,11 @@ struct MainTabView: View {
                         onEdit: { navigator.expenseSheet = .edit(expense) },
                         onDelete: {
                             navigator.expenseSheet = nil
-                            Task { await store.deleteExpense(id: expense.id) }
+                            Task {
+                                if await !store.deleteExpense(id: expense.id) {
+                                    deleteErrorMessage = store.expensesErrorMessage ?? "No se pudo eliminar el gasto."
+                                }
+                            }
                         }
                     )
                 case let .edit(expense):
@@ -74,6 +83,14 @@ struct MainTabView: View {
                 }
             }
             .presentationDragIndicator(.visible)
+        }
+        .alert(
+            "No se pudo eliminar",
+            isPresented: Binding(get: { deleteErrorMessage != nil }, set: { if !$0 { deleteErrorMessage = nil } })
+        ) {
+            Button("Entendido", role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage ?? "")
         }
         .task(id: store.canAccessProtectedEndpoints) {
             await inbox.refresh(store: store, budgets: budgets)
