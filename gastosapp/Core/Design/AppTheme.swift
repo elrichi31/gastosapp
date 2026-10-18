@@ -117,7 +117,11 @@ enum AppTheme {
         Color(uiColor: hex(0x9170F5)),
         Color(uiColor: hex(0x12A37A)),
         Color(uiColor: hex(0xE0607E)),
-        Color(uiColor: hex(0x5FA8B8))
+        Color(uiColor: hex(0x5FA8B8)),
+        Color(uiColor: hex(0xE07B39)),
+        Color(uiColor: hex(0x7FA83A)),
+        Color(uiColor: hex(0xC062C9)),
+        Color(uiColor: hex(0x8A93A6))
     ]
 
     static func categoryColor(at index: Int) -> Color {
