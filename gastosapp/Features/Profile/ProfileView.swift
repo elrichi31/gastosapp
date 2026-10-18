@@ -7,35 +7,8 @@ struct ProfileView: View {
     @State private var showsConnections = false
     @Environment(ExpenseStore.self) private var store
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.defaultValue.rawValue
-    @AppStorage(LocalNotificationManager.weeklySummaryEnabledKey) private var weeklySummaryEnabled = true
-    @AppStorage(LocalNotificationManager.dailyExpenseReminderEnabledKey) private var dailyExpenseReminderEnabled = true
-    @AppStorage(LocalNotificationManager.dailyExpenseReminderHourKey) private var dailyExpenseReminderHour = 21
-    @AppStorage(LocalNotificationManager.dailyExpenseReminderMinuteKey) private var dailyExpenseReminderMinute = 0
-    @AppStorage(LocalNotificationManager.budgetAlertsEnabledKey) private var budgetAlertsEnabled = true
-    @AppStorage(LocalNotificationManager.budgetAlertThresholdKey) private var budgetAlertThreshold = 0.80
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
-
-    private let budgetAlertThresholds: [(value: Double, title: String)] = [
-        (0.50, "50%"),
-        (0.80, "80%"),
-        (1.00, "100%")
-    ]
-
-    private var dailyReminderTime: Binding<Date> {
-        Binding {
-            Calendar.current.date(
-                bySettingHour: dailyExpenseReminderHour,
-                minute: dailyExpenseReminderMinute,
-                second: 0,
-                of: Date()
-            ) ?? Date()
-        } set: { newValue in
-            let components = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-            dailyExpenseReminderHour = components.hour ?? 21
-            dailyExpenseReminderMinute = components.minute ?? 0
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -55,7 +28,7 @@ struct ProfileView: View {
                             ) { showsConnections = true }
                         }
                     }
-                    section("Notificaciones") { notificationsGroup }
+                    section("Notificaciones") { NotificationSettingsSection() }
                     section("Objetivo de ahorro") { savingsGroup }
                     logoutButton
                         .padding(.top, 8)
@@ -91,35 +64,6 @@ struct ProfileView: View {
             .background(AppTheme.backgroundTop.ignoresSafeArea(edges: .top))
         }
         .sheet(isPresented: $showsConnections) { ConnectionsView() }
-        .onChange(of: weeklySummaryEnabled) { _, _ in
-            Task {
-                await LocalNotificationManager.prepareWeeklySummary(expenses: store.gastos)
-            }
-        }
-        .onChange(of: dailyExpenseReminderEnabled) { _, _ in
-            Task {
-                await LocalNotificationManager.prepareDailyExpenseReminder()
-            }
-        }
-        .onChange(of: dailyExpenseReminderHour) { _, _ in
-            Task {
-                await LocalNotificationManager.prepareDailyExpenseReminder()
-            }
-        }
-        .onChange(of: dailyExpenseReminderMinute) { _, _ in
-            Task {
-                await LocalNotificationManager.prepareDailyExpenseReminder()
-            }
-        }
-        .onChange(of: budgetAlertsEnabled) { _, enabled in
-            if enabled {
-                Task {
-                    _ = await LocalNotificationManager.requestBudgetAlertAuthorizationIfNeeded()
-                }
-            } else {
-                LocalNotificationManager.removeBudgetAlerts()
-            }
-        }
     }
 
     // MARK: - Piezas
@@ -197,45 +141,6 @@ struct ProfileView: View {
         .background(Capsule().fill(AppTheme.popoverSurface))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tema")
-    }
-
-    private var notificationsGroup: some View {
-        group {
-            settingsToggle(title: "Resumen semanal", subtitle: "Domingos a las 7:00 p.m.", isOn: $weeklySummaryEnabled)
-            settingsToggle(title: "Recordatorio diario", subtitle: "Para registrar gastos antes de cerrar el día.", isOn: $dailyExpenseReminderEnabled)
-            if dailyExpenseReminderEnabled {
-                HStack {
-                    Text("Hora del recordatorio")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Spacer()
-                    DatePicker("Hora del recordatorio", selection: dailyReminderTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .tint(AppTheme.accent)
-                }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 56)
-                .overlay(alignment: .bottom) { AppHairline() }
-            }
-            settingsToggle(title: "Alertas de presupuesto", subtitle: "Cuando una categoría llegue al umbral.", isOn: $budgetAlertsEnabled)
-            HStack(spacing: 12) {
-                Text("Umbral")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(AppTheme.primaryText)
-                Spacer()
-                Picker("Umbral de alerta", selection: $budgetAlertThreshold) {
-                    ForEach(budgetAlertThresholds, id: \.value) { threshold in
-                        Text(threshold.title).tag(threshold.value)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 180)
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 56)
-            .disabled(!budgetAlertsEnabled)
-            .opacity(budgetAlertsEnabled ? 1 : 0.45)
-        }
     }
 
     private var savingsGroup: some View {
