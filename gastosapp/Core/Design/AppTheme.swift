@@ -244,14 +244,19 @@ extension View {
     /// y sombra de siempre. `tint` tiñe el cristal (o rellena la forma, antes
     /// de iOS 26) para los botones destacados.
     ///
-    /// Sin `.interactive()`: va dentro de la etiqueta de un `Button` y el
-    /// cristal interactivo se quedaba con el primer toque, así que había que
-    /// tocar dos veces para abrir Notificaciones o Nuevo gasto. La respuesta
-    /// al pulsar ya la da `.pressable`.
+    /// El cristal va en un fondo que no recibe toques y la forma define dónde
+    /// se puede tocar: aplicado directo a la etiqueta de un `Button` (y además
+    /// agrupado en un `GlassEffectContainer`) se quedaba con los toques en el
+    /// iPhone, y Notificaciones y Nuevo gasto no se abrían.
     @ViewBuilder
     func chromeGlass<S: InsettableShape>(_ shape: S, tint: Color? = nil) -> some View {
         if #available(iOS 26.0, *) {
-            glassEffect(.regular.tint(tint), in: shape)
+            background {
+                Color.clear
+                    .glassEffect(.regular.tint(tint), in: shape)
+                    .allowsHitTesting(false)
+            }
+            .contentShape(shape)
         } else {
             background(
                 shape
@@ -259,17 +264,7 @@ extension View {
                     .overlay(shape.strokeBorder(AppTheme.strongBorder, lineWidth: tint == nil ? 1 : 0))
                     .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
             )
-        }
-    }
-
-    /// Agrupa controles de cristal para que se fundan y se transformen entre
-    /// sí al aparecer o desaparecer. Antes de iOS 26 no hace nada.
-    @ViewBuilder
-    func chromeGlassGroup(spacing: CGFloat) -> some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: spacing) { self }
-        } else {
-            self
+            .contentShape(shape)
         }
     }
 }

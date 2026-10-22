@@ -96,9 +96,6 @@ struct AppTopBar: View {
                 .transition(AppMotion.pop)
             }
         }
-        // Con Liquid Glass, el buscador y los botones se funden y se
-        // transforman al abrir y cerrar la búsqueda.
-        .chromeGlassGroup(spacing: 8)
         .animation(AppMotion.standard, value: isSearching)
         .onChange(of: searchFocused) { _, focused in
             // Los dos modos abren el mismo panel; en Gastos sólo sugiere.

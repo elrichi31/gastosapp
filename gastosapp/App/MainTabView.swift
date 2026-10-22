@@ -239,13 +239,17 @@ private struct PillTabBar: View {
 
 private extension View {
     /// Liquid Glass en iOS 26: refracta lo que pasa por debajo. Antes, el
-    /// fondo translúcido de siempre. No es interactivo para que el cristal no
-    /// se quede con los toques de las pestañas (ver `chromeGlass`).
+    /// fondo translúcido de siempre. Va en un fondo que no recibe toques para
+    /// que el cristal no se quede con los de las pestañas (ver `chromeGlass`).
     @ViewBuilder
     func tabBarGlass() -> some View {
         if #available(iOS 26.0, *) {
-            glassEffect(.regular, in: .capsule)
-                .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+            background {
+                Color.clear
+                    .glassEffect(.regular, in: .capsule)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
         } else {
             background(AppTheme.chromeBackground(Capsule()))
         }
