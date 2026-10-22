@@ -9,6 +9,9 @@ struct ExpenseExtrasFields: View {
     @Binding var tagsText: String
     @Environment(ExpenseStore.self) private var store
     @State private var draft = ""
+    /// Uso de cada etiqueta en los gastos; se cuenta al cambiar los gastos y
+    /// no a cada tecla del formulario.
+    @State private var tagUsage: [String: Int] = [:]
     @FocusState private var draftFocused: Bool
 
     /// Etiquetas que pone la app, no el usuario.
@@ -21,8 +24,7 @@ struct ExpenseExtrasFields: View {
     /// Las etiquetas más usadas en los gastos registrados, sin las ya elegidas.
     private var suggested: [String] {
         let chosen = Set(tags)
-        let counts = Dictionary(store.gastos.flatMap { $0.tags ?? [] }.map { ($0, 1) }, uniquingKeysWith: +)
-        return counts
+        return tagUsage
             .filter { !chosen.contains($0.key) && !Self.systemTags.contains($0.key) }
             .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
             .prefix(8)
@@ -30,7 +32,8 @@ struct ExpenseExtrasFields: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let suggested = suggested
+        return VStack(alignment: .leading, spacing: 10) {
             FormSectionTitle(
                 title: "Etiquetas",
                 trailing: tags.isEmpty ? "Opcional" : tags.count == 1 ? "1 añadida" : "\(tags.count) añadidas"
@@ -112,6 +115,11 @@ struct ExpenseExtrasFields: View {
                     .font(.footnote)
                     .foregroundStyle(AppTheme.negative)
             }
+        }
+        .onChange(of: store.gastos, initial: true) {
+            var usage: [String: Int] = [:]
+            for tag in store.gastos.lazy.flatMap({ $0.tags ?? [] }) { usage[tag, default: 0] += 1 }
+            tagUsage = usage
         }
     }
 

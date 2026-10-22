@@ -170,10 +170,17 @@ final class AppInbox {
             ))
         }
 
+        // Una pasada por los gastos del mes para todas las categorías, en vez
+        // de recorrerlos todos por cada categoría con presupuesto.
+        var spentByCategory: [Int: Double] = [:]
+        if let month = cal.dateInterval(of: .month, for: now) {
+            for expense in store.gastos where expense.fecha >= month.start && expense.fecha < month.end {
+                spentByCategory[expense.categoriaId, default: 0] += expense.monto
+            }
+        }
+
         for category in budgetDetail.categories where category.budgetedAmount > 0 {
-            let spent = store.gastos
-                .filter { $0.categoriaId == category.categoriaId && cal.isDate($0.fecha, equalTo: now, toGranularity: .month) }
-                .reduce(0) { $0 + $1.monto }
+            let spent = spentByCategory[category.categoriaId] ?? 0
             let ratio = spent / category.budgetedAmount
             guard ratio >= 0.8 else { continue }
             let name = category.displayCategory.nombre

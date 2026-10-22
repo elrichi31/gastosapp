@@ -26,12 +26,10 @@ struct BudgetCategoryDetail: Identifiable, Hashable, Codable {
     }
 
     func spentAmount(expenses: [Expense], year: Int, month: Int) -> Double {
-        expenses
-            .filter { expense in
-                expense.categoriaId == categoriaId &&
-                expense.fecha.matchesBudgetMonth(year: year, month: month)
-            }
-            .reduce(0) { $0 + $1.monto }
+        guard let range = Date.budgetMonthRange(year: year, month: month) else { return 0 }
+        return expenses.reduce(0) { total, expense in
+            expense.categoriaId == categoriaId && range.contains(expense.fecha) ? total + expense.monto : total
+        }
     }
 
     func metrics(expenses: [Expense], year: Int, month: Int) -> BudgetCategoryMetrics {
@@ -85,9 +83,10 @@ struct BudgetMonthlyMetrics: Hashable {
 
     init(categories: [BudgetCategoryDetail], expenses: [Expense], year: Int, month: Int) {
         budgeted = categories.reduce(0) { $0 + $1.budgetedAmount }
-        spent = expenses
-            .filter { $0.fecha.matchesBudgetMonth(year: year, month: month) }
-            .reduce(0) { $0 + $1.monto }
+        let range = Date.budgetMonthRange(year: year, month: month)
+        spent = range.map { range in
+            expenses.reduce(0) { range.contains($1.fecha) ? $0 + $1.monto : $0 }
+        } ?? 0
     }
 
     var remaining: Double {
@@ -160,9 +159,14 @@ struct BudgetMovement: Identifiable, Hashable, Codable {
 
 }
 
-private extension Date {
-    func matchesBudgetMonth(year: Int, month: Int, calendar: Calendar = .current) -> Bool {
-        let components = calendar.dateComponents([.year, .month], from: self)
-        return components.year == year && components.month == month
+extension Date {
+    /// Rango del mes de un presupuesto. Se calcula una vez y luego se comparan
+    /// fechas: sacar año y mes de cada gasto era lo caro al recorrerlos todos.
+    static func budgetMonthRange(year: Int, month: Int, calendar: Calendar = .current) -> Range<Date>? {
+        guard
+            let start = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+            let end = calendar.date(byAdding: .month, value: 1, to: start)
+        else { return nil }
+        return start..<end
     }
 }

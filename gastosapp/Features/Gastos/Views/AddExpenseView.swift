@@ -179,13 +179,15 @@ struct AddExpenseView: View {
             line.budgetedAmount > 0
         else { return nil }
 
-        let cal = Calendar.current
-        let spent = store.gastos
-            .filter {
-                $0.categoriaId == category.id && $0.id != editingExpense?.id
-                    && cal.isDate($0.fecha, equalTo: fecha, toGranularity: .month)
-            }
-            .reduce(0) { $0 + $1.monto }
+        // Se recalcula a cada tecla del monto: el mes se resuelve una vez y
+        // luego sólo se comparan fechas.
+        guard let month = Calendar.current.dateInterval(of: .month, for: fecha) else { return nil }
+        let editingID = editingExpense?.id
+        let spent = store.gastos.reduce(0) { total, expense in
+            expense.categoriaId == category.id && expense.id != editingID
+                && expense.fecha >= month.start && expense.fecha < month.end
+                ? total + expense.monto : total
+        }
         let after = spent + registeredTotal
         let limit = line.budgetedAmount
         let amounts = "\(money(after)) / \(money(limit))"

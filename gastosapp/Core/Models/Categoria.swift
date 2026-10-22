@@ -1,4 +1,5 @@
 import SwiftUI
+import Synchronization
 
 struct Categoria: Identifiable, Hashable, Codable {
     let id: Int
@@ -11,7 +12,7 @@ struct Categoria: Identifiable, Hashable, Codable {
     /// Todos los símbolos son de peso equivalente, para que una lista de
     /// categorías se lea pareja en lugar de alternar trazos gruesos y finos.
     /// Tono de la paleta de categorías, por su posición en `AppTheme.categoryPalette`.
-    private enum Tint: Int {
+    private enum Tint: Int, Sendable {
         case blue, amber, violet, green, pink, teal, orange, lime, magenta, slate
     }
 
@@ -51,11 +52,29 @@ struct Categoria: Identifiable, Hashable, Codable {
         (["trabajo", "oficina", "negocio"], "briefcase.fill", .blue)
     ]
 
-    private var glyphEntry: (keywords: [String], symbol: String, tint: Tint)? {
+    /// Símbolo y tono resueltos a partir del nombre.
+    private struct Style: Sendable {
+        let symbol: String?
+        let tint: Tint?
+    }
+
+    /// Resolver el estilo normaliza el nombre y recorre toda la tabla, y las
+    /// listas lo piden varias veces por fila en cada dibujado: se guarda por
+    /// nombre, que sólo hay unas pocas categorías.
+    private static let styleCache = Mutex<[String: Style]>([:])
+
+    private var style: Style {
+        if let cached = Self.styleCache.withLock({ $0[nombre] }) { return cached }
         let key = nombre.normalizedLookupKey
-        return Self.glyphTable.first { entry in
+        let entry = Self.glyphTable.first { entry in
             entry.keywords.contains { key.contains($0) }
         }
+        let resolved = Style(
+            symbol: entry?.symbol,
+            tint: entry?.tint ?? (key.contains("otro") ? .slate : nil)
+        )
+        Self.styleCache.withLock { $0[nombre] = resolved }
+        return resolved
     }
 
     /// Símbolo dedicado para la categoría, o `nil` si ninguna palabra clave coincide.
@@ -63,7 +82,7 @@ struct Categoria: Identifiable, Hashable, Codable {
     /// Las categorías sin coincidencia se dibujan con su inicial: es preferible
     /// una letra legible a repetir el mismo icono genérico en toda la lista.
     var symbolName: String? {
-        glyphEntry?.symbol
+        style.symbol
     }
 
     /// Inicial de la categoría, para las que no tienen símbolo propio.
@@ -85,9 +104,7 @@ struct Categoria: Identifiable, Hashable, Codable {
     /// Va por el tipo de categoría y no por su identificador: con el módulo del
     /// id, Alimentación y Transporte del servidor caían en el mismo color.
     var color: Color {
-        if let tint = glyphEntry?.tint { return AppTheme.categoryColor(at: tint.rawValue) }
-        if nombre.normalizedLookupKey.contains("otro") { return AppTheme.categoryColor(at: Tint.slate.rawValue) }
-        return AppTheme.categoryColor(at: abs(id))
+        AppTheme.categoryColor(at: style.tint?.rawValue ?? abs(id))
     }
 
     static let fallback: [Categoria] = [

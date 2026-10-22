@@ -18,11 +18,12 @@ struct BudgetMonthSpendingSnapshot {
             month: budgetMonth
         )
 
-        let spentByCategory = Dictionary(grouping: expenses.filter { expense in
-            let components = Calendar.current.dateComponents([.year, .month], from: expense.fecha)
-            return components.year == budgetYear && components.month == budgetMonth
-        }, by: \.categoriaId)
-        .mapValues { $0.reduce(0) { $0 + $1.monto } }
+        var spentByCategory: [Int: Double] = [:]
+        if let range = Date.budgetMonthRange(year: budgetYear, month: budgetMonth) {
+            for expense in expenses where range.contains(expense.fecha) {
+                spentByCategory[expense.categoriaId, default: 0] += expense.monto
+            }
+        }
 
         let computedMetricsByCategoryID = Dictionary(uniqueKeysWithValues: categories.map { category in
             let spent = spentByCategory[category.categoriaId] ?? 0

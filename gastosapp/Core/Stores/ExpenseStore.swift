@@ -915,8 +915,12 @@ final class ExpenseStore {
         recurringExpenses = []
         pendingExpenseDrafts = []
         pendingExpenseDeletions = []
-        UserDefaults.standard.removeObject(forKey: Self.cachedExpensesKey)
-        UserDefaults.standard.removeObject(forKey: Self.cachedRecurringExpensesKey)
+        // Por la misma cola que las escrituras de caché: así ninguna que
+        // estuviera pendiente vuelve a guardar los gastos tras cerrar sesión.
+        let cacheKeys = [Self.cachedExpensesKey, Self.cachedRecurringExpensesKey]
+        Self.cacheQueue.async {
+            cacheKeys.forEach(UserDefaults.standard.removeObject(forKey:))
+        }
         UserDefaults.standard.removeObject(forKey: Self.pendingExpensesKey)
         UserDefaults.standard.removeObject(forKey: Self.pendingExpenseDeletionsKey)
         WidgetSummaryPublisher.clear()
@@ -1324,9 +1328,16 @@ final class ExpenseStore {
         persistCachedValue(recurringExpenses, key: Self.cachedRecurringExpensesKey)
     }
 
+    /// Cola serie para la caché: codificar todos los gastos a JSON en el hilo
+    /// principal frenaba la interfaz justo después de guardar. Al ser serie,
+    /// las escrituras llegan en orden y la última siempre gana.
+    private static let cacheQueue = DispatchQueue(label: "zenlor.expenses.cache", qos: .utility)
+
     private func persistCachedValue<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        Self.cacheQueue.async {
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            UserDefaults.standard.set(data, forKey: key)
+        }
     }
 
     private static func loadPendingExpenseDrafts() -> [PendingExpenseDraft] {
