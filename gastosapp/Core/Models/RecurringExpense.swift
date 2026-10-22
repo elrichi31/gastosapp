@@ -1,12 +1,6 @@
 import Foundation
 
 struct RecurringExpense: Identifiable, Hashable, Codable {
-    private static let spanishShortMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.shortMonthSymbols ?? formatter.monthSymbols ?? []
-    }()
-
     let id: Int
     var descripcion: String
     var monto: Double
@@ -26,12 +20,6 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
 
     var isSubscriptionLike: Bool {
         categoria.nombre.normalizedLookupKey.contains("suscrip")
-    }
-
-    var scheduleLabel: String {
-        guard activo else { return "Pausado" }
-        guard let nextChargeDate else { return "Finalizado" }
-        return "Próximo cobro: \(Self.dateLabel(for: nextChargeDate))"
     }
 
     var nextChargeDate: Date? { nextChargeDate(referenceDate: Date()) }
@@ -112,22 +100,6 @@ struct RecurringExpense: Identifiable, Hashable, Codable {
     private func candidateWithinEndDate(_ candidate: Date, calendar: Calendar) -> Date? {
         guard let fechaFin else { return candidate }
         return candidate <= calendar.startOfDay(for: fechaFin) ? candidate : nil
-    }
-
-    private static func dateLabel(for date: Date) -> String {
-        if Calendar.current.isDateInToday(date) {
-            return "hoy"
-        }
-
-        let components = Calendar.current.dateComponents([.day, .month], from: date)
-        guard
-            let day = components.day,
-            let month = components.month,
-            Self.spanishShortMonthSymbols.indices.contains(month - 1)
-        else {
-            return ""
-        }
-        return "\(day) \(Self.spanishShortMonthSymbols[month - 1])"
     }
 
     private static func weekdayNumber(for date: Date, calendar: Calendar) -> Int {

@@ -163,21 +163,6 @@ struct HomeDashboardSnapshot {
         )
     }
 
-    var scopedSummaryTitle: String {
-        switch scope {
-        case .today: return "Gastado hoy"
-        case .week: return "Gastado esta semana"
-        case .month: return "Gastado este mes"
-        }
-    }
-
-    var scopedMetricTitle: String {
-        switch scope {
-        case .today: return "Ticket prom."
-        case .week, .month: return "Promedio/día"
-        }
-    }
-
     var scopedCategoryTitle: String {
         switch scope {
         case .today: return "hoy"

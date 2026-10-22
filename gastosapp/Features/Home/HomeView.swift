@@ -435,11 +435,6 @@ struct HomeView: View {
         return letters.isEmpty ? "?" : letters.joined().uppercased()
     }
 
-    private var firstName: String {
-        let name = store.currentUser?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.split(separator: " ").first.map(String.init) ?? "bienvenido"
-    }
-
     private var monthDetails: some View {
         NavigationStack {
             ScrollView {
@@ -624,10 +619,6 @@ struct HomeView: View {
             return ""
         }
         return "\(day) \(Self.spanishShortMonthSymbols[month - 1])"
-    }
-
-    private func formatear(_ valor: Double) -> String {
-        MoneyInput.format(valor)
     }
 
     private func currencyLabel(_ value: Double) -> String {

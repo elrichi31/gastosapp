@@ -56,15 +56,4 @@ enum AppAppearancePreference: String, CaseIterable, Identifiable {
             }
         }
     }
-
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system:
-            return nil
-        case .dark:
-            return .dark
-        case .light:
-            return .light
-        }
-    }
 }

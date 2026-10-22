@@ -251,7 +251,6 @@ struct StatsPeriodAnalysis {
 
     // MARK: - Derivados
 
-    var hasComparison: Bool { previousTotal != nil }
     var totalDelta: Double? { previousTotal.flatMap { HomeMonthPulse.change(from: $0, to: total) } }
 
     var comparisonText: String {

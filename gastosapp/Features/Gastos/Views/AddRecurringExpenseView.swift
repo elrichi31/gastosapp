@@ -22,15 +22,6 @@ enum RecurringComposerKind: Hashable {
         }
     }
 
-    var descriptionPlaceholder: String {
-        switch self {
-        case .recurrente:
-            return "Descripción"
-        case .suscripcion:
-            return "Servicio o suscripción"
-        }
-    }
-
     var saveTitle: String {
         switch self {
         case .recurrente:

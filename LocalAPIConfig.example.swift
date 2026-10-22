@@ -12,8 +12,4 @@ import Foundation
 
 enum LocalAPIConfig {
     static let baseURL = "https://spend.zenlorlabs.com"
-
-    static var registerURL: URL {
-        URL(string: "\(baseURL)/auth/register")!
-    }
 }
