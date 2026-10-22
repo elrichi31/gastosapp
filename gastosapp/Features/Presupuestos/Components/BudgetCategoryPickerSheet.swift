@@ -144,11 +144,7 @@ struct BudgetCategoryPickerSheet: View {
     }
 
     private var background: some View {
-        LinearGradient(
-            colors: [AppTheme.backgroundTop, AppTheme.backgroundBottom],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        AppTheme.screenBackground
     }
 
     private func createCategory() {

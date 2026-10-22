@@ -178,9 +178,10 @@ enum LocalNotificationManager {
         categories: [BudgetCategoryDetail],
         expenses: [Expense]
     ) -> (categoryName: String, percentage: Int)? {
-        categories
+        let spent = BudgetCategoryDetail.spentByCategory(expenses: expenses, year: budget.anio, month: budget.mes)
+        return categories
             .compactMap { category -> (categoryName: String, percentage: Int, value: Double)? in
-                let metrics = category.metrics(expenses: expenses, year: budget.anio, month: budget.mes)
+                let metrics = category.metrics(spentByCategory: spent)
                 guard metrics.budgeted > 0, metrics.progressValue >= budgetAlertThreshold else { return nil }
                 return (
                     category.displayCategory.nombre,

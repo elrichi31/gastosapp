@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 extension String {
     var normalizedLookupKey: String {
@@ -15,44 +16,62 @@ struct ExpensePaymentMethod: Identifiable, Hashable, Codable {
     let id: Int
     let nombre: String
 
-    var shortLabel: String {
-        let key = nombre.normalizedLookupKey
-        if key.contains("credito") {
-            return "Crédito"
-        }
-        if key.contains("debito") {
-            return "Débito"
-        }
-        if key.contains("transfer") {
-            return "Transfer."
-        }
-        if key.contains("efectivo") {
-            return "Efectivo"
-        }
-        if key.contains("wallet") || key.contains("digital") || key.contains("paypal") || key.contains("apple pay") {
-            return "Digital"
-        }
-        return nombre
+    var shortLabel: String { style.shortLabel }
+
+    var icono: String { style.icon }
+
+    private struct Style: Sendable {
+        let shortLabel: String
+        let icon: String
     }
 
-    var icono: String {
+    /// Resolver el rótulo normaliza el nombre, y las listas, la búsqueda y
+    /// Análisis lo piden por cada gasto: se guarda por nombre, que sólo hay
+    /// unas pocas formas de pago.
+    private static let styleCache = Mutex<[String: Style]>([:])
+
+    private var style: Style {
+        if let cached = Self.styleCache.withLock({ $0[nombre] }) { return cached }
+        let resolved = Self.resolveStyle(nombre)
+        Self.styleCache.withLock { $0[nombre] = resolved }
+        return resolved
+    }
+
+    private static func resolveStyle(_ nombre: String) -> Style {
         let key = nombre.normalizedLookupKey
-        if key.contains("efectivo") {
-            return "banknote.fill"
-        }
+        let isDigital = key.contains("wallet") || key.contains("digital") || key.contains("paypal") || key.contains("apple pay")
+
+        let shortLabel: String
         if key.contains("credito") {
-            return "creditcard.and.123"
+            shortLabel = "Crédito"
+        } else if key.contains("debito") {
+            shortLabel = "Débito"
+        } else if key.contains("transfer") {
+            shortLabel = "Transfer."
+        } else if key.contains("efectivo") {
+            shortLabel = "Efectivo"
+        } else if isDigital {
+            shortLabel = "Digital"
+        } else {
+            shortLabel = nombre
         }
-        if key.contains("debito") {
-            return "creditcard.fill"
+
+        let icon: String
+        if key.contains("efectivo") {
+            icon = "banknote.fill"
+        } else if key.contains("credito") {
+            icon = "creditcard.and.123"
+        } else if key.contains("debito") {
+            icon = "creditcard.fill"
+        } else if key.contains("transfer") {
+            icon = "arrow.left.arrow.right"
+        } else if isDigital {
+            icon = "iphone.gen3"
+        } else {
+            icon = "creditcard.fill"
         }
-        if key.contains("transfer") {
-            return "arrow.left.arrow.right"
-        }
-        if key.contains("wallet") || key.contains("digital") || key.contains("paypal") || key.contains("apple pay") {
-            return "iphone.gen3"
-        }
-        return "creditcard.fill"
+
+        return Style(shortLabel: shortLabel, icon: icon)
     }
 
     static let fallback: [ExpensePaymentMethod] = [

@@ -63,6 +63,17 @@ struct StatsPeriodAnalysis {
         var id: String { label }
     }
 
+    /// Partes de calendario de una fecha, con claves numéricas para agrupar.
+    struct DayParts {
+        let year: Int
+        let month: Int
+        let day: Int
+        let weekday: Int
+
+        var monthKey: Int { year * 12 + month }
+        var dayKey: Int { (year * 12 + month) * 32 + day }
+    }
+
     struct PaymentLine: Identifiable {
         let name: String
         let total: Double
@@ -116,6 +127,23 @@ struct StatsPeriodAnalysis {
             allExpenses.filter { $0.fecha >= start && $0.fecha < end }
         }
 
+        // Año, mes, día y día de la semana de cada fecha, calculados una vez
+        // por fecha distinta: con miles de gastos, pedirle al calendario cada
+        // dato por gasto era casi todo el coste de «Todo el historial».
+        var partsCache: [Date: DayParts] = [:]
+        func parts(_ date: Date) -> DayParts {
+            if let cached = partsCache[date] { return cached }
+            let components = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
+            let resolved = DayParts(
+                year: components.year ?? 0,
+                month: components.month ?? 0,
+                day: components.day ?? 0,
+                weekday: components.weekday ?? 1
+            )
+            partsCache[date] = resolved
+            return resolved
+        }
+
         switch period {
         case let .month(year, month):
             let start = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? now
@@ -139,18 +167,19 @@ struct StatsPeriodAnalysis {
             expenses = within(start, end)
 
             let previousItems = within(previousStart, previousEnd)
-            let previousMonthHasData = !within(previousStart, start).isEmpty
+            let previousMonthItems = within(previousStart, start)
+            let previousMonthHasData = !previousMonthItems.isEmpty
             previous = previousMonthHasData ? previousItems : nil
             previousLabel = previousMonthHasData ? previousName : nil
 
-            let byDay = Dictionary(grouping: expenses) { calendar.component(.day, from: $0.fecha) }
+            let byDay = Dictionary(grouping: expenses) { parts($0.fecha).day }
             let short = Self.shortMonthFormatter.string(from: start).replacingOccurrences(of: ".", with: "")
             points = (1...days).map { day in
                 let items = byDay[day] ?? []
                 let date = calendar.date(byAdding: .day, value: day - 1, to: start) ?? start
                 return Point(index: day, label: "\(day) \(short)", total: sum(items), count: items.count, isFuture: date > startOfToday)
             }
-            let previousByDay = Dictionary(grouping: within(previousStart, start)) { calendar.component(.day, from: $0.fecha) }
+            let previousByDay = Dictionary(grouping: previousMonthItems) { parts($0.fecha).day }
             previousPoints = previousMonthHasData ? (1...previousDays).map { day in
                 let items = previousByDay[day] ?? []
                 return Point(index: day, label: "\(day)", total: sum(items), count: items.count, isFuture: false)
@@ -165,7 +194,10 @@ struct StatsPeriodAnalysis {
             .filter { $0.days > 0 }
 
         case .all:
-            let sorted = allExpenses.sorted { $0.fecha < $1.fecha }
+            // La tienda ya los guarda del más reciente al más antiguo: basta
+            // con darles la vuelta. Ordenar miles de gastos era lo más caro.
+            let isNewestFirst = zip(allExpenses, allExpenses.dropFirst()).allSatisfy { $0.fecha >= $1.fecha }
+            let sorted = isNewestFirst ? Array(allExpenses.reversed()) : allExpenses.sorted { $0.fecha < $1.fecha }
             title = "Todo el historial"
             shortTitle = "Todo"
             isRange = false
@@ -180,10 +212,10 @@ struct StatsPeriodAnalysis {
                let firstMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: first.fecha)) {
                 let lastMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
                 let months = (calendar.dateComponents([.month], from: firstMonth, to: lastMonth).month ?? 0) + 1
-                let byMonth = Dictionary(grouping: sorted) { calendar.dateComponents([.year, .month], from: $0.fecha) }
+                let byMonth = Dictionary(grouping: sorted) { parts($0.fecha).monthKey }
                 points = (0..<max(months, 1)).compactMap { offset in
                     guard let date = calendar.date(byAdding: .month, value: offset, to: firstMonth) else { return nil }
-                    let items = byMonth[calendar.dateComponents([.year, .month], from: date)] ?? []
+                    let items = byMonth[parts(date).monthKey] ?? []
                     let label = Self.shortMonthFormatter.string(from: date).replacingOccurrences(of: ".", with: "")
                         + " " + String(calendar.component(.year, from: date) % 100)
                     return Point(index: offset, label: label, total: sum(items), count: items.count, isFuture: false)
@@ -229,7 +261,7 @@ struct StatsPeriodAnalysis {
         // Lunes primero, como en el calendario de Resumen.
         var weekdayTotals = Array(repeating: 0.0, count: 7)
         for expense in expenses {
-            weekdayTotals[(calendar.component(.weekday, from: expense.fecha) + 5) % 7] += expense.monto
+            weekdayTotals[(parts(expense.fecha).weekday + 5) % 7] += expense.monto
         }
         self.weekdayTotals = weekdayTotals
         var weekdayDays = Array(repeating: 0, count: 7)
@@ -258,7 +290,7 @@ struct StatsPeriodAnalysis {
             .sorted { $0.total > $1.total }
 
         concentration = total > 0 ? categories.prefix(3).reduce(0) { $0 + $1.total } / total * 100 : 0
-        let byDay = Dictionary(grouping: expenses) { calendar.startOfDay(for: $0.fecha) }
+        let byDay = Dictionary(grouping: expenses) { parts($0.fecha).dayKey }
         daysWithSpending = byDay.count
         let amounts = expenses.map(\.monto).sorted()
         if amounts.isEmpty {
@@ -272,10 +304,20 @@ struct StatsPeriodAnalysis {
         biggestChange = previous == nil ? nil : categories
             .filter { ($0.previousTotal ?? 0) != $0.total }
             .max { abs($0.total - ($0.previousTotal ?? 0)) < abs($1.total - ($1.previousTotal ?? 0)) }
-        peakDay = byDay
-            .map { (date: $0.key, total: sum($0.value), count: $0.value.count) }
+        peakDay = byDay.values
+            .map { items in (items: items, total: sum(items)) }
             .max { $0.total < $1.total }
-        topExpenses = Array(expenses.sorted { $0.monto > $1.monto }.prefix(5))
+            .flatMap { peak in
+                peak.items.first.map { (date: calendar.startOfDay(for: $0.fecha), total: peak.total, count: peak.items.count) }
+            }
+        // Los cinco mayores sin ordenar todo el período.
+        var top: [Expense] = []
+        for expense in expenses where top.count < 5 || expense.monto > top[top.count - 1].monto {
+            let index = top.firstIndex { expense.monto > $0.monto } ?? top.endIndex
+            top.insert(expense, at: index)
+            if top.count > 5 { top.removeLast() }
+        }
+        topExpenses = top
     }
 
     // MARK: - Derivados

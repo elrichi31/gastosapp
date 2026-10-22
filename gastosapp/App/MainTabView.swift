@@ -282,8 +282,16 @@ private struct NotificationsScreenContainer: View {
                                 }
                         )
                 }
+                // La sombra la hace un rectángulo detrás: sombrear la pantalla
+                // entera obligaba a dibujar su silueta en cada cuadro del gesto.
+                .background {
+                    if dragOffset > 0 {
+                        Rectangle()
+                            .fill(AppTheme.backgroundTop)
+                            .shadow(color: .black.opacity(0.25), radius: 16)
+                    }
+                }
                 .offset(x: dragOffset)
-                .shadow(color: .black.opacity(dragOffset > 0 ? 0.25 : 0), radius: 16)
         }
         .ignoresSafeArea(.container, edges: .bottom)
     }

@@ -309,10 +309,9 @@ final class ExpenseStore {
 
         // `gastos` ya va del más reciente al más antiguo.
         for (index, expense) in gastos.enumerated() {
-            let candidate = Self.normalizedSuggestionKey(expense.descripcion)
+            let (candidate, candidateTokens) = suggestionKey(for: expense.descripcion)
             guard !candidate.isEmpty else { continue }
 
-            let candidateTokens = Set(candidate.split(separator: " ").map(String.init))
             let overlap = queryTokens.intersection(candidateTokens).count
             let matches = candidate == query || candidate.contains(query) || query.contains(candidate) || overlap > 0
             guard matches else { continue }
@@ -1418,6 +1417,19 @@ final class ExpenseStore {
             sourceDescription: nil,
             confidence: 0.45
         )
+    }
+
+    /// Descripciones ya normalizadas para las sugerencias. Se piden a cada
+    /// tecla para todos los gastos y las descripciones se repiten mucho.
+    @ObservationIgnored private var suggestionKeys: [String: (key: String, tokens: Set<String>)] = [:]
+
+    private func suggestionKey(for description: String) -> (key: String, tokens: Set<String>) {
+        if let cached = suggestionKeys[description] { return cached }
+        let key = Self.normalizedSuggestionKey(description)
+        let entry = (key, Set(key.split(separator: " ").map(String.init)))
+        if suggestionKeys.count > 5_000 { suggestionKeys.removeAll(keepingCapacity: true) }
+        suggestionKeys[description] = entry
+        return entry
     }
 
     private static func normalizedSuggestionKey(_ value: String) -> String {

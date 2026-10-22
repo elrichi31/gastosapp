@@ -46,6 +46,8 @@ struct HomeMonthPulse {
     /// Días del mes en curso, con un hueco inicial para alinear el lunes.
     let calendarLeadingBlanks: Int
     let calendarDays: [CalendarDay]
+    /// Se consulta por cada celda del calendario: va calculado de antemano.
+    let maxDailyTotal: Double
 
     init(
         expenses: [Expense],
@@ -69,7 +71,10 @@ struct HomeMonthPulse {
         let previousPeriodEnd = calendar.date(byAdding: .day, value: comparableDays, to: previousMonthStart) ?? monthStart
 
         func sum(_ items: [Expense]) -> Double { items.reduce(0) { $0 + $1.monto } }
-        func within(_ start: Date, _ end: Date) -> [Expense] { expenses.filter { $0.fecha >= start && $0.fecha < end } }
+        // Todo lo que sigue cae del mes anterior en adelante: se filtra ese
+        // tramo una vez en lugar de recorrer el historial entero en cada cifra.
+        let recent = expenses.filter { $0.fecha >= previousMonthStart }
+        func within(_ start: Date, _ end: Date) -> [Expense] { recent.filter { $0.fecha >= start && $0.fecha < end } }
 
         let today = within(startOfToday, tomorrow)
         todayTotal = sum(today)
@@ -92,12 +97,13 @@ struct HomeMonthPulse {
         projectedClose = pacePerDay * Double(daysInMonth)
 
         if let budget {
+            let spent = BudgetCategoryDetail.spentByCategory(expenses: expenses, year: budget.anio, month: budget.mes)
             budgetLines = budgetCategories
                 .map {
                     BudgetCategoryLine(
                         id: $0.id,
                         name: $0.displayCategory.nombre,
-                        metrics: $0.metrics(expenses: expenses, year: budget.anio, month: budget.mes)
+                        metrics: $0.metrics(spentByCategory: spent)
                     )
                 }
                 .filter { $0.metrics.budgeted > 0 }
@@ -116,6 +122,7 @@ struct HomeMonthPulse {
             let items = byDay[day] ?? []
             return CalendarDay(date: date, day: day, total: sum(items), count: items.count, isFuture: date > startOfToday)
         }
+        maxDailyTotal = calendarDays.map(\.total).max() ?? 0
     }
 
     var monthDelta: Double? { Self.change(from: previousPeriodTotal, to: monthTotal) }
@@ -127,13 +134,7 @@ struct HomeMonthPulse {
         monthCount > 0 ? monthTotal / Double(monthCount) : 0
     }
 
-    var daysWithSpending: Int {
-        calendarDays.filter { $0.total > 0 }.count
-    }
-
-    var maxDailyTotal: Double {
-        calendarDays.map(\.total).max() ?? 0
-    }
+    var daysWithSpending: Int { calendarDays.filter { $0.total > 0 }.count }
 
     /// Variación porcentual, o `nil` cuando no hay base para comparar.
     static func change(from base: Double, to value: Double) -> Double? {

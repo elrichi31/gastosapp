@@ -210,6 +210,9 @@ struct HomeRecent30DaysSection: View {
                 let spacing: CGFloat = 4
                 let availableWidth = max(0, proxy.size.width - (spacing * 29))
                 let barWidth = max(6, min(12, availableWidth / 30))
+                // Una vez por dibujado, no una vez por barra.
+                let maxValue = maxValue
+                let highlightedDate = selectedBar?.date ?? latestActiveDate
 
                 HStack(alignment: .bottom, spacing: spacing) {
                     ForEach(bars) { bar in
@@ -222,7 +225,7 @@ struct HomeRecent30DaysSection: View {
                                 bar: bar,
                                 width: barWidth,
                                 maxValue: maxValue,
-                                isHighlighted: bar.date == (selectedBar?.date ?? latestActiveDate)
+                                isHighlighted: bar.date == highlightedDate
                             )
                         }
                         .buttonStyle(.plain)

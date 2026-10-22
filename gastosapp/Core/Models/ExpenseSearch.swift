@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Reglas de búsqueda de gastos, las mismas en toda la app.
 ///
@@ -9,22 +10,43 @@ enum ExpenseSearch {
     static let hint = "Busca por comercio, categoría, etiqueta, forma de pago o monto."
 
     /// Sin distinguir mayúsculas ni tildes.
-    ///
-    /// Se mira campo a campo y se para en el primero que coincide: el monto y
-    /// la fecha, que hay que formatear, van al final porque son lo más caro y
-    /// esto corre sobre todos los gastos a cada tecla.
     static func matches(_ expense: Expense, query: String) -> Bool {
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return true }
-        func has(_ text: String) -> Bool { text.localizedStandardContains(query) }
-        if has(expense.descripcion) || has(expense.categoria.nombre)
-            || has(expense.metodoPago.nombre) || has(expense.metodoPago.shortLabel) {
-            return true
+        matcher(for: query)(expense)
+    }
+
+    /// Filtro para recorrer muchos gastos con la misma búsqueda: la consulta
+    /// se normaliza una vez, no por cada gasto.
+    static func matcher(for query: String) -> (Expense) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).normalizedLookupKey
+        guard !needle.isEmpty else { return { _ in true } }
+        return { haystack(for: $0).contains(needle) }
+    }
+
+    /// Todo lo buscable de un gasto, ya sin tildes ni mayúsculas, separado por
+    /// saltos de línea para que una búsqueda no junte dos campos.
+    ///
+    /// Formatear el monto y la fecha y normalizar cada campo costaba más que
+    /// la búsqueda en sí, y se hacía con todos los gastos a cada tecla. Se
+    /// guarda por gasto: si el gasto cambia es otra clave y se vuelve a armar.
+    private static let haystackCache = Mutex<[Expense: String]>([:])
+
+    private static func haystack(for expense: Expense) -> String {
+        if let cached = haystackCache.withLock({ $0[expense] }) { return cached }
+        let fields = [
+            expense.descripcion,
+            expense.categoria.nombre,
+            expense.metodoPago.nombre,
+            expense.metodoPago.shortLabel,
+            MoneyInput.format(expense.monto),
+            expense.fecha.formatted(dayMonthStyle)
+        ] + (expense.tags ?? []).flatMap { [$0, "#" + $0] }
+        let text = fields.joined(separator: "\n").normalizedLookupKey
+        haystackCache.withLock { cache in
+            // Tope para que gastos editados o borrados no se acumulen sin fin.
+            if cache.count > 20_000 { cache.removeAll(keepingCapacity: true) }
+            cache[expense] = text
         }
-        if let tags = expense.tags, tags.contains(where: { has($0) || has("#" + $0) }) {
-            return true
-        }
-        return has(MoneyInput.format(expense.monto)) || has(expense.fecha.formatted(dayMonthStyle))
+        return text
     }
 
     private static let dayMonthStyle = Date.FormatStyle.dateTime.day().month(.wide).locale(Locale(identifier: "es"))

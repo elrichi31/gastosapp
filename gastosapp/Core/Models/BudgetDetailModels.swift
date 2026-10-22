@@ -25,16 +25,19 @@ struct BudgetCategoryDetail: Identifiable, Hashable, Codable {
         movimientos.reduce(0) { $0 + $1.monto }
     }
 
-    func spentAmount(expenses: [Expense], year: Int, month: Int) -> Double {
-        guard let range = Date.budgetMonthRange(year: year, month: month) else { return 0 }
-        return expenses.reduce(0) { total, expense in
-            expense.categoriaId == categoriaId && range.contains(expense.fecha) ? total + expense.monto : total
+    /// Gasto del mes por categoría en una sola pasada, para calcular las
+    /// métricas de todas las categorías sin recorrer los gastos por cada una.
+    static func spentByCategory(expenses: [Expense], year: Int, month: Int) -> [Int: Double] {
+        guard let range = Date.budgetMonthRange(year: year, month: month) else { return [:] }
+        var spent: [Int: Double] = [:]
+        for expense in expenses where range.contains(expense.fecha) {
+            spent[expense.categoriaId, default: 0] += expense.monto
         }
+        return spent
     }
 
-    func metrics(expenses: [Expense], year: Int, month: Int) -> BudgetCategoryMetrics {
-        let spent = spentAmount(expenses: expenses, year: year, month: month)
-        return BudgetCategoryMetrics(budgeted: budgetedAmount, spent: spent)
+    func metrics(spentByCategory: [Int: Double]) -> BudgetCategoryMetrics {
+        BudgetCategoryMetrics(budgeted: budgetedAmount, spent: spentByCategory[categoriaId] ?? 0)
     }
 }
 

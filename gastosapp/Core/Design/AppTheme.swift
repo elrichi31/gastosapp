@@ -29,14 +29,11 @@ enum AppTheme {
     // MARK: - Fondo
 
     static let backgroundTop = adaptive(dark: hex(0x0C0C0D), light: hex(0xF4F4F6))
-    static let backgroundBottom = adaptive(dark: hex(0x0C0C0D), light: hex(0xF4F4F6))
 
+    /// Color liso: el degradado que había iba de un color a sí mismo y sólo
+    /// sumaba trabajo de dibujo en cada pantalla.
     static var screenBackground: some View {
-        LinearGradient(
-            colors: [backgroundTop, backgroundBottom],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        backgroundTop
     }
 
     // MARK: - Superficies

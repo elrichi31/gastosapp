@@ -946,11 +946,11 @@ struct ExpensesListView: View {
         return matchesOrigin && (selectedMethodID == nil || gasto.metodoPagoId == selectedMethodID)
     }
 
-    private func matchesSearch(_ gasto: Expense, query: String) -> Bool {
+    private func matchesSearch(_ gasto: Expense, query: String, matcher: (Expense) -> Bool) -> Bool {
         guard !query.isEmpty else { return true }
         // Las reglas comunes de toda la app, más el día tal como sale en la
         // cabecera de la lista («Hoy», «Ayer»…).
-        return ExpenseSearch.matches(gasto, query: query)
+        return matcher(gasto)
             || headerFecha(Self.cal.startOfDay(for: gasto.fecha)).localizedStandardContains(query)
     }
 
@@ -1010,6 +1010,7 @@ struct ExpensesListView: View {
     /// la lista entera a cada tecla era lo que la hacía ir a tirones.
     private func rebuildSnapshot(animated: Bool = true) {
         let query = cleanSearchText
+        let matcher = ExpenseSearch.matcher(for: query)
         let next = ExpensesListSnapshot(
             expenses: store.gastos,
             monthStart: mesActual,
@@ -1018,7 +1019,7 @@ struct ExpensesListView: View {
             visibleTags: visibleTags(for:),
             recurrenceMatches: { matchesRecurrence($0) && matchesCategoryAndTags($0) },
             paymentMatches: matchesPaymentMethod,
-            searchMatches: { matchesSearch($0, query: query) }
+            searchMatches: { matchesSearch($0, query: query, matcher: matcher) }
         )
         guard animated else {
             snapshot = next

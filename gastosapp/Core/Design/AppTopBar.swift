@@ -287,9 +287,8 @@ private struct SearchPanel: View {
 
     private func results(for query: String) -> [Expense] {
         guard !query.isEmpty else { return [] }
-        return store.gastos
-            .filter { ExpenseSearch.matches($0, query: query) }
-            .sorted { $0.fecha > $1.fecha }
+        // `gastos` ya va del más reciente al más antiguo y el filtro conserva el orden.
+        return store.gastos.filter(ExpenseSearch.matcher(for: query))
     }
 
     var body: some View {

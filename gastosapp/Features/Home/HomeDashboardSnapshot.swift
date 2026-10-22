@@ -51,12 +51,10 @@ struct HomeDashboardSnapshot {
                 year: budget.anio,
                 month: budget.mes
             )
+            let spent = BudgetCategoryDetail.spentByCategory(expenses: expenses, year: budget.anio, month: budget.mes)
             budgetCategoryAlert = budgetCategories
                 .map { category in
-                    HomeBudgetCategoryAlert(
-                        category: category,
-                        metrics: category.metrics(expenses: expenses, year: budget.anio, month: budget.mes)
-                    )
+                    HomeBudgetCategoryAlert(category: category, metrics: category.metrics(spentByCategory: spent))
                 }
                 .filter { $0.metrics.budgeted > 0 }
                 .max(by: { $0.metrics.progressPercentage < $1.metrics.progressPercentage })
