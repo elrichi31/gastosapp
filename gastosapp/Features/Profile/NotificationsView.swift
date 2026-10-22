@@ -1,13 +1,13 @@
 import SwiftUI
 import UserNotifications
 
-/// Ajustes de notificaciones dentro de Cuenta.
+/// Pantalla de notificaciones, empujada desde Cuenta.
 ///
-/// Cada aviso es una fila con su icono y un resumen de cuándo llega; al
-/// activarlo se despliegan sus opciones debajo (hora o umbral). Si el permiso
-/// está bloqueado en Ajustes lo decimos arriba, porque los interruptores
-/// encendidos no sirven de nada sin él.
-struct NotificationSettingsSection: View {
+/// Arriba, cómo se verá el próximo aviso; debajo, un bloque por tipo de aviso
+/// con su interruptor y, al activarlo, sus opciones (hora o umbral). Si el
+/// permiso está bloqueado en Ajustes lo decimos primero, porque los
+/// interruptores encendidos no sirven de nada sin él.
+struct NotificationsView: View {
     @Environment(ExpenseStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
@@ -56,28 +56,45 @@ struct NotificationSettingsSection: View {
     private var reminderTimeText: String { Self.timeFormatter.string(from: reminderDate) }
 
     var body: some View {
-        VStack(spacing: 10) {
+        ScrollView { settings }
+            .background(AppTheme.screenBackground.ignoresSafeArea())
+            .navigationTitle("Notificaciones")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(AppTheme.backgroundTop, for: .navigationBar)
+    }
+
+    /// Todo lo que va dentro del desplazamiento.
+    var settings: some View {
+        VStack(alignment: .leading, spacing: 24) {
             if isBlocked {
                 blockedBanner
                     .transition(AppMotion.reveal)
             }
 
-            VStack(spacing: 0) {
+            preview
+
+            block(
+                "Resumen",
+                footer: "Lo que gastaste en la semana y tu categoría más alta."
+            ) {
                 row(
                     icon: "calendar",
                     tint: AppTheme.info,
                     title: "Resumen semanal",
-                    subtitle: weeklySummaryEnabled ? "Domingos a las \(Self.timeFormatter.string(from: weeklySummaryDate))" : "Lo que gastaste, cada domingo.",
+                    subtitle: weeklySummaryEnabled ? "Domingos a las \(Self.timeFormatter.string(from: weeklySummaryDate))" : "Apagado",
                     isOn: $weeklySummaryEnabled.animation(AppMotion.expand)
                 )
+            }
 
-                AppHairline().padding(.leading, 64)
-
+            block(
+                "Recordatorio",
+                footer: "Un empujón para anotar lo del día antes de que se te olvide."
+            ) {
                 row(
                     icon: "bell.badge",
                     tint: AppTheme.accent,
                     title: "Recordatorio diario",
-                    subtitle: dailyExpenseReminderEnabled ? "Todos los días a las \(reminderTimeText)" : "Para anotar lo del día.",
+                    subtitle: dailyExpenseReminderEnabled ? "Todos los días a las \(reminderTimeText)" : "Apagado",
                     isOn: $dailyExpenseReminderEnabled.animation(AppMotion.expand)
                 )
                 if dailyExpenseReminderEnabled {
@@ -89,16 +106,19 @@ struct NotificationSettingsSection: View {
                     }
                     .transition(AppMotion.reveal)
                 }
+            }
 
-                AppHairline().padding(.leading, 64)
-
+            block(
+                "Presupuesto",
+                footer: "Como mucho un aviso por semana, por la categoría más cerca de su límite."
+            ) {
                 row(
                     icon: "chart.pie",
                     tint: AppTheme.warning,
                     title: "Alertas de presupuesto",
                     subtitle: budgetAlertsEnabled
                         ? "Al llegar al \(percent(budgetAlertThreshold)) de una categoría"
-                        : "Antes de pasarte del límite.",
+                        : "Apagado",
                     isOn: $budgetAlertsEnabled.animation(AppMotion.expand)
                 )
                 if budgetAlertsEnabled {
@@ -106,9 +126,10 @@ struct NotificationSettingsSection: View {
                         .transition(AppMotion.reveal)
                 }
             }
-            .background(AppTheme.cardBackground(cornerRadius: 20))
-            .clipShape(.rect(cornerRadius: 20, style: .continuous))
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, AppScreenMetrics.contentBottomPadding)
         .task { await refreshAuthorization() }
         .onChange(of: scenePhase) { _, phase in
             // Al volver de Ajustes el permiso pudo cambiar.
@@ -136,6 +157,107 @@ struct NotificationSettingsSection: View {
     }
 
     // MARK: - Piezas
+
+    /// Un tipo de aviso: título encima, tarjeta y una línea que explica qué trae.
+    private func block<Content: View>(_ title: String, footer: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.6)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .padding(.horizontal, 4)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 0) { content() }
+                .background(AppTheme.cardBackground(cornerRadius: 20))
+                .clipShape(.rect(cornerRadius: 20, style: .continuous))
+            Text(footer)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    /// El próximo aviso que llegará, dibujado como un banner del sistema.
+    private var nextNotification: (title: String, body: String, when: String)? {
+        if dailyExpenseReminderEnabled {
+            return ("Registra tus gastos", "Tómate un minuto para anotar lo de hoy y mantener tus números al día.", reminderTimeText)
+        }
+        if weeklySummaryEnabled {
+            return ("Resumen semanal", "Esta semana gastaste… y tu categoría más alta fue…", "domingo")
+        }
+        if budgetAlertsEnabled {
+            return ("Ojo con una categoría", "Ya usaste \(percent(budgetAlertThreshold)) de ese presupuesto este mes.", "al llegar")
+        }
+        return nil
+    }
+
+    private var preview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Así te llegará")
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.6)
+                .foregroundStyle(AppTheme.tertiaryText)
+                .padding(.horizontal, 4)
+
+            Group {
+                if let next = nextNotification {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image("BrandMark")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(6)
+                            .frame(width: 38, height: 38)
+                            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.black))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(next.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.primaryText)
+                                Spacer(minLength: 8)
+                                Text(next.when)
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.tertiaryText)
+                            }
+                            Text(next.body)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .id(next.title)
+                    .transition(.opacity)
+                } else {
+                    HStack(spacing: 12) {
+                        Image(systemName: "bell.slash")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AppTheme.tertiaryText)
+                            .frame(width: 38, height: 38)
+                            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(AppTheme.tertiaryText.opacity(0.16)))
+                            .accessibilityHidden(true)
+                        Text("No recibirás avisos de Zenlor.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                        Spacer(minLength: 0)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.regularMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(AppTheme.separator, lineWidth: 1))
+            )
+            .animation(AppMotion.fade, value: nextNotification?.title)
+            .accessibilityElement(children: .combine)
+        }
+    }
 
     private func row(icon: String, tint: Color, title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {

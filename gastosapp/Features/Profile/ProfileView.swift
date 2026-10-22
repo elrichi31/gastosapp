@@ -5,12 +5,38 @@ struct ProfileView: View {
     var onClose: (() -> Void)?
 
     @State private var showsConnections = false
+    @State private var showsNotifications = false
     @Environment(ExpenseStore.self) private var store
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.defaultValue.rawValue
+    @AppStorage(LocalNotificationManager.weeklySummaryEnabledKey) private var weeklySummaryEnabled = true
+    @AppStorage(LocalNotificationManager.dailyExpenseReminderEnabledKey) private var dailyExpenseReminderEnabled = true
+    @AppStorage(LocalNotificationManager.budgetAlertsEnabledKey) private var budgetAlertsEnabled = true
     @AppStorage(SavingsGoalSettings.enabledKey) private var savingsGoalEnabled = false
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
 
+    /// Cuántos avisos están encendidos, para la fila que abre la pantalla.
+    private var notificationsSummary: String {
+        let active = [weeklySummaryEnabled, dailyExpenseReminderEnabled, budgetAlertsEnabled].filter { $0 }.count
+        switch active {
+        case 0: return "Todas apagadas"
+        case 3: return "Resumen, recordatorio y alertas"
+        default: return "\(active) de 3 activas"
+        }
+    }
+
     var body: some View {
+        // Pila propia para que Notificaciones entre como pantalla, con su
+        // título y el gesto de volver, en lugar de otra hoja encima.
+        NavigationStack {
+            content
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(isPresented: $showsNotifications) {
+                    NotificationsView()
+                }
+        }
+    }
+
+    private var content: some View {
         ZStack {
             AppTheme.screenBackground.ignoresSafeArea()
 
@@ -28,7 +54,16 @@ struct ProfileView: View {
                             ) { showsConnections = true }
                         }
                     }
-                    section("Notificaciones") { NotificationSettingsSection() }
+                    section("Notificaciones") {
+                        group {
+                            navigationRow(
+                                icon: "bell",
+                                title: "Notificaciones",
+                                subtitle: notificationsSummary,
+                                showsDivider: false
+                            ) { showsNotifications = true }
+                        }
+                    }
                     section("Objetivo de ahorro") { savingsGroup }
                     logoutButton
                         .padding(.top, 8)
