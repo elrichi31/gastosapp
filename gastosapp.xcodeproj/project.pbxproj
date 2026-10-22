@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6CB68E1E2F94A57300E84209 /* ZenlorWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6CB68E102F94A57300E84209 /* ZenlorWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6CB68DDA2F94A57200E84209 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,13 +25,45 @@
 			remoteGlobalIDString = 6CB68DCA2F94A57100E84209;
 			remoteInfo = gastosapp;
 		};
+		6CB68E1B2F94A57300E84209 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6CB68DC32F94A57100E84209 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6CB68E172F94A57300E84209;
+			remoteInfo = ZenlorWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6CB68E1D2F94A57300E84209 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6CB68E1E2F94A57300E84209 /* ZenlorWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		6CB68DCB2F94A57100E84209 /* gastosapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = gastosapp.app; path = Zenlor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CB68DD92F94A57200E84209 /* gastosappTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gastosappTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CB68DE32F94A57200E84209 /* gastosappUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gastosappUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6CB68E102F94A57300E84209 /* ZenlorWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ZenlorWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6CB68E132F94A57300E84209 /* Exceptions for "ZenlorWidget" folder in "ZenlorWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6CB68E172F94A57300E84209 /* ZenlorWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6CB68DCD2F94A57100E84209 /* gastosapp */ = {
@@ -43,6 +79,19 @@
 		6CB68DE62F94A57200E84209 /* gastosappUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = gastosappUITests;
+			sourceTree = "<group>";
+		};
+		6CB68E112F94A57300E84209 /* ZenlorWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6CB68E132F94A57300E84209 /* Exceptions for "ZenlorWidget" folder in "ZenlorWidgetExtension" target */,
+			);
+			path = ZenlorWidget;
+			sourceTree = "<group>";
+		};
+		6CB68E122F94A57300E84209 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +118,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6CB68E152F94A57300E84209 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -77,6 +133,8 @@
 			children = (
 				6CB68DCD2F94A57100E84209 /* gastosapp */,
 				6CB68DDC2F94A57200E84209 /* gastosappTests */,
+				6CB68E122F94A57300E84209 /* Shared */,
+				6CB68E112F94A57300E84209 /* ZenlorWidget */,
 				6CB68DE62F94A57200E84209 /* gastosappUITests */,
 				6CB68DCC2F94A57100E84209 /* Products */,
 			);
@@ -88,6 +146,7 @@
 				6CB68DCB2F94A57100E84209 /* gastosapp.app */,
 				6CB68DD92F94A57200E84209 /* gastosappTests.xctest */,
 				6CB68DE32F94A57200E84209 /* gastosappUITests.xctest */,
+				6CB68E102F94A57300E84209 /* ZenlorWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -102,13 +161,16 @@
 				6CB68DC72F94A57100E84209 /* Sources */,
 				6CB68DC82F94A57100E84209 /* Frameworks */,
 				6CB68DC92F94A57100E84209 /* Resources */,
+				6CB68E1D2F94A57300E84209 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6CB68E1C2F94A57300E84209 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6CB68DCD2F94A57100E84209 /* gastosapp */,
+				6CB68E122F94A57300E84209 /* Shared */,
 			);
 			name = gastosapp;
 			packageProductDependencies = (
@@ -163,6 +225,29 @@
 			productReference = 6CB68DE32F94A57200E84209 /* gastosappUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		6CB68E172F94A57300E84209 /* ZenlorWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6CB68E182F94A57300E84209 /* Build configuration list for PBXNativeTarget "ZenlorWidgetExtension" */;
+			buildPhases = (
+				6CB68E142F94A57300E84209 /* Sources */,
+				6CB68E152F94A57300E84209 /* Frameworks */,
+				6CB68E162F94A57300E84209 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6CB68E112F94A57300E84209 /* ZenlorWidget */,
+				6CB68E122F94A57300E84209 /* Shared */,
+			);
+			name = ZenlorWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = ZenlorWidgetExtension;
+			productReference = 6CB68E102F94A57300E84209 /* ZenlorWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +269,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 6CB68DCA2F94A57100E84209;
 					};
+					6CB68E172F94A57300E84209 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 				};
 			};
 			buildConfigurationList = 6CB68DC62F94A57100E84209 /* Build configuration list for PBXProject "gastosapp" */;
@@ -203,6 +291,7 @@
 				6CB68DCA2F94A57100E84209 /* gastosapp */,
 				6CB68DD82F94A57200E84209 /* gastosappTests */,
 				6CB68DE22F94A57200E84209 /* gastosappUITests */,
+				6CB68E172F94A57300E84209 /* ZenlorWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +312,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		6CB68DE12F94A57200E84209 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6CB68E162F94A57300E84209 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +349,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6CB68E142F94A57300E84209 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +368,11 @@
 			isa = PBXTargetDependency;
 			target = 6CB68DCA2F94A57100E84209 /* gastosapp */;
 			targetProxy = 6CB68DE42F94A57200E84209 /* PBXContainerItemProxy */;
+		};
+		6CB68E1C2F94A57300E84209 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6CB68E172F94A57300E84209 /* ZenlorWidgetExtension */;
+			targetProxy = 6CB68E1B2F94A57300E84209 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -539,6 +647,68 @@
 			};
 			name = Release;
 		};
+		6CB68E192F94A57300E84209 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZenlorWidget/ZenlorWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2CUL7U32ZF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZenlorWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = zenlor.gastosapp.ZenlorWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6CB68E1A2F94A57300E84209 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZenlorWidget/ZenlorWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2CUL7U32ZF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZenlorWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = zenlor.gastosapp.ZenlorWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -574,6 +744,15 @@
 			buildConfigurations = (
 				6CB68DF42F94A57200E84209 /* Debug */,
 				6CB68DF52F94A57200E84209 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6CB68E182F94A57300E84209 /* Build configuration list for PBXNativeTarget "ZenlorWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6CB68E192F94A57300E84209 /* Debug */,
+				6CB68E1A2F94A57300E84209 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

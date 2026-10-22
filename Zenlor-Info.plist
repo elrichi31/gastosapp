@@ -6,6 +6,17 @@
 	<array>
 		<string>zenlor.gastosapp.email-check</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>zenlor.gastosapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>zenlor</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

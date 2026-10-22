@@ -62,6 +62,15 @@ struct MainTabView: View {
                 chrome.isCompact = false
             }
         }
+        // Tocar un widget abre Resumen, con lo que hubiera encima ya cerrado.
+        .onOpenURL { url in
+            guard url == WidgetSummaryStore.widgetURL else { return }
+            navigator.showsProfile = false
+            navigator.showsNewExpense = false
+            navigator.expenseSheet = nil
+            navigator.showsNotifications = false
+            navigator.open(.inicio)
+        }
         .sheet(isPresented: $navigator.showsProfile) {
             ProfileView(onClose: { navigator.showsProfile = false })
                 .navigationTransition(.zoom(sourceID: ProfileTransition.sourceID, in: profileNamespace))

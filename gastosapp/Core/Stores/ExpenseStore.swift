@@ -38,7 +38,9 @@ private struct PendingExpenseDeletion: Codable, Identifiable {
 @MainActor
 @Observable
 final class ExpenseStore {
-    var gastos: [Expense] = []
+    var gastos: [Expense] = [] {
+        didSet { WidgetSummaryPublisher.publish(expenses: gastos) }
+    }
     var recurringExpenses: [RecurringExpense] = []
     var categorias: [Categoria] = Categoria.fallback
     var metodosPago: [ExpensePaymentMethod] = ExpensePaymentMethod.fallback
@@ -931,6 +933,7 @@ final class ExpenseStore {
         UserDefaults.standard.removeObject(forKey: Self.cachedRecurringExpensesKey)
         UserDefaults.standard.removeObject(forKey: Self.pendingExpensesKey)
         UserDefaults.standard.removeObject(forKey: Self.pendingExpenseDeletionsKey)
+        WidgetSummaryPublisher.clear()
     }
 
     private func clearAuthSession() {

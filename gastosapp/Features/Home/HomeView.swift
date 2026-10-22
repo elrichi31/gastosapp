@@ -603,6 +603,7 @@ struct HomeView: View {
             scope: .month,
             calendar: cal
         )
+        WidgetSummaryPublisher.publish(budget: dashboardSnapshot.monthlyBudgetTarget, calendar: cal)
         pulse = HomeMonthPulse(
             expenses: store.gastos,
             monthTotal: dashboardSnapshot.monthTotal,
