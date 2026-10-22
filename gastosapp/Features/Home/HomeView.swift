@@ -249,12 +249,7 @@ struct HomeView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText)
                     .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(AppTheme.chromeButtonSurface)
-                            .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
-                            .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-                    )
+                    .chromeGlass(Circle())
             }
             .buttonStyle(.pressable)
             .matchedTransitionSource(id: Self.profileTransitionID, in: profileTransition) { source in
@@ -273,12 +268,7 @@ struct HomeView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText)
                     .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(AppTheme.chromeButtonSurface)
-                            .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
-                            .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-                    )
+                    .chromeGlass(Circle())
             } primaryAction: {
                 presentedQuickAction = .expense
             }

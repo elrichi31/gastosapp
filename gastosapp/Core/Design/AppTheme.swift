@@ -240,6 +240,38 @@ extension AppScreenHeader where Trailing == EmptyView {
     }
 }
 
+extension View {
+    /// Fondo de los controles flotantes de la barra superior y los encabezados.
+    ///
+    /// En iOS 26 es Liquid Glass y reacciona al tacto; antes, la superficie
+    /// translúcida con borde y sombra de siempre. `tint` tiñe el cristal (o
+    /// rellena la forma, antes de iOS 26) para los botones destacados.
+    @ViewBuilder
+    func chromeGlass<S: InsettableShape>(_ shape: S, tint: Color? = nil) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular.tint(tint).interactive(), in: shape)
+        } else {
+            background(
+                shape
+                    .fill(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(AppTheme.chromeButtonSurface))
+                    .overlay(shape.strokeBorder(AppTheme.strongBorder, lineWidth: tint == nil ? 1 : 0))
+                    .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
+            )
+        }
+    }
+
+    /// Agrupa controles de cristal para que se fundan y se transformen entre
+    /// sí al aparecer o desaparecer. Antes de iOS 26 no hace nada.
+    @ViewBuilder
+    func chromeGlassGroup(spacing: CGFloat) -> some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing) { self }
+        } else {
+            self
+        }
+    }
+}
+
 /// Botón circular de acción para los encabezados.
 struct AppCircleButton: View {
     let icon: String
@@ -253,12 +285,7 @@ struct AppCircleButton: View {
                 .font(.system(size: prominent ? 16 : 15, weight: .bold))
                 .foregroundStyle(prominent ? AppTheme.onAccent : AppTheme.primaryText)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(prominent ? AnyShapeStyle(AppTheme.accent) : AnyShapeStyle(AppTheme.chromeButtonSurface))
-                        .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: prominent ? 0 : 1))
-                        .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-                )
+                .chromeGlass(Circle(), tint: prominent ? AppTheme.accent : nil)
         }
         .buttonStyle(.pressable)
         .accessibilityLabel(label)

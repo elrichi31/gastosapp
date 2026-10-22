@@ -173,8 +173,9 @@ private struct FloatingTabBar: View {
     }
 }
 
-/// Barra de pestañas del canvas: cápsula oscura translúcida, la pestaña activa
-/// con un fondo claro sutil y, al desplazar, más estrecha y sin rótulos.
+/// Barra de pestañas del canvas: cápsula de Liquid Glass (material translúcido
+/// antes de iOS 26), la pestaña activa con un fondo claro sutil y, al
+/// desplazar, más estrecha y sin rótulos.
 private struct PillTabBar: View {
     @Binding var seleccion: MainTabView.Tab
     let isCompact: Bool
@@ -194,7 +195,7 @@ private struct PillTabBar: View {
             }
         }
         .padding(FloatingTabBarMetrics.innerPadding)
-        .background(AppTheme.chromeBackground(Capsule()))
+        .tabBarGlass()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Principal")
     }
@@ -233,6 +234,20 @@ private struct PillTabBar: View {
         .buttonStyle(.pressable(scale: 0.9))
         .accessibilityLabel(titulo)
         .accessibilityAddTraits(activo ? .isSelected : [])
+    }
+}
+
+private extension View {
+    /// Liquid Glass en iOS 26: refracta lo que pasa por debajo y reacciona al
+    /// tacto. Antes, el fondo translúcido de siempre.
+    @ViewBuilder
+    func tabBarGlass() -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(.regular.interactive(), in: .capsule)
+                .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+        } else {
+            background(AppTheme.chromeBackground(Capsule()))
+        }
     }
 }
 

@@ -52,7 +52,7 @@ struct AppTopBar: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(chromeCircle)
+                        .chromeGlass(Circle())
                 }
                 .buttonStyle(.pressable)
                 .profileTransitionSource(profileNamespace)
@@ -74,12 +74,7 @@ struct AppTopBar: View {
                 .foregroundStyle(AppTheme.primaryText)
                 .padding(.horizontal, 16)
                 .frame(height: 44)
-                .background(
-                    Capsule()
-                        .fill(AppTheme.chromeButtonSurface)
-                        .overlay(Capsule().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
-                        .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-                )
+                .chromeGlass(Capsule())
                 .contentShape(Capsule())
                 .buttonStyle(.pressable)
                 .transition(AppMotion.pop)
@@ -94,13 +89,16 @@ struct AppTopBar: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryText)
                         .frame(width: 44, height: 44)
-                        .background(chromeCircle)
+                        .chromeGlass(Circle())
                 }
                 .buttonStyle(.pressable)
                 .accessibilityLabel("Nuevo gasto")
                 .transition(AppMotion.pop)
             }
         }
+        // Con Liquid Glass, el buscador y los botones se funden y se
+        // transforman al abrir y cerrar la búsqueda.
+        .chromeGlassGroup(spacing: 8)
         .animation(AppMotion.standard, value: isSearching)
         .onChange(of: searchFocused) { _, focused in
             // Los dos modos abren el mismo panel; en Gastos sólo sugiere.
@@ -151,12 +149,7 @@ struct AppTopBar: View {
         .padding(.leading, 14)
         .padding(.trailing, 4)
         .frame(height: 44)
-        .background(
-            Capsule()
-                .fill(AppTheme.chromeButtonSurface)
-                .overlay(Capsule().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
-                .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-        )
+        .chromeGlass(Capsule())
         .contentShape(Capsule())
         .onTapGesture { searchFocused = true }
     }
@@ -172,7 +165,7 @@ struct AppTopBar: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppTheme.primaryText)
                 .frame(width: 44, height: 44)
-                .background(chromeCircle)
+                .chromeGlass(Circle())
                 .overlay(alignment: .topTrailing) {
                     if inbox.hasUnread {
                         Circle()
@@ -185,13 +178,6 @@ struct AppTopBar: View {
         }
         .buttonStyle(.pressable)
         .accessibilityLabel(inbox.unreadCount > 0 ? "Notificaciones, \(inbox.unreadCount) sin leer" : "Notificaciones")
-    }
-
-    private var chromeCircle: some View {
-        Circle()
-            .fill(AppTheme.chromeButtonSurface)
-            .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: 1))
-            .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
     }
 }
 
