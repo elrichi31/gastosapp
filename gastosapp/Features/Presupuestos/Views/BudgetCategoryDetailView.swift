@@ -105,6 +105,7 @@ struct BudgetCategoryDetailView: View {
 
     private var budgetedSection: some View {
         BudgetedMovementsSection(
+            category: currentCategory.displayCategory,
             movements: movements,
             paymentMethods: session.metodosPago,
             onSelect: editMovement,
