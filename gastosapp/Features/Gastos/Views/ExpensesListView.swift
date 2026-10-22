@@ -84,6 +84,8 @@ struct ExpensesListView: View {
     @AppStorage("gastos.swipeTipDismissed") private var swipeTipDismissed = false
     /// Hasta la primera carga, la lista vacía no significa «sin gastos».
     @State private var hasLoaded = false
+    /// Día tocado en el gráfico de barras; muestra sus gastos debajo.
+    @State private var selectedChartDay: Int?
 
     private static func inicioMes(_ d: Date) -> Date {
         let comps = cal.dateComponents([.year, .month], from: d)
@@ -373,31 +375,65 @@ struct ExpensesListView: View {
     }
 
     /// Una barra por día: hoy con el acento, los días por venir como un punto.
+    ///
+    /// Como en Análisis, al tocar o arrastrar sobre las barras se elige un día:
+    /// arriba sale su total y debajo sus gastos, que se abren al tocarlos.
     private var dailyBars: some View {
         let days = Self.cal.range(of: .day, in: .month, for: mesActual)?.count ?? 30
         let today = isCurrentMonth ? Self.cal.component(.day, from: Date()) : days
-        let byDay = Dictionary(grouping: snapshot.monthExpenses) { Self.cal.component(.day, from: $0.fecha) }
-            .mapValues { $0.reduce(0) { $0 + $1.monto } }
+        let grouped = Dictionary(grouping: snapshot.monthExpenses) { Self.cal.component(.day, from: $0.fecha) }
+        let byDay = grouped.mapValues { $0.reduce(0) { $0 + $1.monto } }
         let maxValue = max(byDay.values.max() ?? 0, 1)
         let monthName = nombreMesCorto(mesActual)
+        let selectedExpenses = selectedChartDay.map { (grouped[$0] ?? []).sorted { $0.fecha > $1.fecha } } ?? []
 
-        return VStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(chartReadout(byDay: byDay, grouped: grouped, monthName: monthName))
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(selectedChartDay == nil ? AppTheme.tertiaryText : AppTheme.primaryText)
+                .frame(minHeight: 18, alignment: .leading)
+                .contentTransition(.numericText())
+
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(1...days, id: \.self) { day in
                     let value = byDay[day] ?? 0
                     let isFuture = day > today
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(
-                            isCurrentMonth && day == today ? AppTheme.accent
-                                : isFuture ? AppTheme.primaryText.opacity(0.06) : AppTheme.primaryText.opacity(0.14)
-                        )
+                        .fill(barFill(day: day, today: today, isFuture: isFuture))
                         .frame(height: isFuture ? 4 : max(4, CGFloat(value / maxValue) * 90))
                         .frame(maxWidth: .infinity)
                 }
             }
             .frame(height: 96, alignment: .bottom)
+            .overlay {
+                GeometryReader { proxy in
+                    Color.clear
+                        .contentShape(.rect)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let ratio = min(max(value.location.x / max(proxy.size.width, 1), 0), 0.9999)
+                                    let day = min(Int(ratio * Double(days)) + 1, today)
+                                    if day != selectedChartDay {
+                                        withAnimation(AppMotion.fade) { selectedChartDay = day }
+                                    }
+                                }
+                        )
+                }
+            }
+            .sensoryFeedback(.selection, trigger: selectedChartDay)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Gasto diario de \(nombreMes(mesActual))")
+            .accessibilityValue(chartReadout(byDay: byDay, grouped: grouped, monthName: monthName))
+            .accessibilityAdjustableAction { direction in
+                let current = selectedChartDay ?? today
+                switch direction {
+                case .increment: selectedChartDay = min(current + 1, today)
+                case .decrement: selectedChartDay = max(current - 1, 1)
+                @unknown default: break
+                }
+            }
 
             HStack {
                 Text("1 \(monthName)")
@@ -409,7 +445,74 @@ struct ExpensesListView: View {
             .font(.caption2)
             .foregroundStyle(AppTheme.tertiaryText)
             .accessibilityHidden(true)
+
+            if let day = selectedChartDay {
+                dayExpensesCard(day: day, expenses: selectedExpenses, monthName: monthName)
+                    .padding(.top, 6)
+                    .transition(AppMotion.reveal)
+            }
         }
+        .animation(AppMotion.expand, value: selectedChartDay == nil)
+        .onChange(of: mesActual) { selectedChartDay = nil }
+    }
+
+    private func barFill(day: Int, today: Int, isFuture: Bool) -> Color {
+        if day == selectedChartDay { return AppTheme.primaryText }
+        if isCurrentMonth && day == today { return selectedChartDay == nil ? AppTheme.accent : AppTheme.accent.opacity(0.5) }
+        return isFuture ? AppTheme.primaryText.opacity(0.06) : AppTheme.primaryText.opacity(0.14)
+    }
+
+    private func chartReadout(byDay: [Int: Double], grouped: [Int: [Expense]], monthName: String) -> String {
+        guard let day = selectedChartDay else { return "Toca el gráfico para ver cada día" }
+        let count = grouped[day]?.count ?? 0
+        guard count > 0 else { return "\(day) \(monthName) · sin gastos" }
+        let total = (byDay[day] ?? 0).formatted(.currency(code: "USD").precision(.fractionLength(2)))
+        return "\(day) \(monthName) · \(total) · \(count == 1 ? "1 gasto" : "\(count) gastos")"
+    }
+
+    /// Gastos del día elegido en el gráfico, con las mismas filas de la lista.
+    private func dayExpensesCard(day: Int, expenses: [Expense], monthName: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("\(day) de \(nombreMes(mesActual).lowercased())")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+                Spacer()
+                Button {
+                    withAnimation(AppMotion.expand) { selectedChartDay = nil }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(AppTheme.popoverSurface))
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Cerrar día")
+            }
+            .padding(.top, 10)
+            .padding(.bottom, expenses.isEmpty ? 4 : 2)
+
+            if expenses.isEmpty {
+                Text("No registraste gastos este día.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.tertiaryText)
+                    .padding(.bottom, 14)
+            } else {
+                ForEach(Array(expenses.enumerated()), id: \.element.id) { index, gasto in
+                    Button {
+                        presentedExpenseSheet = .detail(gasto)
+                    } label: {
+                        fila(gasto).contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    if index < expenses.count - 1 { AppHairline().padding(.leading, 62) }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .background(AppTheme.cardBackground())
+        .clipShape(.rect(cornerRadius: AppTheme.Radius.card, style: .continuous))
     }
 
     // MARK: - Filtros
