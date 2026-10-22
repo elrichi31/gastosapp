@@ -31,7 +31,7 @@ struct ProfileView: View {
             content
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(isPresented: $showsNotifications) {
-                    NotificationsView()
+                    NotificationSettingsView()
                 }
         }
     }
@@ -58,7 +58,7 @@ struct ProfileView: View {
                         group {
                             navigationRow(
                                 icon: "bell",
-                                title: "Notificaciones",
+                                title: "Configuración de notificaciones",
                                 subtitle: notificationsSummary,
                                 showsDivider: false
                             ) { showsNotifications = true }

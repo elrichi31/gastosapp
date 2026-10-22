@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Barra superior del canvas, igual en las cuatro pestañas: cuenta, buscador,
-/// bandeja de avisos y gasto nuevo.
+/// notificaciones y gasto nuevo.
 ///
 /// En Gastos el buscador filtra la lista en su sitio (`.filter`); en el resto
 /// abre un panel de resultados debajo (`.panel`).
@@ -162,22 +162,17 @@ struct AppTopBar: View {
     }
 
     private var inboxButton: some View {
-        let isOpen = navigator.panel == .inbox
-        return Button {
-            withAnimation(AppMotion.fade) {
-                navigator.panel = isOpen ? nil : .inbox
+        Button {
+            navigator.closePanel()
+            withAnimation(AppMotion.expand) {
+                navigator.showsNotifications = true
             }
         } label: {
-            Image(systemName: "tray")
+            Image(systemName: "bell")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isOpen ? AppTheme.backgroundTop : AppTheme.primaryText)
+                .foregroundStyle(AppTheme.primaryText)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(isOpen ? AnyShapeStyle(AppTheme.primaryText) : AnyShapeStyle(AppTheme.chromeButtonSurface))
-                        .overlay(Circle().strokeBorder(AppTheme.strongBorder, lineWidth: isOpen ? 0 : 1))
-                        .shadow(color: .black.opacity(0.18), radius: 7, y: 4)
-                )
+                .background(chromeCircle)
                 .overlay(alignment: .topTrailing) {
                     if inbox.hasUnread {
                         Circle()
@@ -189,8 +184,7 @@ struct AppTopBar: View {
                 }
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel(inbox.unreadCount > 0 ? "Bandeja, \(inbox.unreadCount) sin leer" : "Bandeja")
-        .accessibilityAddTraits(isOpen ? .isSelected : [])
+        .accessibilityLabel(inbox.unreadCount > 0 ? "Notificaciones, \(inbox.unreadCount) sin leer" : "Notificaciones")
     }
 
     private var chromeCircle: some View {
@@ -221,7 +215,7 @@ private extension View {
 // MARK: - Paneles
 
 extension View {
-    /// Paneles de la barra superior (resultados y bandeja) sobre el contenido.
+    /// Panel de resultados de la barra superior sobre el contenido.
     ///
     /// Aplícalo al contenido **antes** del `safeAreaInset` que lleva la barra:
     /// así el velo oscurece la pantalla pero deja la barra tocable encima.
@@ -245,7 +239,6 @@ private struct AppTopBarPanelsModifier: ViewModifier {
                     Group {
                         switch panel {
                         case .search: SearchPanel()
-                        case .inbox: InboxPanel()
                         }
                     }
                     .padding(.horizontal, 12)
@@ -484,103 +477,3 @@ private struct SearchPanel: View {
     }
 }
 
-/// Bandeja de avisos: cada aviso lleva a la pantalla donde se resuelve.
-private struct InboxPanel: View {
-    @Environment(AppNavigator.self) private var navigator
-    @Environment(AppInbox.self) private var inbox
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Bandeja")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                if inbox.hasUnread {
-                    Button("Marcar como leído") { inbox.markRead() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppTheme.accent)
-                        .frame(height: 40)
-                        .padding(.horizontal, 12)
-                        .buttonStyle(.plain)
-                }
-            }
-            .padding(.leading, 12)
-            .padding(.trailing, 4)
-            .padding(.vertical, 6)
-
-            if inbox.items.isEmpty {
-                VStack(spacing: 6) {
-                    Text("Todo al día")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Text("Aquí verás movimientos del correo, avisos de presupuesto y cobros recurrentes.")
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 12)
-                .padding(.top, 20)
-                .padding(.bottom, 24)
-            } else {
-                ForEach(inbox.items) { item in
-                    Button {
-                        inbox.markRead()
-                        switch item.kind {
-                        case .mail: navigator.open(.gastos, section: .correo)
-                        case .budget: navigator.open(.presupuestos)
-                        case .recurring: navigator.open(.gastos, section: .recurrentes)
-                        }
-                    } label: {
-                        row(item)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(8)
-        .frame(maxWidth: 360)
-        .background(PanelBackground())
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Bandeja de avisos")
-    }
-
-    private func row(_ item: AppInbox.Item) -> some View {
-        let (icon, tint): (String, Color) = switch item.kind {
-        case .mail: ("tray", AppTheme.accent)
-        case .budget: ("exclamationmark.circle", AppTheme.warning)
-        case .recurring: ("repeat", AppTheme.secondaryAccent)
-        }
-        return HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(tint.opacity(0.2)))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.system(size: 15, weight: inbox.hasUnread ? .semibold : .medium))
-                    .foregroundStyle(AppTheme.primaryText)
-                    .lineLimit(2)
-                Text(item.subtitle)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            Spacer(minLength: 8)
-            Circle()
-                .fill(AppTheme.negative)
-                .frame(width: 8, height: 8)
-                .opacity(inbox.hasUnread ? 1 : 0)
-                .accessibilityHidden(true)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(minHeight: 68)
-        .contentShape(.rect)
-    }
-}

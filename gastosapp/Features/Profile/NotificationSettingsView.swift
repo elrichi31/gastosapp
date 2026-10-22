@@ -1,13 +1,14 @@
 import SwiftUI
 import UserNotifications
 
-/// Pantalla de notificaciones, empujada desde Cuenta.
+/// Configuración de notificaciones, empujada desde Cuenta o desde la
+/// pantalla de Notificaciones.
 ///
 /// Arriba, cómo se verá el próximo aviso; debajo, un bloque por tipo de aviso
 /// con su interruptor y, al activarlo, sus opciones (hora o umbral). Si el
 /// permiso está bloqueado en Ajustes lo decimos primero, porque los
 /// interruptores encendidos no sirven de nada sin él.
-struct NotificationsView: View {
+struct NotificationSettingsView: View {
     @Environment(ExpenseStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
@@ -58,8 +59,9 @@ struct NotificationsView: View {
     var body: some View {
         ScrollView { settings }
             .background(AppTheme.screenBackground.ignoresSafeArea())
-            .navigationTitle("Notificaciones")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("Configuración de notificaciones")
+            // En grande el título no cabe y se cortaba.
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(AppTheme.backgroundTop, for: .navigationBar)
     }
 

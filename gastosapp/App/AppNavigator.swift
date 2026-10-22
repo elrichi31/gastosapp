@@ -19,15 +19,17 @@ enum ProfileTransition {
 /// Estado de navegación compartido por las cuatro pestañas.
 ///
 /// La barra superior vive en cada pantalla, pero sus acciones (abrir la cuenta,
-/// un gasto nuevo, ir a Correo desde la bandeja, filtrar Gastos desde la
+/// un gasto nuevo, ir a Correo desde las notificaciones, filtrar Gastos desde la
 /// búsqueda) cruzan pestañas, así que el estado vive aquí y no en cada vista.
 @MainActor @Observable
 final class AppNavigator {
-    enum Panel: Equatable { case search, inbox }
+    enum Panel: Equatable { case search }
 
     var selectedTab: MainTabView.Tab = .inicio
     var showsProfile = false
     var showsNewExpense = false
+    /// Pantalla de Notificaciones, encima de la pestaña activa.
+    var showsNotifications = false
     /// Sección de Gastos que hay que abrir al llegar a la pestaña.
     var pendingGastosSection: GastosSectionMode?
     /// Panel desplegado bajo la barra superior.
@@ -87,7 +89,7 @@ final class AppNavigator {
     }
 }
 
-/// Avisos de la bandeja: correo por revisar, categorías cerca del límite y
+/// Avisos de la pantalla de Notificaciones: correo por revisar, categorías cerca del límite y
 /// cobros recurrentes de los próximos días. Todo sale de datos reales.
 @MainActor @Observable
 final class AppInbox {

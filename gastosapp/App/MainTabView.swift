@@ -35,12 +35,24 @@ struct MainTabView: View {
             // recalcula ella y no la vista principal con la pantalla activa.
             FloatingTabBar(seleccion: $navigator.selectedTab, chrome: chrome)
         }
+        // Notificaciones entra desde la derecha y tapa también la barra de
+        // pestañas, como una pantalla empujada.
+        .overlay {
+            if navigator.showsNotifications {
+                NotificationsScreenContainer {
+                    withAnimation(AppMotion.expand) { navigator.showsNotifications = false }
+                }
+                .transition(.move(edge: .trailing))
+                .zIndex(1)
+            }
+        }
         .ignoresSafeArea(.keyboard)
         .sensoryFeedback(.selection, trigger: navigator.selectedTab)
         .onChange(of: navigator.selectedTab) { _, _ in
             // `closePanel` y no sólo `panel = nil`: también vacía el buscador,
             // que si no se quedaba con el texto en la pestaña nueva.
             navigator.closePanel()
+            navigator.showsNotifications = false
             withAnimation(AppMotion.standard) {
                 chrome.isCompact = false
             }
@@ -98,9 +110,7 @@ struct MainTabView: View {
         .onChange(of: budgets.budgets) { Task { await inbox.refresh(store: store, budgets: budgets) } }
         .onChange(of: store.gastos) { inbox.rebuild(store: store) }
         .onChange(of: store.recurringExpenses) { inbox.rebuild(store: store) }
-        .onChange(of: navigator.panel) { _, panel in
-            if panel == .inbox { Task { await inbox.refresh(store: store, budgets: budgets) } }
-        }
+
     }
 
     private var currentTabView: some View {
@@ -202,4 +212,36 @@ private struct PillTabBar: View {
     MainTabView()
         .environment(ExpenseStore())
         .environment(BudgetStore())
+}
+
+/// Notificaciones a pantalla completa, con el gesto de volver desde el borde
+/// izquierdo: la pantalla sigue al dedo y se cierra si pasa de un tercio.
+private struct NotificationsScreenContainer: View {
+    let onClose: () -> Void
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { proxy in
+            AppNotificationsView(onClose: onClose)
+                .overlay(alignment: .leading) {
+                    Color.clear
+                        .frame(width: 24)
+                        .contentShape(.rect)
+                        .gesture(
+                            DragGesture(minimumDistance: 10)
+                                .onChanged { dragOffset = max(0, $0.translation.width) }
+                                .onEnded { value in
+                                    let width = proxy.size.width
+                                    if value.translation.width > width / 3 || value.predictedEndTranslation.width > width / 2 {
+                                        onClose()
+                                    }
+                                    withAnimation(AppMotion.expand) { dragOffset = 0 }
+                                }
+                        )
+                }
+                .offset(x: dragOffset)
+                .shadow(color: .black.opacity(dragOffset > 0 ? 0.25 : 0), radius: 16)
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
 }
