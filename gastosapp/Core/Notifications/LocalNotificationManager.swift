@@ -13,6 +13,7 @@ enum LocalNotificationManager {
     private static let dailyExpenseReminderID = "zenlor.notifications.dailyExpenseReminder"
     private static let budgetAlertID = "zenlor.notifications.weeklyBudgetAlert"
     private static let budgetAlertWeekKey = "zenlor.notifications.budgetAlertWeek"
+    private static let lastBudgetAlertKey = "zenlor.notifications.lastBudgetAlert"
     private static let foregroundDelegate = LocalNotificationForegroundDelegate()
 
     static var isWeeklySummaryEnabled: Bool {
@@ -105,8 +106,15 @@ enum LocalNotificationManager {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [budgetAlertID])
             return
         }
+        // Sólo el mes en curso: abrir febrero en el plan avisaba de un mes
+        // ya cerrado, que no se puede corregir.
+        let now = Calendar.current.dateComponents([.year, .month], from: Date())
+        guard budget.anio == now.year, budget.mes == now.month else { return }
         guard await hasAuthorizedNotificationSettings(), shouldSendBudgetAlertThisWeek() else { return }
         guard let alert = strongestBudgetAlert(budget: budget, categories: categories, expenses: expenses) else { return }
+        // La misma categoría en el mismo tramo no se vuelve a avisar.
+        let alertKey = "\(budget.anio)-\(budget.mes)-\(alert.categoryName)-\(alert.percentage >= 100 ? "over" : "near")"
+        guard UserDefaults.standard.string(forKey: lastBudgetAlertKey) != alertKey else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Ojo con \(alert.categoryName)"
@@ -121,6 +129,7 @@ enum LocalNotificationManager {
         do {
             try await center.add(request)
             markBudgetAlertSentThisWeek()
+            UserDefaults.standard.set(alertKey, forKey: lastBudgetAlertKey)
         } catch {
             return
         }
