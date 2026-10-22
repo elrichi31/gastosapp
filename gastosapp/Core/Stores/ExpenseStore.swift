@@ -294,6 +294,7 @@ final class ExpenseStore {
 
     func logout() {
         clearPersistedSession()
+        EmailReviewStore.clearCache()
         authErrorMessage = nil
         authDebugMessage = nil
         isAuthResolved = true

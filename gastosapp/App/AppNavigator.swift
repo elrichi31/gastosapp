@@ -103,7 +103,13 @@ final class AppInbox {
     }
 
     private(set) var items: [Item] = []
-    private(set) var pendingEmailCount = 0
+    /// Se guarda entre aperturas: así el aviso del correo sale en cuanto se
+    /// abre la app, con lo último que se supo, en vez de tras varios segundos
+    /// esperando al servidor. Luego se corrige con el dato nuevo.
+    private(set) var pendingEmailCount = UserDefaults.standard.integer(forKey: AppInbox.pendingEmailKey) {
+        didSet { UserDefaults.standard.set(pendingEmailCount, forKey: Self.pendingEmailKey) }
+    }
+    private static let pendingEmailKey = "inbox.pendingEmailCount"
     private let emailReview = EmailReviewStore()
     private let budgetDetail = BudgetDetailStore()
     private static let readKey = "inbox.readSignature"
@@ -130,7 +136,12 @@ final class AppInbox {
         }
         emailReview.tab = "nuevos"
         await emailReview.load(using: store)
-        pendingEmailCount = emailReview.isEnabled == true ? emailReview.counts["nuevos"] ?? 0 : 0
+        // Si falló la lectura se queda el último dato conocido.
+        if emailReview.loadError == nil {
+            pendingEmailCount = emailReview.isEnabled == true ? emailReview.counts["nuevos"] ?? 0 : 0
+        }
+        // El correo sale ya, sin esperar a que cargue el presupuesto.
+        rebuild(store: store)
 
         let cal = Calendar.current
         let now = Date()

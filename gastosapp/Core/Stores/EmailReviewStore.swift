@@ -26,8 +26,17 @@ final class EmailReviewStore {
     func load(using session: ExpenseStore, keepsRows: Bool = false) async {
         let id = UUID(); requestID = id
         isLoading = true; loadError = nil
+        let key = cacheKey
         // Clear rows so a tab switch cannot act on the previous tab's data.
-        if !keepsRows { result = nil }
+        // Si ya se leyó esta misma página en esta sesión se muestra al tiro y
+        // se actualiza debajo, en vez de volver al esqueleto.
+        if !keepsRows {
+            result = Self.pageCache[key]
+            if let cached = result {
+                counts = cached.counts ?? counts
+                isEnabled = cached.enabled
+            }
+        }
         defer { if requestID == id { isLoading = false } }
         var components = URLComponents()
         components.queryItems = [URLQueryItem(name: "tab", value: tab), URLQueryItem(name: "page", value: String(page)),
@@ -35,6 +44,7 @@ final class EmailReviewStore {
         do {
             let data = try await session.request(EmailReviewPage.self, path: "/api/email-import/yahoo?" + (components.percentEncodedQuery ?? ""), requiresAuth: true)
             guard requestID == id else { return }
+            Self.pageCache[key] = data
             result = data
             counts = data.counts ?? [:]
             isEnabled = data.enabled
@@ -43,6 +53,13 @@ final class EmailReviewStore {
             if requestID == id && !isCancellationError(error) { loadError = error.localizedDescription }
         }
     }
+    /// Última respuesta de cada página, compartida entre pantallas: la
+    /// bandeja de Notificaciones lee la misma que abre Correo.
+    private static var pageCache: [String: EmailReviewPage] = [:]
+    private var cacheKey: String { "\(tab)|\(page)|\(query)|\(otherIDs.sorted())" }
+
+    static func clearCache() { pageCache = [:] }
+
     func sync(using session: ExpenseStore) async {
         guard !isWorking else { return }
         isWorking = true; isSyncing = true; loadError = nil; message = nil
