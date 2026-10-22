@@ -18,6 +18,7 @@ struct NotificationSettingsView: View {
     @AppStorage(LocalNotificationManager.dailyExpenseReminderMinuteKey) private var dailyExpenseReminderMinute = 0
     @AppStorage(LocalNotificationManager.budgetAlertsEnabledKey) private var budgetAlertsEnabled = true
     @AppStorage(LocalNotificationManager.budgetAlertThresholdKey) private var budgetAlertThreshold = 0.80
+    @AppStorage(EmailConsumptionMonitor.enabledKey) private var emailConsumptionEnabled = true
 
     @State private var isBlocked = false
 
@@ -74,6 +75,19 @@ struct NotificationSettingsView: View {
             }
 
             preview
+
+            block(
+                "Correo",
+                footer: "La app revisa tu correo de vez en cuando aunque esté cerrada. iOS decide cuándo, así que el aviso puede tardar un poco."
+            ) {
+                row(
+                    icon: "envelope.badge",
+                    tint: AppTheme.secondaryAccent,
+                    title: "Consumos detectados",
+                    subtitle: emailConsumptionEnabled ? "Al encontrar un consumo nuevo" : "Apagado",
+                    isOn: $emailConsumptionEnabled.animation(AppMotion.expand)
+                )
+            }
 
             block(
                 "Resumen",
@@ -141,6 +155,15 @@ struct NotificationSettingsView: View {
             Task {
                 await LocalNotificationManager.prepareWeeklySummary(expenses: store.gastos)
                 await refreshAuthorization()
+            }
+        }
+        .onChange(of: emailConsumptionEnabled) { _, enabled in
+            EmailConsumptionMonitor.schedule()
+            if enabled {
+                Task {
+                    _ = await LocalNotificationManager.requestBudgetAlertAuthorizationIfNeeded()
+                    await refreshAuthorization()
+                }
             }
         }
         .onChange(of: dailyExpenseReminderEnabled) { _, _ in rescheduleReminder() }

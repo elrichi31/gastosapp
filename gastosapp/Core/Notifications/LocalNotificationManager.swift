@@ -230,7 +230,30 @@ enum LocalNotificationManager {
     }
 }
 
+extension Notification.Name {
+    /// Se tocó una notificación que lleva a Correo.
+    static let openEmailReview = Notification.Name("zenlor.openEmailReview")
+}
+
+enum NotificationRouting {
+    /// Queda puesto si la notificación abrió la app desde cero, antes de que
+    /// existiera la pantalla que escucha el aviso.
+    static let pendingEmailReviewKey = "zenlor.notifications.pendingEmailReview"
+}
+
 private final class LocalNotificationForegroundDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if response.notification.request.content.userInfo["destination"] as? String == "correo" {
+            UserDefaults.standard.set(true, forKey: NotificationRouting.pendingEmailReviewKey)
+            NotificationCenter.default.post(name: .openEmailReview, object: nil)
+        }
+        completionHandler()
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,

@@ -11,6 +11,7 @@ import SwiftUI
 struct gastosappApp: App {
     @State private var store = ExpenseStore()
     @State private var budgetStore = BudgetStore()
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.defaultValue.rawValue
 
     init() {
@@ -32,6 +33,12 @@ struct gastosappApp: App {
                     .onAppear { selectedAppearance.apply() }
                     .onChange(of: appearanceRawValue) { selectedAppearance.apply() }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, !Self.isHostingUnitTests { EmailConsumptionMonitor.schedule() }
+        }
+        .backgroundTask(.appRefresh(EmailConsumptionMonitor.taskIdentifier)) { [store] in
+            await EmailConsumptionMonitor.checkInBackground(store: store)
         }
     }
 

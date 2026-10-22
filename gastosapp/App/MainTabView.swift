@@ -109,6 +109,10 @@ struct MainTabView: View {
         } message: {
             Text(deleteErrorMessage ?? "")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openEmailReview)) { _ in
+            openEmailReviewIfPending()
+        }
+        .onAppear { openEmailReviewIfPending() }
         .task(id: store.canAccessProtectedEndpoints) {
             await inbox.refresh(store: store, budgets: budgets)
         }
@@ -116,6 +120,16 @@ struct MainTabView: View {
         .onChange(of: store.gastos) { inbox.rebuild(store: store) }
         .onChange(of: store.recurringExpenses) { inbox.rebuild(store: store) }
 
+    }
+
+    /// Al tocar la notificación de un consumo detectado se abre Correo.
+    private func openEmailReviewIfPending() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: NotificationRouting.pendingEmailReviewKey) else { return }
+        defaults.set(false, forKey: NotificationRouting.pendingEmailReviewKey)
+        navigator.showsProfile = false
+        navigator.showsNotifications = false
+        navigator.open(.gastos, section: .correo)
     }
 
     private var currentTabView: some View {

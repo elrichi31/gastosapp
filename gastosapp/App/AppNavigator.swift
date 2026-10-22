@@ -139,6 +139,8 @@ final class AppInbox {
         // Si falló la lectura se queda el último dato conocido.
         if emailReview.loadError == nil {
             pendingEmailCount = emailReview.isEnabled == true ? emailReview.counts["nuevos"] ?? 0 : 0
+            // Lo que ya se ve en la app no se vuelve a avisar en segundo plano.
+            if let rows = emailReview.result?.pendientes { EmailConsumptionMonitor.markSeen(rows) }
         }
         // El correo sale ya, sin esperar a que cargue el presupuesto.
         rebuild(store: store)
