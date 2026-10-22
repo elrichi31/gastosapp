@@ -240,13 +240,18 @@ extension AppScreenHeader where Trailing == EmptyView {
 extension View {
     /// Fondo de los controles flotantes de la barra superior y los encabezados.
     ///
-    /// En iOS 26 es Liquid Glass y reacciona al tacto; antes, la superficie
-    /// translúcida con borde y sombra de siempre. `tint` tiñe el cristal (o
-    /// rellena la forma, antes de iOS 26) para los botones destacados.
+    /// En iOS 26 es Liquid Glass; antes, la superficie translúcida con borde
+    /// y sombra de siempre. `tint` tiñe el cristal (o rellena la forma, antes
+    /// de iOS 26) para los botones destacados.
+    ///
+    /// Sin `.interactive()`: va dentro de la etiqueta de un `Button` y el
+    /// cristal interactivo se quedaba con el primer toque, así que había que
+    /// tocar dos veces para abrir Notificaciones o Nuevo gasto. La respuesta
+    /// al pulsar ya la da `.pressable`.
     @ViewBuilder
     func chromeGlass<S: InsettableShape>(_ shape: S, tint: Color? = nil) -> some View {
         if #available(iOS 26.0, *) {
-            glassEffect(.regular.tint(tint).interactive(), in: shape)
+            glassEffect(.regular.tint(tint), in: shape)
         } else {
             background(
                 shape
