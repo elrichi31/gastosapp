@@ -59,9 +59,7 @@ final class ExpenseStore {
     var recurringExpensesErrorMessage: String?
     var saveErrorMessage: String?
     var authErrorMessage: String?
-    var authDebugMessage: String?
     var syncStatusMessage: String?
-    var lastSyncDate: Date?
     var pendingExpenseCount: Int { pendingExpenseDrafts.count + pendingExpenseDeletions.count }
 
     var currentUser: AuthenticatedUser?
@@ -174,7 +172,6 @@ final class ExpenseStore {
             try await refreshSession(force: true)
         } catch {
             if isConnectivityError(error) {
-                authDebugMessage = "sin conexión; se renovará la sesión al volver la red"
                 touchSessionActivity()
                 return
             }
@@ -209,12 +206,9 @@ final class ExpenseStore {
                 do {
                     try await refreshSession(force: true)
                 } catch {
-                    if isConnectivityError(error) {
-                        authDebugMessage = "sin conexión; se renovará la sesión al volver la red"
-                    } else {
+                    if !isConnectivityError(error) {
                         clearAuthSession()
                         authErrorMessage = "Tu sesión expiró. Inicia sesión nuevamente."
-                        authDebugMessage = "refresh token inválido al restaurar sesión"
                         restoredExpiredSession = true
                     }
                 }
@@ -229,9 +223,6 @@ final class ExpenseStore {
 
         if !restoredExpiredSession {
             authErrorMessage = nil
-            if authDebugMessage != "sin conexión; se renovará la sesión al volver la red" {
-                authDebugMessage = nil
-            }
         }
         isAuthResolved = true
     }
@@ -239,14 +230,12 @@ final class ExpenseStore {
     func login(email: String, password: String) async -> Bool {
         guard hasBaseURLConfigured else {
             authErrorMessage = "Configura la URL del backend antes de iniciar sesión."
-            authDebugMessage = "mobile login: baseURL vacia"
             isAuthResolved = true
             return false
         }
 
         isAuthenticating = true
         authErrorMessage = nil
-        authDebugMessage = nil
         defer {
             isAuthenticating = false
             isAuthResolved = true
@@ -279,7 +268,6 @@ final class ExpenseStore {
             persist(session)
             currentUser = response.user
             authErrorMessage = nil
-            authDebugMessage = nil
 
             await loadCatalogs(force: true)
             await syncPendingExpensesIfPossible()
@@ -289,7 +277,6 @@ final class ExpenseStore {
             guard !isCancellationError(error) else { return false }
             clearAuthSession()
             authErrorMessage = error.localizedDescription
-            authDebugMessage = "mobile login fallo"
             return false
         }
     }
@@ -298,15 +285,18 @@ final class ExpenseStore {
         clearPersistedSession()
         EmailReviewStore.clearCache()
         authErrorMessage = nil
-        authDebugMessage = nil
         isAuthResolved = true
     }
 
     func add(_ gasto: Expense) {
         let normalized = Self.normalizedExpense(gasto)
-        gastos.removeAll { $0.id == normalized.id }
-        gastos.insert(normalized, at: 0)
-        gastos.sort { $0.fecha > $1.fecha }
+        // Se arma aparte y se asigna una vez: cada asignación a `gastos`
+        // republica el widget y avisa a las vistas.
+        var updated = gastos
+        updated.removeAll { $0.id == normalized.id }
+        let index = updated.firstIndex { $0.fecha <= normalized.fecha } ?? updated.endIndex
+        updated.insert(normalized, at: index)
+        gastos = updated
     }
 
     func smartSuggestion(for description: String) -> ExpenseSmartSuggestion? {
@@ -317,7 +307,8 @@ final class ExpenseStore {
         var scores: [ExpenseSuggestionKey: Double] = [:]
         var examples: [ExpenseSuggestionKey: Expense] = [:]
 
-        for (index, expense) in gastos.sorted(by: { $0.fecha > $1.fecha }).enumerated() {
+        // `gastos` ya va del más reciente al más antiguo.
+        for (index, expense) in gastos.enumerated() {
             let candidate = Self.normalizedSuggestionKey(expense.descripcion)
             guard !candidate.isEmpty else { continue }
 
@@ -450,7 +441,6 @@ final class ExpenseStore {
                 .sorted { $0.fecha > $1.fecha }
             persistCachedExpenses()
             expensesErrorMessage = nil
-            lastSyncDate = Date()
             hasLoadedExpensesOnce = true
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
         } catch {
@@ -560,7 +550,6 @@ final class ExpenseStore {
             persistCachedExpenses()
             saveErrorMessage = nil
             expensesErrorMessage = nil
-            lastSyncDate = Date()
             hasLoadedExpensesOnce = true
             showSyncStatus("Gasto guardado")
             if let alert = await budgetCrossingMessage(before: previousExpenses) { showSyncStatus(alert) }
@@ -661,7 +650,6 @@ final class ExpenseStore {
             persistCachedExpenses()
             saveErrorMessage = nil
             expensesErrorMessage = nil
-            lastSyncDate = Date()
             showSyncStatus("Cambios guardados")
             if let alert = await budgetCrossingMessage(before: previousExpenses) { showSyncStatus(alert) }
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
@@ -830,7 +818,6 @@ final class ExpenseStore {
         do {
             try await deleteRemoteExpense(id: id)
             expensesErrorMessage = nil
-            lastSyncDate = Date()
             await loadExpenses(force: true)
             if gastos.contains(where: { $0.id == id }) {
                 expensesErrorMessage = "La API respondio OK, pero el gasto sigue existiendo. Revisa que el id pertenezca al usuario autenticado."
@@ -920,7 +907,6 @@ final class ExpenseStore {
     private func clearExpiredInactiveSession() {
         clearAuthSession()
         authErrorMessage = "Tu sesión expiró por inactividad. Inicia sesión nuevamente."
-        authDebugMessage = "sesión cerrada por 3 días sin actividad"
     }
 
     private func clearPersistedSession() {
@@ -944,7 +930,6 @@ final class ExpenseStore {
         expiresAt = nil
         gastos = []
         recurringExpenses = []
-        lastSyncDate = nil
         hasLoadedExpensesOnce = false
         hasLoadedRecurringExpensesOnce = false
         expensesErrorMessage = nil
@@ -1007,7 +992,6 @@ final class ExpenseStore {
             )
         )
         authErrorMessage = nil
-        authDebugMessage = nil
     }
 
     private func refreshMobileSession() async throws -> MobileRefreshResponse {
@@ -1159,7 +1143,6 @@ final class ExpenseStore {
         if hadChanges && !hasPendingExpenseChanges {
             saveErrorMessage = nil
             expensesErrorMessage = nil
-            lastSyncDate = Date()
             showSyncStatus("Datos sincronizados")
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
         }
@@ -1408,7 +1391,6 @@ final class ExpenseStore {
     private func handlePotentialUnauthorized(_ error: Error) {
         guard case ExpenseStoreError.unauthorized = error else { return }
         authErrorMessage = "Tu sesión expiró. Inicia sesión nuevamente."
-        authDebugMessage = "token expirado o invalido"
         clearAuthSession()
         isAuthResolved = true
     }

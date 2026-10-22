@@ -98,6 +98,15 @@ struct StatsPeriodAnalysis {
     let buckets: [Bucket]
     let payments: [PaymentLine]
 
+    // Cifras que antes se recalculaban en cada `body`; ahora una vez por período.
+    let concentration: Double
+    let daysWithSpending: Int
+    let median: Double
+    let recurring: (total: Double, count: Int)
+    let biggestChange: CategoryLine?
+    let peakDay: (date: Date, total: Double, count: Int)?
+    let topExpenses: [Expense]
+
     init(period: StatsPeriod, allExpenses: [Expense], calendar: Calendar = .current, now: Date = Date()) {
         self.period = period
         let startOfToday = calendar.startOfDay(for: now)
@@ -247,6 +256,26 @@ struct StatsPeriodAnalysis {
         payments = Dictionary(grouping: expenses) { $0.metodoPago.shortLabel }
             .map { PaymentLine(name: $0.key, total: sum($0.value), count: $0.value.count) }
             .sorted { $0.total > $1.total }
+
+        concentration = total > 0 ? categories.prefix(3).reduce(0) { $0 + $1.total } / total * 100 : 0
+        let byDay = Dictionary(grouping: expenses) { calendar.startOfDay(for: $0.fecha) }
+        daysWithSpending = byDay.count
+        let amounts = expenses.map(\.monto).sorted()
+        if amounts.isEmpty {
+            median = 0
+        } else {
+            let middle = amounts.count / 2
+            median = amounts.count.isMultiple(of: 2) ? (amounts[middle - 1] + amounts[middle]) / 2 : amounts[middle]
+        }
+        let recurringItems = expenses.filter(\.isRecurrent)
+        recurring = (sum(recurringItems), recurringItems.count)
+        biggestChange = previous == nil ? nil : categories
+            .filter { ($0.previousTotal ?? 0) != $0.total }
+            .max { abs($0.total - ($0.previousTotal ?? 0)) < abs($1.total - ($1.previousTotal ?? 0)) }
+        peakDay = byDay
+            .map { (date: $0.key, total: sum($0.value), count: $0.value.count) }
+            .max { $0.total < $1.total }
+        topExpenses = Array(expenses.sorted { $0.monto > $1.monto }.prefix(5))
     }
 
     // MARK: - Derivados
@@ -274,44 +303,6 @@ struct StatsPeriodAnalysis {
     var ticketDelta: Double? {
         guard let previous, !previous.isEmpty, let previousTotal else { return nil }
         return HomeMonthPulse.change(from: previousTotal / Double(previous.count), to: averageTicket)
-    }
-
-    var concentration: Double {
-        guard total > 0 else { return 0 }
-        return categories.prefix(3).reduce(0) { $0 + $1.total } / total * 100
-    }
-
-    var daysWithSpending: Int {
-        Set(expenses.map { Calendar.current.startOfDay(for: $0.fecha) }).count
-    }
-
-    var median: Double {
-        let amounts = expenses.map(\.monto).sorted()
-        guard !amounts.isEmpty else { return 0 }
-        let middle = amounts.count / 2
-        return amounts.count.isMultiple(of: 2) ? (amounts[middle - 1] + amounts[middle]) / 2 : amounts[middle]
-    }
-
-    var recurring: (total: Double, count: Int) {
-        let items = expenses.filter(\.isRecurrent)
-        return (items.reduce(0) { $0 + $1.monto }, items.count)
-    }
-
-    var biggestChange: CategoryLine? {
-        guard previous != nil else { return nil }
-        return categories
-            .filter { ($0.previousTotal ?? 0) != $0.total }
-            .max { abs($0.total - ($0.previousTotal ?? 0)) < abs($1.total - ($1.previousTotal ?? 0)) }
-    }
-
-    var peakDay: (date: Date, total: Double, count: Int)? {
-        Dictionary(grouping: expenses) { Calendar.current.startOfDay(for: $0.fecha) }
-            .map { (date: $0.key, total: $0.value.reduce(0) { $0 + $1.monto }, count: $0.value.count) }
-            .max { $0.total < $1.total }
-    }
-
-    var topExpenses: [Expense] {
-        Array(expenses.sorted { $0.monto > $1.monto }.prefix(5))
     }
 
     /// Meses con gastos, del más reciente al más antiguo; el mes en curso siempre.

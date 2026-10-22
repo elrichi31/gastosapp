@@ -178,7 +178,7 @@ struct AddRecurringExpenseView: View {
                                 pill(Self.monthShort[month - 1], isSelected: annualMonth == month, height: 44, fontSize: 14) {
                                     annualMonth = month
                                 }
-                                .accessibilityLabel(StatsView.spanishMonthSymbols[month - 1])
+                                .accessibilityLabel(SpanishCalendar.monthSymbols[month - 1])
                             }
                         }
                     }
@@ -283,7 +283,7 @@ struct AddRecurringExpenseView: View {
         case .mensual:
             rule = "Cada mes " + (diaMes >= 31 ? "el último día" : "el día \(diaMes)")
         case .anual:
-            rule = "Cada año el " + (diaMes >= 31 ? "último día" : "\(diaMes)") + " de " + StatsView.spanishMonthSymbols[annualMonth - 1]
+            rule = "Cada año el " + (diaMes >= 31 ? "último día" : "\(diaMes)") + " de " + SpanishCalendar.monthSymbols[annualMonth - 1]
         }
         let perCharge = foreignTax?.total ?? montoNumerico
         guard perCharge > 0 else { return rule }

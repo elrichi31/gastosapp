@@ -5,12 +5,21 @@ import SwiftUI
 /// Antes cada pantalla elegía su propio resorte o fundido y unas cosas se
 /// movían y otras saltaban. Usar siempre estos valores hace que un mismo tipo
 /// de cambio se sienta igual en toda la app.
+///
+/// Con «Reducir movimiento» activado, resortes y desplazamientos pasan a ser
+/// fundidos: el cambio se sigue viendo, pero nada se mueve por la pantalla.
 enum AppMotion {
+    private static var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
+
     /// Cambios de estado: pestañas, selección, filtros, cambiar de sección.
-    static let standard: Animation = .spring(response: 0.32, dampingFraction: 0.86)
+    static var standard: Animation {
+        reduceMotion ? fade : .spring(response: 0.32, dampingFraction: 0.86)
+    }
 
     /// Desplegables y paneles que se abren en línea dentro de una lista.
-    static let expand: Animation = .spring(response: 0.38, dampingFraction: 0.88)
+    static var expand: Animation {
+        reduceMotion ? fade : .spring(response: 0.38, dampingFraction: 0.88)
+    }
 
     /// Fundidos breves: mensajes, interruptores, pasar del esqueleto a los datos.
     static let fade: Animation = .easeOut(duration: 0.2)
@@ -19,16 +28,24 @@ enum AppMotion {
     static let screen: Animation = .easeOut(duration: 0.18)
 
     /// Respuesta al pulsar un control.
-    static let press: Animation = .spring(response: 0.28, dampingFraction: 0.7)
+    static var press: Animation {
+        reduceMotion ? fade : .spring(response: 0.28, dampingFraction: 0.7)
+    }
 
     /// Lo que aparece debajo de algo, como un desplegable: baja un poco y se funde.
-    static let reveal: AnyTransition = .opacity.combined(with: .offset(y: -8))
+    static var reveal: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -8))
+    }
 
     /// Avisos que suben desde el pie de la pantalla.
-    static let toast: AnyTransition = .move(edge: .bottom).combined(with: .opacity)
+    static var toast: AnyTransition {
+        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+    }
 
     /// Botones y pastillas que aparecen o desaparecen en su sitio.
-    static let pop: AnyTransition = .opacity.combined(with: .scale(scale: 0.9))
+    static var pop: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9))
+    }
 }
 
 extension View {

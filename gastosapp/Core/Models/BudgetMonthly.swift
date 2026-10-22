@@ -1,12 +1,6 @@
 import Foundation
 
 struct BudgetMonthly: Identifiable, Hashable, Codable {
-    private static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
-
     let id: Int
     let anio: Int
     let mes: Int
@@ -29,8 +23,8 @@ struct BudgetMonthly: Identifiable, Hashable, Codable {
 
     var monthTitle: String {
         let index = max(mes - 1, 0)
-        guard Self.spanishMonthSymbols.indices.contains(index) else { return "Mes" }
-        return Self.spanishMonthSymbols[index].capitalized
+        guard SpanishCalendar.monthSymbols.indices.contains(index) else { return "Mes" }
+        return SpanishCalendar.monthSymbols[index].capitalized
     }
 
     var monthYearTitle: String {

@@ -13,7 +13,15 @@ struct BudgetDetailView: View {
 
     let budget: BudgetMonthly
 
+    /// Se recalcula sólo cuando cambian gastos o categorías: cada fila lo
+    /// consulta y antes volvía a recorrer todos los gastos por fila.
+    @State private var cachedSpending: BudgetMonthSpendingSnapshot?
+
     private var spendingSnapshot: BudgetMonthSpendingSnapshot {
+        cachedSpending ?? makeSpendingSnapshot()
+    }
+
+    private func makeSpendingSnapshot() -> BudgetMonthSpendingSnapshot {
         BudgetMonthSpendingSnapshot(
             budget: budget,
             categories: detailStore.categories,
@@ -43,6 +51,8 @@ struct BudgetDetailView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: session.gastos, initial: true) { cachedSpending = makeSpendingSnapshot() }
+        .onChange(of: detailStore.categories) { cachedSpending = makeSpendingSnapshot() }
         .swipeBackBehavior()
         .environment(detailStore)
         .task {

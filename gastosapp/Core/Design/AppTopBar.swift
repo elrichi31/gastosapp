@@ -280,19 +280,26 @@ private struct SearchPanel: View {
         ExpenseSearch.suggestedCategories(catalog: store.categorias, expenses: store.gastos)
     }
 
-    private var matchingCategories: [(category: Categoria, count: Int, total: Double)] {
+    private typealias CategoryMatch = (category: Categoria, count: Int, total: Double)
+
+    private func matchingCategories(for query: String) -> [CategoryMatch] {
         guard !query.isEmpty else { return [] }
         let source = store.categorias.isEmpty ? Array(Set(store.gastos.map(\.categoria))) : store.categorias
-        return source
-            .filter { ExpenseSearch.matches($0, query: query) }
-            .map { category in
-                let expenses = store.gastos.filter { $0.categoriaId == category.id }
-                return (category, expenses.count, expenses.reduce(0) { $0 + $1.monto })
-            }
+        let matching = source.filter { ExpenseSearch.matches($0, query: query) }
+        guard !matching.isEmpty else { return [] }
+        // Una sola pasada por los gastos para todas las categorías.
+        let ids = Set(matching.map(\.id))
+        var stats: [Int: (count: Int, total: Double)] = [:]
+        for expense in store.gastos where ids.contains(expense.categoriaId) {
+            stats[expense.categoriaId, default: (0, 0)].count += 1
+            stats[expense.categoriaId, default: (0, 0)].total += expense.monto
+        }
+        return matching
+            .map { ($0, stats[$0.id]?.count ?? 0, stats[$0.id]?.total ?? 0) }
             .sorted { $0.count > $1.count }
     }
 
-    private var results: [Expense] {
+    private func results(for query: String) -> [Expense] {
         guard !query.isEmpty else { return [] }
         return store.gastos
             .filter { ExpenseSearch.matches($0, query: query) }
@@ -300,7 +307,12 @@ private struct SearchPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        // Se busca una vez por evaluación: antes cada sección volvía a
+        // recorrer todos los gastos varias veces por tecla.
+        let query = query
+        let matchingCategories = matchingCategories(for: query)
+        let results = results(for: query)
+        return VStack(alignment: .leading, spacing: 14) {
             if query.isEmpty {
                 suggestionsView
             } else if matchingCategories.isEmpty && results.isEmpty {
@@ -318,8 +330,8 @@ private struct SearchPanel: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        if !matchingCategories.isEmpty { categoriesSection }
-                        if !results.isEmpty { expensesSection }
+                        if !matchingCategories.isEmpty { categoriesSection(matchingCategories) }
+                        if !results.isEmpty { expensesSection(results) }
                     }
                 }
                 .frame(maxHeight: 440)
@@ -375,7 +387,7 @@ private struct SearchPanel: View {
 
     // MARK: - Resultados
 
-    private var categoriesSection: some View {
+    private func categoriesSection(_ matchingCategories: [CategoryMatch]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("Categorías")
             VStack(spacing: 0) {
@@ -415,7 +427,7 @@ private struct SearchPanel: View {
         }
     }
 
-    private var expensesSection: some View {
+    private func expensesSection(_ results: [Expense]) -> some View {
         let shown = Array(results.prefix(30))
         return VStack(alignment: .leading, spacing: 8) {
             HStack {

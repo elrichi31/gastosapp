@@ -15,12 +15,6 @@ final class BudgetStore {
 
     private var hasLoadedBudgetsOnce = false
     private static let cachedBudgetsKey = "budget.cache.monthlyBudgets"
-    private static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
-
     init() {
         budgets = Self.loadCachedBudgets()
     }
@@ -224,8 +218,8 @@ final class BudgetStore {
 
         return (1...12).compactMap { month in
             guard !isPastMonth(year: year, month: month), !createdMonths.contains(month) else { return nil }
-            guard Self.spanishMonthSymbols.indices.contains(month - 1) else { return nil }
-            return (month, Self.spanishMonthSymbols[month - 1].capitalized)
+            guard SpanishCalendar.monthSymbols.indices.contains(month - 1) else { return nil }
+            return (month, SpanishCalendar.monthSymbols[month - 1].capitalized)
         }
     }
 

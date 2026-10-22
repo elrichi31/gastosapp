@@ -41,8 +41,10 @@ struct RecurringExpensesListView: View {
                 return !item.isSubscriptionLike
             }
         }
+        // El próximo cobro se calcula una vez por recurrente, no en cada comparación.
+        .map { ($0, $0.nextChargeDate) }
         .sorted { lhs, rhs in
-            switch (lhs.nextChargeDate, rhs.nextChargeDate) {
+            switch (lhs.1, rhs.1) {
             case let (left?, right?):
                 return left < right
             case (_?, nil):
@@ -50,9 +52,10 @@ struct RecurringExpensesListView: View {
             case (nil, _?):
                 return false
             case (nil, nil):
-                return lhs.descripcion.localizedCaseInsensitiveCompare(rhs.descripcion) == .orderedAscending
+                return lhs.0.descripcion.localizedCaseInsensitiveCompare(rhs.0.descripcion) == .orderedAscending
             }
         }
+        .map(\.0)
     }
 
     @State private var expandedID: RecurringExpense.ID?
@@ -236,6 +239,7 @@ struct RecurringExpensesListView: View {
 
     @ViewBuilder
     private var listCard: some View {
+        let items = items
         if items.isEmpty {
             Text("No hay cargos en este filtro.")
                 .font(.subheadline)

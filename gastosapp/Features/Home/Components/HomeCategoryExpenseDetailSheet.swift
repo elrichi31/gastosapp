@@ -5,17 +5,6 @@ struct HomeCategoryExpenseDetailSheet: View {
 
     let category: Categoria
     let expenses: [Expense]
-    private static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
-    private static let spanishWeekdaySymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.weekdaySymbols
-    }()
-
     private var groups: [CategoryExpenseDayGroup] {
         Dictionary(grouping: expenses) { Calendar.current.startOfDay(for: $0.fecha) }
             .map { date, expenses in
@@ -147,12 +136,12 @@ struct HomeCategoryExpenseDetailSheet: View {
             let weekday = components.weekday,
             let day = components.day,
             let month = components.month,
-            Self.spanishWeekdaySymbols.indices.contains(weekday - 1),
-            Self.spanishMonthSymbols.indices.contains(month - 1)
+            SpanishCalendar.weekdaySymbols.indices.contains(weekday - 1),
+            SpanishCalendar.monthSymbols.indices.contains(month - 1)
         else {
             return ""
         }
-        return "\(Self.spanishWeekdaySymbols[weekday - 1]), \(day) de \(Self.spanishMonthSymbols[month - 1])".capitalized
+        return "\(SpanishCalendar.weekdaySymbols[weekday - 1]), \(day) de \(SpanishCalendar.monthSymbols[month - 1])".capitalized
     }
 }
 

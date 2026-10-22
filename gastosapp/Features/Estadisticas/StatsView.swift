@@ -20,17 +20,12 @@ struct StatsView: View {
         month: Calendar.current.component(.month, from: Date())
     )
     @State private var analysis = StatsPeriodAnalysis(period: .all, allExpenses: [])
+    @State private var availablePeriods: [StatsPeriod] = StatsPeriodAnalysis.availablePeriods(from: [])
     @State private var openGroups: Set<Section> = []
     @State private var selectedWeekday: Int?
     @State private var weeksPerDay = false
     @State private var sizesByCount = false
     @State private var forecastModel = ExpenseForecastStore()
-
-    static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
 
     private static let weekdayInitials = ["L", "M", "X", "J", "V", "S", "D"]
     private static let weekdayNames = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"]
@@ -83,6 +78,7 @@ struct StatsView: View {
         }
         .task {
             await expenses.loadExpensesIfNeeded()
+            availablePeriods = StatsPeriodAnalysis.availablePeriods(from: expenses.gastos)
             rebuild()
         }
         .task(id: tab) {
@@ -90,7 +86,10 @@ struct StatsView: View {
                 await forecastModel.load(using: expenses)
             }
         }
-        .onChange(of: expenses.gastos) { rebuild() }
+        .onChange(of: expenses.gastos) {
+            availablePeriods = StatsPeriodAnalysis.availablePeriods(from: expenses.gastos)
+            rebuild()
+        }
         .onChange(of: period) {
             selectedWeekday = nil
             rebuild()
@@ -98,7 +97,8 @@ struct StatsView: View {
     }
 
     private func rebuild() {
-        analysis = StatsPeriodAnalysis(period: period, allExpenses: expenses.gastos)
+        let next = StatsPeriodAnalysis(period: period, allExpenses: expenses.gastos)
+        withAnimation(AppMotion.standard) { analysis = next }
     }
 
     // MARK: - Encabezado
@@ -113,7 +113,7 @@ struct StatsView: View {
             Spacer(minLength: 8)
             Menu {
                 Picker("Período", selection: $period) {
-                    ForEach(StatsPeriodAnalysis.availablePeriods(from: expenses.gastos)) { option in
+                    ForEach(availablePeriods) { option in
                         Text(title(for: option)).tag(option)
                     }
                 }
@@ -141,7 +141,7 @@ struct StatsView: View {
         case .all:
             return "Todo el historial"
         case let .month(year, month):
-            return "\(Self.spanishMonthSymbols[month - 1].capitalized) \(year)"
+            return "\(SpanishCalendar.monthSymbols[month - 1].capitalized) \(year)"
         }
     }
 

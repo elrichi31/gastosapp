@@ -1,61 +1,34 @@
 import SwiftUI
 
-enum HomeDashboardScope: String, CaseIterable, Identifiable {
-    case today
-    case week
-    case month
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .today: return "Hoy"
-        case .week: return "Semana"
-        case .month: return "Mes"
-        }
-    }
-}
-
 struct HomeDashboardSnapshot {
+    /// Gastos del mes en curso, del más reciente al más antiguo.
     let monthExpenses: [Expense]
     let monthTotal: Double
-    let monthAveragePerDay: Double
-    let monthMaxExpense: Double
     let monthCategoryTotals: [(Categoria, Double)]
-    let todayExpenses: [Expense]
-    let calendarWeekExpenses: [Expense]
-    let trailingWeekExpenses: [Expense]
-    let previousTrailingWeekExpenses: [Expense]
-    let scopedExpenses: [Expense]
-    let scopedTotal: Double
-    let scopedHighestExpense: Double
-    let scopedAverageAmount: Double
-    let scopedDailyAverage: Double
-    let scopedCategoryTotals: [(Categoria, Double)]
+    let monthCategoryCounts: [Int: Int]
+    /// Gasto de los últimos 7 días y de los 7 anteriores.
+    let currentWeekTotal: Double
+    let previousWeekTotal: Double
     let currentBudget: BudgetMonthly?
     let budgetMetrics: BudgetMonthlyMetrics?
     let budgetCategoryAlert: HomeBudgetCategoryAlert?
     let monthlyBudgetTarget: Double?
-    let currentMonthExpenseByDay: [Date: Double]
     let recent30DayBars: [DailyExpenseBar]
-    let nextRecurringPreview: HomeRecurringPreview?
     let upcomingRecurringItems: [HomeRecurringPreview]
     let monthlyRecurringEstimate: Double
     let recurringDueSoonTotal: Double
-
-    let scope: HomeDashboardScope
+    /// Recurrentes cuyo próximo cobro cae de hoy a fin de mes.
+    let monthUpcomingRecurring: [HomeRecurringPreview]
+    let monthUpcomingRecurringTotal: Double
 
     init(
         expenses: [Expense],
         recurringExpenses: [RecurringExpense],
         budget: BudgetMonthly?,
         budgetCategories: [BudgetCategoryDetail],
-        scope: HomeDashboardScope,
         calendar: Calendar = .current,
         now: Date = Date()
     ) {
-        self.scope = scope
-
         let startOfToday = calendar.startOfDay(for: now)
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
         let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? now
@@ -64,43 +37,11 @@ struct HomeDashboardSnapshot {
             .filter { $0.fecha >= monthStart && $0.fecha < monthEnd }
             .sorted { $0.fecha > $1.fecha }
         monthTotal = monthExpenses.reduce(0) { $0 + $1.monto }
-        monthAveragePerDay = monthTotal / Double(max(calendar.component(.day, from: now), 1))
-        monthMaxExpense = monthExpenses.map(\.monto).max() ?? 0
         monthCategoryTotals = Self.categoryTotals(for: monthExpenses)
+        monthCategoryCounts = monthExpenses.reduce(into: [:]) { $0[$1.categoriaId, default: 0] += 1 }
 
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
-        todayExpenses = expenses
-            .filter { $0.fecha >= startOfToday && $0.fecha < tomorrow }
-            .sorted { $0.fecha > $1.fecha }
-
-        let weekday = calendar.component(.weekday, from: startOfToday)
-        let offsetToMonday = (weekday + 5) % 7
-        let weekStart = calendar.date(byAdding: .day, value: -offsetToMonday, to: startOfToday) ?? startOfToday
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? tomorrow
-        calendarWeekExpenses = expenses
-            .filter { $0.fecha >= weekStart && $0.fecha < weekEnd }
-            .sorted { $0.fecha > $1.fecha }
-
-        trailingWeekExpenses = Self.expenses(inDaysAgoRange: 6, to: 0, expenses: expenses, calendar: calendar, today: startOfToday)
-        previousTrailingWeekExpenses = Self.expenses(inDaysAgoRange: 13, to: 7, expenses: expenses, calendar: calendar, today: startOfToday)
-
-        scopedExpenses = switch scope {
-        case .today: todayExpenses
-        case .week: calendarWeekExpenses
-        case .month: monthExpenses
-        }
-        scopedTotal = scopedExpenses.reduce(0) { $0 + $1.monto }
-        scopedHighestExpense = scopedExpenses.map(\.monto).max() ?? 0
-        scopedAverageAmount = scopedExpenses.isEmpty ? 0 : scopedTotal / Double(scopedExpenses.count)
-        scopedDailyAverage = switch scope {
-        case .today:
-            scopedTotal
-        case .week:
-            scopedTotal / 7
-        case .month:
-            scopedTotal / Double(max(calendar.component(.day, from: now), 1))
-        }
-        scopedCategoryTotals = Self.categoryTotals(for: scopedExpenses)
+        currentWeekTotal = Self.total(inDaysAgoRange: 6, to: 0, expenses: expenses, calendar: calendar, today: startOfToday)
+        previousWeekTotal = Self.total(inDaysAgoRange: 13, to: 7, expenses: expenses, calendar: calendar, today: startOfToday)
 
         currentBudget = budget
         if let budget {
@@ -132,83 +73,63 @@ struct HomeDashboardSnapshot {
             monthlyBudgetTarget = nil
         }
 
-        currentMonthExpenseByDay = Dictionary(grouping: monthExpenses) { calendar.startOfDay(for: $0.fecha) }
-            .mapValues { $0.reduce(0) { $0 + $1.monto } }
-
         recent30DayBars = DailyExpenseBar.recentBars(from: expenses, endingAt: now, calendar: calendar)
 
-        let activeRecurring = recurringExpenses
-            .filter { $0.activo && $0.nextChargeDate != nil }
-            .sorted { ($0.nextChargeDate ?? .distantFuture) < ($1.nextChargeDate ?? .distantFuture) }
-        upcomingRecurringItems = activeRecurring.prefix(3).compactMap { recurring in
-            guard let date = recurring.nextChargeDate else { return nil }
-            return HomeRecurringPreview(expense: recurring, date: date)
-        }
-        nextRecurringPreview = upcomingRecurringItems.first
-        monthlyRecurringEstimate = activeRecurring.reduce(0) { $0 + $1.estimatedMonthlyAmount }
+        // `nextChargeDate` hace cálculos de calendario: se pide una sola vez
+        // por recurrente, no en cada comparación del `sort`.
+        let scheduled = recurringExpenses
+            .compactMap { recurring -> HomeRecurringPreview? in
+                guard recurring.activo, let date = recurring.nextChargeDate(referenceDate: now) else { return nil }
+                return HomeRecurringPreview(expense: recurring, date: date)
+            }
+            .sorted { $0.date < $1.date }
+        upcomingRecurringItems = Array(scheduled.prefix(3))
+        monthlyRecurringEstimate = scheduled.reduce(0) { $0 + $1.expense.estimatedMonthlyAmount }
         let nextSevenDays = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? now
-        recurringDueSoonTotal = activeRecurring.reduce(0) { partial, recurring in
-            guard let nextChargeDate = recurring.nextChargeDate else { return partial }
-            return (nextChargeDate >= startOfToday && nextChargeDate < nextSevenDays) ? partial + recurring.monto : partial
+        recurringDueSoonTotal = scheduled.reduce(0) { partial, item in
+            (item.date >= startOfToday && item.date < nextSevenDays) ? partial + item.expense.monto : partial
         }
+        let inMonth = scheduled.filter { $0.date >= startOfToday && $0.date < monthEnd }
+        monthUpcomingRecurring = Array(inMonth.prefix(4))
+        monthUpcomingRecurringTotal = inMonth.reduce(0) { $0 + $1.expense.monto }
     }
 
-    static func placeholder(scope: HomeDashboardScope = .month) -> HomeDashboardSnapshot {
+    static func placeholder() -> HomeDashboardSnapshot {
         HomeDashboardSnapshot(
             expenses: [],
             recurringExpenses: [],
             budget: nil,
-            budgetCategories: [],
-            scope: scope
+            budgetCategories: []
         )
     }
 
-    var scopedCategoryTitle: String {
-        switch scope {
-        case .today: return "hoy"
-        case .week: return "esta semana"
-        case .month: return "este mes"
-        }
-    }
-
-    var currentWeekTotal: Double {
-        trailingWeekExpenses.reduce(0) { $0 + $1.monto }
-    }
-
-    var previousWeekTotal: Double {
-        previousTrailingWeekExpenses.reduce(0) { $0 + $1.monto }
-    }
-
     func expenses(for category: Categoria) -> [Expense] {
-        scopedExpenses
-            .filter { $0.categoriaId == category.id }
-            .sorted { $0.fecha > $1.fecha }
+        monthExpenses.filter { $0.categoriaId == category.id }
     }
 
-    private static func expenses(
+    private static func total(
         inDaysAgoRange startOffset: Int,
         to endOffset: Int,
         expenses: [Expense],
         calendar: Calendar,
         today: Date
-    ) -> [Expense] {
+    ) -> Double {
         guard
             let start = calendar.date(byAdding: .day, value: -startOffset, to: today),
             let endStart = calendar.date(byAdding: .day, value: -endOffset, to: today),
             let end = calendar.date(byAdding: .day, value: 1, to: endStart)
         else {
-            return []
+            return 0
         }
-        return expenses.filter { $0.fecha >= start && $0.fecha < end }
+        return expenses.reduce(0) { $1.fecha >= start && $1.fecha < end ? $0 + $1.monto : $0 }
     }
 
     private static func categoryTotals(for expenses: [Expense]) -> [(Categoria, Double)] {
-        Dictionary(grouping: expenses, by: \.categoria)
-            .mapValues { $0.reduce(0) { $0 + $1.monto } }
+        expenses
+            .reduce(into: [Categoria: Double]()) { $0[$1.categoria, default: 0] += $1.monto }
             .sorted { $0.value > $1.value }
             .map { ($0.key, $0.value) }
     }
-
 }
 
 struct DailyExpenseBar: Identifiable {

@@ -53,12 +53,6 @@ struct ExpensesListView: View {
     @Environment(ExpenseStore.self) private var store
 
     private static let cal = Calendar.current
-    private static let spanishMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols
-    }()
-
     @State private var mesActual: Date = ExpensesListView.inicioMes(Date())
     @State private var recurrenceFilter: RecurrenceFilter = .all
     @State private var selectedMethodID: Int? = nil
@@ -279,26 +273,26 @@ struct ExpensesListView: View {
         return count == 1 ? "1 gasto" : "\(count) gastos"
     }
 
-    /// Gasto del mismo tramo del mes anterior: hasta hoy en el mes en curso,
-    /// el mes entero si se mira un mes cerrado.
-    private var previousComparable: (total: Double, label: String)? {
+    /// Tramo del mes anterior con el que se compara: hasta hoy en el mes en
+    /// curso, el mes entero si se mira un mes cerrado.
+    private var previousRange: Range<Date>? {
         guard let previousStart = Self.cal.date(byAdding: .month, value: -1, to: mesActual) else { return nil }
+        guard isCurrentMonth else { return previousStart..<mesActual }
+        let day = Self.cal.component(.day, from: Date())
+        let previousDays = Self.cal.range(of: .day, in: .month, for: previousStart)?.count ?? 30
+        let end = Self.cal.date(byAdding: .day, value: min(day, previousDays), to: previousStart) ?? mesActual
+        return previousStart..<end
+    }
+
+    private var previousComparable: (total: Double, label: String)? {
+        guard snapshot.previousTotal > 0,
+              let previousStart = Self.cal.date(byAdding: .month, value: -1, to: mesActual)
+        else { return nil }
         let previousName = nombreMesCorto(previousStart)
-        let end: Date
-        let label: String
-        if isCurrentMonth {
-            let day = Self.cal.component(.day, from: Date())
-            let previousDays = Self.cal.range(of: .day, in: .month, for: previousStart)?.count ?? 30
-            end = Self.cal.date(byAdding: .day, value: min(day, previousDays), to: previousStart) ?? mesActual
-            label = "que \(previousName) al día \(day)"
-        } else {
-            end = mesActual
-            label = "que \(previousName)"
-        }
-        let total = store.gastos
-            .filter { $0.fecha >= previousStart && $0.fecha < end }
-            .reduce(0) { $0 + $1.monto }
-        return total > 0 ? (total, label) : nil
+        let label = isCurrentMonth
+            ? "que \(previousName) al día \(Self.cal.component(.day, from: Date()))"
+            : "que \(previousName)"
+        return (snapshot.previousTotal, label)
     }
 
     private var totalParts: (whole: String, cents: String) {
@@ -309,14 +303,15 @@ struct ExpensesListView: View {
     }
 
     private var totalBlock: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let parts = totalParts
+        return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 monthStepper
 
-                (Text(totalParts.whole)
+                (Text(parts.whole)
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText)
-                 + Text(totalParts.cents)
+                 + Text(parts.cents)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(AppTheme.tertiaryText))
                     .tracking(-1.5)
@@ -381,13 +376,12 @@ struct ExpensesListView: View {
     private var dailyBars: some View {
         let days = Self.cal.range(of: .day, in: .month, for: mesActual)?.count ?? 30
         let today = isCurrentMonth ? Self.cal.component(.day, from: Date()) : days
-        let grouped = Dictionary(grouping: snapshot.monthExpenses) { Self.cal.component(.day, from: $0.fecha) }
-        let byDay = grouped.mapValues { $0.reduce(0) { $0 + $1.monto } }
+        let byDay = snapshot.dayTotals
         let maxValue = max(byDay.values.max() ?? 0, 1)
         let monthName = nombreMesCorto(mesActual)
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text(chartReadout(byDay: byDay, grouped: grouped, monthName: monthName))
+            Text(chartReadout(monthName: monthName))
                 .font(.footnote)
                 .monospacedDigit()
                 .foregroundStyle(selectedChartDay == nil ? AppTheme.tertiaryText : AppTheme.primaryText)
@@ -424,7 +418,7 @@ struct ExpensesListView: View {
             .sensoryFeedback(.selection, trigger: selectedChartDay)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Gasto diario de \(nombreMes(mesActual))")
-            .accessibilityValue(chartReadout(byDay: byDay, grouped: grouped, monthName: monthName))
+            .accessibilityValue(chartReadout(monthName: monthName))
             .accessibilityAdjustableAction { direction in
                 let current = selectedChartDay ?? today
                 switch direction {
@@ -454,28 +448,18 @@ struct ExpensesListView: View {
         return isFuture ? AppTheme.primaryText.opacity(0.06) : AppTheme.primaryText.opacity(0.14)
     }
 
-    private func chartReadout(byDay: [Int: Double], grouped: [Int: [Expense]], monthName: String) -> String {
+    private func chartReadout(monthName: String) -> String {
         guard let day = selectedChartDay else { return "Toca el gráfico para ver cada día" }
-        let count = grouped[day]?.count ?? 0
+        let count = snapshot.dayCounts[day] ?? 0
         guard count > 0 else { return "\(day) \(monthName) · sin gastos" }
-        let total = (byDay[day] ?? 0).formatted(.currency(code: "USD").precision(.fractionLength(2)))
+        let total = (snapshot.dayTotals[day] ?? 0).formatted(.currency(code: "USD").precision(.fractionLength(2)))
         return "\(day) \(monthName) · \(total) · \(count == 1 ? "1 gasto" : "\(count) gastos")"
     }
 
     // MARK: - Filtros
 
-    /// Categorías del mes ordenadas por gasto, para los chips.
-    private var monthCategories: [Categoria] {
-        Dictionary(grouping: snapshot.monthExpensesBase, by: \.categoria)
-            .mapValues { $0.reduce(0) { $0 + $1.monto } }
-            .sorted { $0.value > $1.value }
-            .map(\.key)
-    }
-
-    private var monthTags: [String] {
-        let all = snapshot.monthExpensesBase.flatMap { visibleTags(for: $0) }
-        return Array(Set(all)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
+    private var monthCategories: [Categoria] { snapshot.categories }
+    private var monthTags: [String] { snapshot.tags }
 
     private var advancedFilterCount: Int {
         (originFilter == "all" ? 0 : 1) + (recurrenceFilter == .all ? 0 : 1) + (selectedMethodID == nil ? 0 : 1)
@@ -982,11 +966,11 @@ struct ExpensesListView: View {
         guard
             let year = components.year,
             let month = components.month,
-            Self.spanishMonthSymbols.indices.contains(month - 1)
+            SpanishCalendar.monthSymbols.indices.contains(month - 1)
         else {
             return ""
         }
-        return "\(Self.spanishMonthSymbols[month - 1].capitalized) \(year)"
+        return "\(SpanishCalendar.monthSymbols[month - 1].capitalized) \(year)"
     }
 
     private func nombreMesCorto(_ d: Date) -> String {
@@ -1001,11 +985,11 @@ struct ExpensesListView: View {
         guard
             let day = components.day,
             let month = components.month,
-            Self.spanishMonthSymbols.indices.contains(month - 1)
+            SpanishCalendar.monthSymbols.indices.contains(month - 1)
         else {
             return ""
         }
-        return "\(day) de \(Self.spanishMonthSymbols[month - 1])"
+        return "\(day) de \(SpanishCalendar.monthSymbols[month - 1])"
     }
 
     private var deleteExpenseMessage: String {
@@ -1029,7 +1013,9 @@ struct ExpensesListView: View {
         let next = ExpensesListSnapshot(
             expenses: store.gastos,
             monthStart: mesActual,
+            previousRange: previousRange,
             calendar: Self.cal,
+            visibleTags: visibleTags(for:),
             recurrenceMatches: { matchesRecurrence($0) && matchesCategoryAndTags($0) },
             paymentMatches: matchesPaymentMethod,
             searchMatches: { matchesSearch($0, query: query) }

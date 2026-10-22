@@ -32,17 +32,30 @@ enum WidgetSummaryPublisher {
 
     /// Al cerrar sesión el widget no debe seguir mostrando los gastos de nadie.
     static func clear() {
-        guard WidgetSummaryStore.load() != nil else { return }
+        guard current != nil else { return }
         WidgetSummaryStore.save(nil)
+        cache = .some(nil)
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Copia en memoria de lo guardado: sólo esta app escribe el resumen, así
+    /// que no hace falta leerlo y decodificarlo del disco a cada cambio.
+    private static var cache: WidgetSummary??
+
+    private static var current: WidgetSummary? {
+        if let cache { return cache }
+        let loaded = WidgetSummaryStore.load()
+        cache = .some(loaded)
+        return loaded
+    }
+
     private static func update(_ change: (inout WidgetSummary) -> Void) {
-        let current = WidgetSummaryStore.load()
+        let current = current
         var next = current ?? .empty
         change(&next)
         guard next != current else { return }
         WidgetSummaryStore.save(next)
+        cache = .some(next)
         WidgetCenter.shared.reloadAllTimelines()
     }
 }

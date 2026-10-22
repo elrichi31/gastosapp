@@ -36,12 +36,6 @@ struct HomeView: View {
     @AppStorage(SavingsGoalSettings.monthlyTargetKey) private var monthlySavingsTarget = 0.0
 
     private let cal = Calendar.current
-    private static let spanishShortMonthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.shortMonthSymbols ?? formatter.monthSymbols ?? []
-    }()
-
     private var presupuestoActual: BudgetMonthly? {
         let mes = cal.component(.month, from: Date())
         let anio = cal.component(.year, from: Date())
@@ -352,7 +346,7 @@ struct HomeView: View {
 
             HomeCategorySpendSection(
                 totals: snapshot.monthCategoryTotals,
-                counts: Dictionary(grouping: snapshot.monthExpenses, by: \.categoriaId).mapValues(\.count),
+                counts: snapshot.monthCategoryCounts,
                 total: snapshot.monthTotal,
                 onSelect: { homeSelectedCategory = $0 }
             )
@@ -362,11 +356,10 @@ struct HomeView: View {
                 onSeeAll: { openTab(.gastos) }
             )
 
-            let upcoming = upcomingRecurring
-            if !upcoming.items.isEmpty {
+            if !snapshot.monthUpcomingRecurring.isEmpty {
                 HomeUpcomingRecurringSection(
-                    items: upcoming.items,
-                    committedTotal: upcoming.total,
+                    items: snapshot.monthUpcomingRecurring,
+                    committedTotal: snapshot.monthUpcomingRecurringTotal,
                     onSeeAll: { showsMonthDetails = true }
                 )
             }
@@ -398,24 +391,6 @@ struct HomeView: View {
 
     private var currentMonthName: String {
         Date().formatted(.dateTime.month(.wide).locale(Locale(identifier: "es")))
-    }
-
-    /// Recurrentes activos cuyo próximo cobro cae de hoy a fin de mes.
-    ///
-    /// Sólo cuenta el próximo cobro de cada uno: un semanal puede cobrar más
-    /// veces antes de fin de mes, por eso el total se presenta como previsto.
-    private var upcomingRecurring: (items: [HomeRecurringPreview], total: Double) {
-        let today = cal.startOfDay(for: Date())
-        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: today)) ?? today
-        let monthEnd = cal.date(byAdding: .month, value: 1, to: monthStart) ?? today
-        let inMonth = store.recurringExpenses
-            .filter { $0.activo }
-            .compactMap { recurring -> HomeRecurringPreview? in
-                guard let date = recurring.nextChargeDate, date >= today, date < monthEnd else { return nil }
-                return HomeRecurringPreview(expense: recurring, date: date)
-            }
-            .sorted { $0.date < $1.date }
-        return (Array(inMonth.prefix(4)), inMonth.reduce(0) { $0 + $1.expense.monto })
     }
 
     private static let headerDateFormatter: DateFormatter = {
@@ -514,9 +489,9 @@ struct HomeView: View {
     private func categoriasCard(_ snapshot: HomeDashboardSnapshot) -> some View {
         HomeCategoriesSection(
             title: "Por categoría",
-            trailingText: snapshot.scopedCategoryTitle,
-            totals: snapshot.scopedCategoryTotals,
-            totalAmount: snapshot.scopedTotal,
+            trailingText: "este mes",
+            totals: snapshot.monthCategoryTotals,
+            totalAmount: snapshot.monthTotal,
             onSelectCategory: { selectedCategory = $0 }
         )
     }
@@ -590,22 +565,27 @@ struct HomeView: View {
     }
 
     private func rebuildDashboardSnapshot() {
-        dashboardSnapshot = HomeDashboardSnapshot(
+        let snapshot = HomeDashboardSnapshot(
             expenses: store.gastos,
             recurringExpenses: store.recurringExpenses,
             budget: presupuestoActual,
             budgetCategories: budgetDetailStore.categories,
-            scope: .month,
             calendar: cal
         )
-        WidgetSummaryPublisher.publish(budget: dashboardSnapshot.monthlyBudgetTarget, calendar: cal)
-        pulse = HomeMonthPulse(
+        WidgetSummaryPublisher.publish(budget: snapshot.monthlyBudgetTarget, calendar: cal)
+        let nextPulse = HomeMonthPulse(
             expenses: store.gastos,
-            monthTotal: dashboardSnapshot.monthTotal,
+            monthTotal: snapshot.monthTotal,
             budget: presupuestoActual,
             budgetCategories: budgetDetailStore.categories,
             calendar: cal
         )
+        // Animado para que el total ruede y las barras crezcan al llegar
+        // datos nuevos, en vez de cambiar de golpe.
+        withAnimation(AppMotion.standard) {
+            dashboardSnapshot = snapshot
+            pulse = nextPulse
+        }
     }
 
     private func dayLabel(for date: Date?) -> String {
@@ -614,11 +594,11 @@ struct HomeView: View {
         guard
             let day = components.day,
             let month = components.month,
-            Self.spanishShortMonthSymbols.indices.contains(month - 1)
+            SpanishCalendar.shortMonthSymbols.indices.contains(month - 1)
         else {
             return ""
         }
-        return "\(day) \(Self.spanishShortMonthSymbols[month - 1])"
+        return "\(day) \(SpanishCalendar.shortMonthSymbols[month - 1])"
     }
 
     private func currencyLabel(_ value: Double) -> String {

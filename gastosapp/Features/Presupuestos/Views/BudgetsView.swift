@@ -23,11 +23,7 @@ struct BudgetsView: View {
     @State private var path: [Route] = []
 
     private static let cal = Calendar.current
-    private static let monthSymbols: [String] = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es")
-        return formatter.monthSymbols.map(\.capitalized)
-    }()
+    private static let monthSymbols = SpanishCalendar.monthSymbols.map(\.capitalized)
     private static let monthInitials = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
 
     private var currentYear: Int { Self.cal.component(.year, from: Date()) }
@@ -171,11 +167,14 @@ struct BudgetsView: View {
         } else if yearBudgets.isEmpty {
             emptyYear
         } else {
-            yearSummary
-            monthlyEvolution
+            // Una pasada por los gastos para todo el año, no una por tarjeta.
+            let spending = monthlySpending
+            let budgetsOfYear = yearBudgets
+            yearSummary(yearStats(spending: spending, budgets: budgetsOfYear), monthCount: budgetsOfYear.count)
+            monthlyEvolution(spending)
             VStack(spacing: 12) {
-                ForEach(yearBudgets) { budget in
-                    monthCard(budget)
+                ForEach(budgetsOfYear) { budget in
+                    monthCard(budget, spending: spending[budget.mes - 1])
                 }
                 if canAddMonths {
                     addMonthButton
@@ -184,9 +183,8 @@ struct BudgetsView: View {
         }
     }
 
-    private var yearSummary: some View {
-        let stats = yearStats
-        return VStack(alignment: .leading, spacing: 10) {
+    private func yearSummary(_ stats: YearStats, monthCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
             (Text("Gasto registrado ") + Text("· \(String(budgets.selectedYear))").fontWeight(.regular).foregroundColor(AppTheme.secondaryText))
                 .font(.system(size: 17, weight: .semibold))
                 .tracking(-0.2)
@@ -201,7 +199,7 @@ struct BudgetsView: View {
                     splitAmount(stats.total, size: 44)
                 }
                 Spacer(minLength: 8)
-                Text(yearBudgets.count == 1 ? "1 mes" : "\(yearBudgets.count) meses")
+                Text(monthCount == 1 ? "1 mes" : "\(monthCount) meses")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.primaryText)
                     .padding(.horizontal, 11)
@@ -281,8 +279,7 @@ struct BudgetsView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var monthlyEvolution: some View {
-        let totals = monthlySpending
+    private func monthlyEvolution(_ totals: [MonthSpending]) -> some View {
         let maxTotal = max(totals.map(\.total).max() ?? 0, 1)
         return VStack(alignment: .leading, spacing: 12) {
             Text("Evolución mensual · \(String(budgets.selectedYear))")
@@ -321,8 +318,7 @@ struct BudgetsView: View {
         )
     }
 
-    private func monthCard(_ budget: BudgetMonthly) -> some View {
-        let spending = monthlySpending[budget.mes - 1]
+    private func monthCard(_ budget: BudgetMonthly, spending: MonthSpending) -> some View {
         let isCurrent = budget.anio == currentYear && budget.mes == currentMonth
         let isUpcoming = (budget.anio, budget.mes) > (currentYear, currentMonth)
         let canRemove = spending.count == 0 && budget.gastosRegistrados == 0 && !isCurrent
@@ -514,9 +510,11 @@ struct BudgetsView: View {
         }
     }
 
-    private var yearStats: (total: Double, count: Int, average: Double, monthsWithSpending: Int, highest: (month: Int, total: Double)?) {
-        let created = Set(yearBudgets.map(\.mes))
-        let entries = monthlySpending.enumerated()
+    private typealias YearStats = (total: Double, count: Int, average: Double, monthsWithSpending: Int, highest: (month: Int, total: Double)?)
+
+    private func yearStats(spending: [MonthSpending], budgets: [BudgetMonthly]) -> YearStats {
+        let created = Set(budgets.map(\.mes))
+        let entries = spending.enumerated()
             .filter { created.contains($0.offset + 1) }
             .map { (month: $0.offset + 1, spending: $0.element) }
         let total = entries.reduce(0) { $0 + $1.spending.total }
