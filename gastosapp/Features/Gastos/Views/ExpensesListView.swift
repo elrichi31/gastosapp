@@ -84,7 +84,7 @@ struct ExpensesListView: View {
     @AppStorage("gastos.swipeTipDismissed") private var swipeTipDismissed = false
     /// Hasta la primera carga, la lista vacía no significa «sin gastos».
     @State private var hasLoaded = false
-    /// Día tocado en el gráfico de barras; muestra sus gastos debajo.
+    /// Día tocado en el gráfico de barras; arriba se muestra su total.
     @State private var selectedChartDay: Int?
 
     private static func inicioMes(_ d: Date) -> Date {
@@ -376,8 +376,8 @@ struct ExpensesListView: View {
 
     /// Una barra por día: hoy con el acento, los días por venir como un punto.
     ///
-    /// Como en Análisis, al tocar o arrastrar sobre las barras se elige un día:
-    /// arriba sale su total y debajo sus gastos, que se abren al tocarlos.
+    /// Como en Análisis, al tocar o arrastrar sobre las barras se elige un día
+    /// y arriba sale su total. La lista de abajo no se filtra.
     private var dailyBars: some View {
         let days = Self.cal.range(of: .day, in: .month, for: mesActual)?.count ?? 30
         let today = isCurrentMonth ? Self.cal.component(.day, from: Date()) : days
@@ -385,7 +385,6 @@ struct ExpensesListView: View {
         let byDay = grouped.mapValues { $0.reduce(0) { $0 + $1.monto } }
         let maxValue = max(byDay.values.max() ?? 0, 1)
         let monthName = nombreMesCorto(mesActual)
-        let selectedExpenses = selectedChartDay.map { (grouped[$0] ?? []).sorted { $0.fecha > $1.fecha } } ?? []
 
         return VStack(alignment: .leading, spacing: 8) {
             Text(chartReadout(byDay: byDay, grouped: grouped, monthName: monthName))
@@ -445,14 +444,7 @@ struct ExpensesListView: View {
             .font(.caption2)
             .foregroundStyle(AppTheme.tertiaryText)
             .accessibilityHidden(true)
-
-            if let day = selectedChartDay {
-                dayExpensesCard(day: day, expenses: selectedExpenses, monthName: monthName)
-                    .padding(.top, 6)
-                    .transition(AppMotion.reveal)
-            }
         }
-        .animation(AppMotion.expand, value: selectedChartDay == nil)
         .onChange(of: mesActual) { selectedChartDay = nil }
     }
 
@@ -468,51 +460,6 @@ struct ExpensesListView: View {
         guard count > 0 else { return "\(day) \(monthName) · sin gastos" }
         let total = (byDay[day] ?? 0).formatted(.currency(code: "USD").precision(.fractionLength(2)))
         return "\(day) \(monthName) · \(total) · \(count == 1 ? "1 gasto" : "\(count) gastos")"
-    }
-
-    /// Gastos del día elegido en el gráfico, con las mismas filas de la lista.
-    private func dayExpensesCard(day: Int, expenses: [Expense], monthName: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("\(day) de \(nombreMes(mesActual).lowercased())")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
-                Spacer()
-                Button {
-                    withAnimation(AppMotion.expand) { selectedChartDay = nil }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(AppTheme.popoverSurface))
-                }
-                .buttonStyle(.pressable)
-                .accessibilityLabel("Cerrar día")
-            }
-            .padding(.top, 10)
-            .padding(.bottom, expenses.isEmpty ? 4 : 2)
-
-            if expenses.isEmpty {
-                Text("No registraste gastos este día.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.tertiaryText)
-                    .padding(.bottom, 14)
-            } else {
-                ForEach(Array(expenses.enumerated()), id: \.element.id) { index, gasto in
-                    Button {
-                        presentedExpenseSheet = .detail(gasto)
-                    } label: {
-                        fila(gasto).contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    if index < expenses.count - 1 { AppHairline().padding(.leading, 62) }
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .background(AppTheme.cardBackground())
-        .clipShape(.rect(cornerRadius: AppTheme.Radius.card, style: .continuous))
     }
 
     // MARK: - Filtros
