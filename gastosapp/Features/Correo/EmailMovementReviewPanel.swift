@@ -25,6 +25,7 @@ struct EmailMovementReviewPanel: View {
     @State private var lastAliasDescription = ""
     @State private var aliasFeedback: String?
     @State private var seeded = false
+    @State private var tagsText = ""
 
     /// Los valores que salen de la fila se ponen aquí y no en `onAppear`: si
     /// no, el panel se abría mostrando la sección equivocada y luego saltaba.
@@ -47,9 +48,11 @@ struct EmailMovementReviewPanel: View {
     private var base: Double { MoneyInput.parse(amount) ?? 0 }
     private var tax: ForeignTax { ForeignTax(base: base, selected: selected, customRate: customRate) }
     private var category: Categoria? { session.categorias.first { $0.id == categoryID } }
+    private var tags: [String] { ExpenseTags.normalize(tagsText) }
     private var canSave: Bool {
         !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && description.count <= 200 &&
-        base.isFinite && base > 0 && base <= row.monto && category != nil && (!foreignEnabled || tax.isValid)
+        base.isFinite && base > 0 && base <= row.monto && category != nil && (!foreignEnabled || tax.isValid) &&
+        ExpenseTags.isValid(tags)
     }
     private var actionTitle: String {
         if isRefund { return "Descontar devolución" }
@@ -144,6 +147,7 @@ struct EmailMovementReviewPanel: View {
                 CategoryChipPicker(categories: session.categorias, selectedID: $categoryID)
             }
             ForeignTaxFields(enabled: $foreignEnabled, selected: $selected, customRate: $customRate, base: base)
+            ExpenseExtrasFields(tagsText: $tagsText)
         }
     }
 
@@ -224,6 +228,35 @@ struct EmailMovementReviewPanel: View {
         guard canSave, !aliasDirty else { return }
         var item: [String: Any] = ["id": row.id, "categoria_id": categoryID, "monto": base, "descripcion": description.trimmingCharacters(in: .whitespacesAndNewlines)]
         if foreignEnabled { item["impuestos"] = ["selected": selected, "customRate": customRate] }
-        if await review.apply(["aceptar": [item]], using: session) { onFinish() }
+        let knownIDs = Set(session.gastos.map(\.id))
+        guard await review.apply(["aceptar": [item]], using: session) else { return }
+        await applyTags(excluding: knownIDs)
+        onFinish()
+    }
+
+    /// Pone las etiquetas en el gasto recién creado. Aceptar un movimiento del
+    /// correo no recibe etiquetas, así que se busca el gasto nuevo que
+    /// coincide y se editan, conservando las que ya traía (p. ej. `auto`).
+    private func applyTags(excluding knownIDs: Set<Int>) async {
+        guard !tags.isEmpty else { return }
+        let cleanDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let created = session.gastos.first(where: {
+            !knownIDs.contains($0.id) && $0.descripcion == cleanDescription && abs($0.monto - base) < 0.005
+        }) else { return }
+        let current = created.tags ?? []
+        guard !Set(tags).isSubset(of: Set(current)) else { return }
+        var merged = current
+        for tag in tags where !merged.contains(tag) { merged.append(tag) }
+        _ = await session.updateExpense(
+            id: created.id,
+            descripcion: created.descripcion,
+            monto: created.monto,
+            fecha: created.fecha,
+            categoria: created.categoria,
+            metodoPago: created.metodoPago,
+            isRecurrent: created.isRecurrent,
+            tags: merged,
+            foreignTax: created.foreignTax
+        )
     }
 }
