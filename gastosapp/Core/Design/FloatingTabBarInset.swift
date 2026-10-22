@@ -20,10 +20,6 @@ enum FloatingTabBarMetrics {
         itemHeight + innerPadding * 2 + outerVerticalPadding * 2
     }
 
-    static var compactHeight: CGFloat {
-        compactItemHeight + innerPadding * 2 + outerVerticalPadding * 2
-    }
-
     /// Espacio reservado bajo el contenido.
     ///
     /// Siempre es el alto expandido, aunque la barra esté contraída: si el

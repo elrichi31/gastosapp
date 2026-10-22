@@ -18,32 +18,3 @@ enum CicloFacturacion: String, CaseIterable, Identifiable, Hashable {
         }
     }
 }
-
-struct Subscription: Identifiable, Hashable {
-    let id: UUID
-    var provider: Provider
-    var monto: Double
-    var ciclo: CicloFacturacion
-    var proximaFecha: Date
-    var metodoPago: MetodoPago
-
-    init(
-        id: UUID = UUID(),
-        provider: Provider,
-        monto: Double,
-        ciclo: CicloFacturacion,
-        proximaFecha: Date,
-        metodoPago: MetodoPago
-    ) {
-        self.id = id
-        self.provider = provider
-        self.monto = monto
-        self.ciclo = ciclo
-        self.proximaFecha = proximaFecha
-        self.metodoPago = metodoPago
-    }
-
-    var costoMensualEquivalente: Double {
-        monto * ciclo.factorMensual
-    }
-}

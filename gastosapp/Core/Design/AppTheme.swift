@@ -107,8 +107,6 @@ enum AppTheme {
     static let statementSecondary = secondaryText
     /// Separadores dentro del bloque.
     static let onStatementFaint = adaptive(dark: hex(0xFFFFFF, 0.10), light: hex(0x000000, 0.08))
-    /// Relleno de un control primario deshabilitado.
-    static let disabledFill = adaptive(dark: hex(0x232326), light: hex(0xE8E8EC))
 
     /// Colores fijos para distinguir categorías en barras, puntos y leyendas.
     static let categoryPalette: [Color] = [
@@ -138,7 +136,6 @@ enum AppTheme {
     enum Radius {
         static let card: CGFloat = 22
         static let control: CGFloat = 16
-        static let chip: CGFloat = 12
     }
 
     // MARK: - Tipografía
@@ -179,10 +176,6 @@ enum AppTheme {
             .fill(insetSurface)
     }
 
-    static func capsuleBackground(_ color: Color = surface) -> some View {
-        Capsule().fill(color)
-    }
-
     /// Fondo de barra flotante: material difuso + hairline + sombra profunda.
     static func chromeBackground<S: InsettableShape>(_ shape: S) -> some View {
         shape
@@ -200,7 +193,6 @@ enum AppScreenMetrics {
     static let horizontalPadding: CGFloat = 24
     static let headerTopPadding: CGFloat = 12
     static let headerBottomPadding: CGFloat = 18
-    static let sectionSpacing: CGFloat = 30
     /// Aire tras el último bloque. Va *encima* del espacio que reserva la barra
     /// flotante, así que no hay que sumarle el alto de la barra a mano.
     static let contentBottomPadding: CGFloat = 24
@@ -269,54 +261,6 @@ struct AppCircleButton: View {
                 )
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel(label)
-    }
-}
-
-/// Selector de periodo con flechas, usado en Estadísticas y Presupuestos.
-///
-/// `expands` lo convierte en la pieza ancha de una barra de encabezado: ocupa
-/// todo el hueco que le dejen y crece hasta los 48pt de alto de los selectores
-/// de Gastos, para que las dos pantallas tengan la misma barra. Sin él se queda
-/// compacto, que es como lo usa Estadísticas junto a un título.
-struct AppPeriodStepper: View {
-    let label: String
-    let onPrevious: () -> Void
-    let onNext: () -> Void
-    var previousLabel: String = "Anterior"
-    var nextLabel: String = "Siguiente"
-    var expands: Bool = false
-
-    var body: some View {
-        HStack(spacing: 2) {
-            stepButton(icon: "chevron.left", action: onPrevious, label: previousLabel)
-            Text(label)
-                .font(AppTheme.number(expands ? 15 : 14, .bold))
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.primaryText)
-                .contentTransition(.numericText())
-                .frame(minWidth: 46, maxWidth: expands ? .infinity : nil)
-            stepButton(icon: "chevron.right", action: onNext, label: nextLabel)
-        }
-        .padding(expands ? 5 : 4)
-        .frame(maxWidth: expands ? .infinity : nil)
-        .background(
-            Capsule()
-                .fill(AppTheme.controlSurface)
-                .overlay(Capsule().strokeBorder(expands ? AppTheme.strongBorder : AppTheme.border, lineWidth: 1))
-        )
-        .accessibilityElement(children: .contain)
-    }
-
-    private func stepButton(icon: String, action: @escaping () -> Void, label: String) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: expands ? 13 : 12, weight: .bold))
-                .foregroundStyle(AppTheme.primaryText.opacity(0.85))
-                .frame(width: expands ? 40 : 32, height: expands ? 38 : 32)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 }
@@ -444,19 +388,6 @@ struct AppFooterScrim: View {
 }
 
 extension View {
-    /// Fondo de barra flotante: cristal de iOS 26, o el material de siempre.
-    ///
-    /// `glassEffect` sólo existe desde iOS 26 y el objetivo de despliegue es
-    /// 18.5, así que el repliegue no es opcional. En iOS 26 el cristal sustituye
-    /// al material porque él mismo aporta difuminado, filo y sombra.
-    @ViewBuilder
-    func appChromeBackground<S: Shape & InsettableShape>(_ shape: S) -> some View {
-        if #available(iOS 26.0, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            background(AppTheme.chromeBackground(shape))
-        }
-    }
 }
 
 /// Respuesta táctil al pulsar: el control se hunde ligeramente.
@@ -532,56 +463,12 @@ struct AppSectionLabel: View {
     }
 }
 
-/// Píldora de variación con flecha, al estilo de un ticker.
-struct AppDeltaChip: View {
-    let text: String
-    var isPositive: Bool
-    var showsArrow: Bool = true
-
-    private var tint: Color { isPositive ? AppTheme.positive : AppTheme.negative }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if showsArrow {
-                Image(systemName: isPositive ? "arrow.up.right" : "arrow.down.right")
-                    .font(.system(size: 10, weight: .bold))
-            }
-            Text(text)
-                .font(AppTheme.number(12, .bold))
-                .monospacedDigit()
-        }
-        .foregroundStyle(tint)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(tint.opacity(0.14)))
-    }
-}
-
 /// Separador de 1px alineado con la retícula de las tarjetas.
 struct AppHairline: View {
     var body: some View {
         Rectangle()
             .fill(AppTheme.separator)
             .frame(height: 1)
-    }
-}
-
-/// Icono con halo suave en lugar de un cuadro sólido de color.
-struct AppGlyph: View {
-    let systemName: String
-    var tint: Color = AppTheme.accent
-    var size: CGFloat = 34
-    var solid: Bool = false
-
-    var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: size * 0.42, weight: .semibold))
-            .foregroundStyle(solid ? AppTheme.onAccent : tint)
-            .frame(width: size, height: size)
-            .background(
-                RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-                    .fill(solid ? AnyShapeStyle(tint) : AnyShapeStyle(tint.opacity(0.14)))
-            )
     }
 }
 

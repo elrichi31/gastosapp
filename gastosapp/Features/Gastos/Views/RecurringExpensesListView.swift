@@ -428,10 +428,6 @@ struct RecurringExpensesListView: View {
         .background(groupBackground)
     }
 
-    private func monthlyEstimate(for item: RecurringExpense) -> Double {
-        item.estimatedMonthlyAmount
-    }
-
     private func nextChargeRelativeLabel(for item: RecurringExpense) -> String {
         item.relativeNextChargeLabel()
     }

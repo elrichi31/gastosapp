@@ -76,26 +76,3 @@ struct ForecastNotice: View {
         .background(AppTheme.insetSurface, in: .rect(cornerRadius: AppTheme.Radius.control))
     }
 }
-
-struct ForecastEntryButton: View {
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: "chart.xyaxis.line")
-                    .font(.title3.weight(.semibold)).foregroundStyle(AppTheme.secondaryAccent)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme.secondaryAccent.opacity(0.12), in: .rect(cornerRadius: 14))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("¿Cómo cerrarás el mes?").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.primaryText)
-                    Text("Explora tu proyección de gastos").font(.caption).foregroundStyle(AppTheme.secondaryText)
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(AppTheme.secondaryText)
-            }
-            .padding(16).background(AppTheme.cardBackground())
-            .contentShape(.rect)
-        }.buttonStyle(.pressable(scale: 0.98))
-        .accessibilityLabel("Proyecciones del mes")
-        .accessibilityHint("Muestra el cierre estimado, la evolución y los próximos pagos")
-    }
-}

@@ -88,9 +88,3 @@ struct GastosHeaderBar: View {
         }
     }
 }
-
-struct GastosCapsuleBackground: View {
-    var body: some View {
-        AppTheme.chromeBackground(Capsule())
-    }
-}

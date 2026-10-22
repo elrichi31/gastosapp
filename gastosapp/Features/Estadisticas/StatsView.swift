@@ -97,11 +97,6 @@ struct StatsView: View {
         }
     }
 
-    private var analysisIsRange: Bool {
-        if case .month = period { return true }
-        return false
-    }
-
     private func rebuild() {
         analysis = StatsPeriodAnalysis(period: period, allExpenses: expenses.gastos)
     }

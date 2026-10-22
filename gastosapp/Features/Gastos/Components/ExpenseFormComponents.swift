@@ -49,41 +49,6 @@ struct ExpenseIconBadge: View {
     }
 }
 
-struct ExpenseFormMenuRow<PickerContent: View>: View {
-    let icon: String
-    let color: Color
-    let title: String
-    let value: String
-    @ViewBuilder let picker: () -> PickerContent
-
-    var body: some View {
-        HStack(spacing: 14) {
-            ExpenseIconBadge(systemName: icon, color: color)
-            Text(title)
-                .foregroundStyle(AppTheme.primaryText)
-            Spacer()
-            menu
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-
-    private var menu: some View {
-        Menu {
-            picker()
-        } label: {
-            HStack(spacing: 4) {
-                Text(value)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .lineLimit(1)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2)
-                    .foregroundStyle(AppTheme.tertiaryText)
-            }
-        }
-    }
-}
-
 struct ExpensePrimarySaveButton: View {
     let isSaving: Bool
     let isEnabled: Bool

@@ -300,27 +300,6 @@ final class ExpenseStore {
         isAuthResolved = true
     }
 
-    func updateConnection(baseURL: String) {
-        let normalizedURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let didChangeServer = normalizedURL != self.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        self.baseURL = normalizedURL
-        UserDefaults.standard.set(normalizedURL, forKey: Self.baseURLKey)
-
-        hasLoadedCatalogsOnce = false
-        hasLoadedExpensesOnce = false
-        hasLoadedRecurringExpensesOnce = false
-        expensesErrorMessage = nil
-        recurringExpensesErrorMessage = nil
-        saveErrorMessage = nil
-
-        if didChangeServer {
-            clearPersistedSession()
-            authDebugMessage = nil
-            isAuthResolved = true
-        }
-    }
-
     func add(_ gasto: Expense) {
         let normalized = Self.normalizedExpense(gasto)
         gastos.removeAll { $0.id == normalized.id }
