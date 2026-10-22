@@ -340,71 +340,107 @@ struct BudgetDetailView: View {
         }
     }
 
+    /// Gastos planeados de una categoría desplegada. Siguen a las filas de
+    /// Gastos: icono de la categoría en su color, pago y fecha debajo y el
+    /// monto con signo. Tocar la fila la edita; el menú de los tres puntos (o
+    /// mantener pulsado) también deja eliminarla.
     private func movementsList(_ category: BudgetCategoryDetail) -> some View {
-        VStack(spacing: 0) {
-            ForEach(category.movimientos.sorted { $0.parsedDate > $1.parsedDate }) { movement in
-                HStack(spacing: 4) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(movement.descripcion)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.primaryText)
-                            .lineLimit(1)
-                        if let tags = movement.tags, !tags.isEmpty {
-                            HStack(spacing: 4) {
-                                ForEach(tags.prefix(4), id: \.self) { tag in
-                                    Text("#\(tag)")
-                                        .font(.caption2.weight(.medium))
-                                        .foregroundStyle(AppTheme.secondaryText)
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 1)
-                                        .background(Capsule().fill(AppTheme.popoverSurface))
-                                }
-                            }
-                        }
-                        Text(movement.parsedDate.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "es"))))
-                            .font(.caption)
-                            .monospacedDigit()
-                            .foregroundStyle(AppTheme.tertiaryText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(money(movement.monto))
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(AppTheme.primaryText)
-                        .padding(.trailing, 2)
-                    iconButton("pencil", label: "Editar \(movement.descripcion)") {
-                        presentedSheet = .movement(.init(category: category, movement: movement))
-                    }
-                    iconButton(
-                        detailStore.deletingMovementIDs.contains(movement.id) ? "hourglass" : "trash",
-                        label: "Eliminar \(movement.descripcion)"
-                    ) {
-                        movementToDelete = movement
-                    }
-                    .disabled(detailStore.deletingMovementIDs.contains(movement.id))
-                }
-                .padding(.leading, 42)
-                .padding(.trailing, 6)
-                .padding(.vertical, 10)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(AppTheme.primaryText.opacity(0.05)).frame(height: 1)
-                }
+        let movements = category.movimientos.sorted { $0.parsedDate > $1.parsedDate }
+        return VStack(spacing: 0) {
+            ForEach(movements) { movement in
+                movementRow(movement, in: category)
+                AppHairline().padding(.leading, 66)
             }
 
             Button {
                 openMovementEditor(for: category)
             } label: {
-                Label("Agregar gasto", systemImage: "plus")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                    .padding(.leading, 42)
-                    .contentShape(.rect)
+                HStack(spacing: 12) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().strokeBorder(AppTheme.strongBorder, style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])))
+                    Text("Agregar gasto")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 16)
+                .frame(minHeight: 56)
+                .contentShape(.rect)
             }
             .buttonStyle(.plain)
         }
         .background(AppTheme.primaryText.opacity(0.025))
         .overlay(alignment: .top) { AppHairline() }
+    }
+
+    private func movementRow(_ movement: BudgetMovement, in category: BudgetCategoryDetail) -> some View {
+        let categoria = category.displayCategory
+        let isDeleting = detailStore.deletingMovementIDs.contains(movement.id)
+        let payment = session.metodosPago.first { $0.id == movement.metodoPagoId }
+        let tags = (movement.tags ?? []).filter { $0 != "auto" }
+        let date = movement.parsedDate.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "es")))
+        let subtitle = ([payment?.shortLabel, date] + tags.prefix(2).map { "#\($0)" })
+            .compactMap { $0 }
+            .joined(separator: " · ")
+        let edit = { presentedSheet = .movement(.init(category: category, movement: movement)) }
+
+        return HStack(spacing: 12) {
+            Button(action: edit) {
+                HStack(spacing: 12) {
+                    CategoryGlyph(
+                        categoria: categoria,
+                        size: 36,
+                        tint: categoria.color,
+                        background: categoria.color.opacity(0.16),
+                        isCircular: true
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(movement.descripcion)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppTheme.primaryText)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.tertiaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Text("−\(money(movement.monto))")
+                        .font(.system(size: 15, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.primaryText)
+                        .fixedSize()
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Editar")
+
+            Menu {
+                Button("Editar", systemImage: "pencil", action: edit)
+                Button("Eliminar", systemImage: "trash", role: .destructive) { movementToDelete = movement }
+            } label: {
+                Image(systemName: isDeleting ? "hourglass" : "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.tertiaryText)
+                    .frame(width: 36, height: 44)
+                    .contentShape(.rect)
+            }
+            .disabled(isDeleting)
+            .accessibilityLabel("Opciones de \(movement.descripcion)")
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .padding(.vertical, 8)
+        .opacity(isDeleting ? 0.5 : 1)
+        .contextMenu {
+            Button("Editar", systemImage: "pencil", action: edit)
+            Button("Eliminar", systemImage: "trash", role: .destructive) { movementToDelete = movement }
+        }
     }
 
     private var emptyCategories: some View {
@@ -476,18 +512,6 @@ struct BudgetDetailView: View {
         }
         .frame(height: height)
         .accessibilityHidden(true)
-    }
-
-    private func iconButton(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(AppTheme.tertiaryText)
-                .frame(width: 44, height: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     private func money(_ value: Double) -> String {
