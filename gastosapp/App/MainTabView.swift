@@ -42,6 +42,11 @@ struct MainTabView: View {
                 NotificationsScreenContainer {
                     withAnimation(AppMotion.expand) { navigator.showsNotifications = false }
                 }
+                // Este overlay va por fuera de los `.environment` de arriba,
+                // que sólo alcanzan al contenido de la pestaña: sin pasarlos
+                // aquí la pantalla no encontraba el navegador y se cerraba la app.
+                .environment(navigator)
+                .environment(inbox)
                 .transition(.move(edge: .trailing))
                 .zIndex(1)
             }
