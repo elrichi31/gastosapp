@@ -31,7 +31,7 @@ struct RegisterView: View {
                     }
                     .buttonStyle(.pressable)
                     .accessibilityLabel("Volver a iniciar sesión")
-                    Text("Zenlor")
+                    Text("BethaSpend")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppTheme.secondaryText)
                 }

@@ -35,7 +35,7 @@ private struct TodaySpendingView: View {
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text(entry.summary == nil ? "Abre Zenlor" : "\(entry.monthName): \(entry.monthTotal.widgetCurrencyRounded)")
+                Text(entry.summary == nil ? "Abre BethaSpend" : "\(entry.monthName): \(entry.monthTotal.widgetCurrencyRounded)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

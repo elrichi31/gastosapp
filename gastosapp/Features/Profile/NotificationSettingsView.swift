@@ -264,7 +264,7 @@ struct NotificationSettingsView: View {
                             .frame(width: 38, height: 38)
                             .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(AppTheme.tertiaryText.opacity(0.16)))
                             .accessibilityHidden(true)
-                        Text("No recibirás avisos de Zenlor.")
+                        Text("No recibirás avisos de BethaSpend.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.secondaryText)
                         Spacer(minLength: 0)

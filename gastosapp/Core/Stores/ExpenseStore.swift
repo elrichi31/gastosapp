@@ -39,8 +39,22 @@ private struct PendingExpenseDeletion: Codable, Identifiable {
 @Observable
 final class ExpenseStore {
     var gastos: [Expense] = [] {
-        didSet { WidgetSummaryPublisher.publish(expenses: gastos) }
+        didSet {
+            expensesRevision &+= 1
+            // Mientras llega la caché la lista está incompleta: el widget
+            // mostraría totales de menos.
+            if !isRestoringCache { WidgetSummaryPublisher.publish(expenses: gastos) }
+        }
     }
+    /// Sube con cada cambio de `gastos`. Las vistas lo usan en `onChange` para
+    /// recalcular sin comparar el historial entero elemento a elemento.
+    private(set) var expensesRevision = 0
+    /// La caché de gastos se lee en segundo plano al arrancar; mientras tanto
+    /// las pantallas muestran el esqueleto de carga y no un «sin gastos».
+    private(set) var isRestoringCache = false
+    /// Borrados hechos antes de que llegara la caché, para no resucitarlos.
+    private var removedBeforeCacheRestore: Set<Int> = []
+    private var catalogsTask: Task<Void, Never>?
     var recurringExpenses: [RecurringExpense] = []
     var categorias: [Categoria] = Categoria.fallback
     var metodosPago: [ExpensePaymentMethod] = ExpensePaymentMethod.fallback
@@ -103,16 +117,63 @@ final class ExpenseStore {
         self.pendingExpenseDeletions = Self.loadPendingExpenseDeletions()
         self.categorias = Self.loadCachedValue([Categoria].self, key: Self.cachedCategoriesKey) ?? Categoria.fallback
         self.metodosPago = Self.loadCachedValue([ExpensePaymentMethod].self, key: Self.cachedPaymentMethodsKey) ?? ExpensePaymentMethod.fallback
-        let cachedExpenses = Self.normalizedCachedExpenses(
-            Self.loadCachedValue([Expense].self, key: Self.cachedExpensesKey) ?? []
-        )
-        let pendingDeletionIDs = Set(pendingExpenseDeletions.map(\.id))
-        self.gastos = (cachedExpenses.filter { !pendingDeletionIDs.contains($0.id) } + pendingExpenseDrafts
+        // Al principio sólo los pendientes (pocos); el historial de la caché
+        // se lee en segundo plano para no retrasar la primera pantalla.
+        self.gastos = pendingExpenseDrafts
             .map { $0.asExpense(categorias: categorias, metodosPago: metodosPago) }
-        )
             .sorted { $0.fecha > $1.fecha }
         self.recurringExpenses = Self.loadCachedValue([RecurringExpense].self, key: Self.cachedRecurringExpensesKey) ?? []
         startNetworkMonitoring()
+        if let data = UserDefaults.standard.data(forKey: Self.cachedExpensesKey) {
+            isRestoringCache = true
+            Task { await restoreCachedExpenses(from: data) }
+        } else {
+            WidgetSummaryPublisher.publish(expenses: gastos)
+        }
+    }
+
+    private func restoreCachedExpenses(from data: Data) async {
+        let cached = await Self.decodeCachedExpenses(data)
+        // La red, un cierre de sesión u otra restauración ya decidieron la lista.
+        guard isRestoringCache else { return }
+        let merged = Self.mergeCachedExpenses(
+            cached,
+            into: gastos,
+            excluding: removedBeforeCacheRestore.union(pendingExpenseDeletions.map(\.id))
+        )
+        let changedLocally = !gastos.isEmpty || !removedBeforeCacheRestore.isEmpty
+        isRestoringCache = false
+        removedBeforeCacheRestore = []
+        gastos = merged
+        if changedLocally { persistCachedExpenses() }
+    }
+
+    /// Junta la caché que llega tarde con lo que ya hay en pantalla: lo actual
+    /// gana si el id coincide y lo borrado no vuelve. Ordenado del más nuevo
+    /// al más antiguo.
+    nonisolated static func mergeCachedExpenses(
+        _ cached: [Expense],
+        into current: [Expense],
+        excluding removedIDs: Set<Int>
+    ) -> [Expense] {
+        let skipped = removedIDs.union(current.map(\.id))
+        return (cached.filter { !skipped.contains($0.id) } + current).sorted { $0.fecha > $1.fecha }
+    }
+
+    /// Decodifica y repara las fechas de la caché fuera del hilo principal.
+    private nonisolated static func decodeCachedExpenses(_ data: Data) async -> [Expense] {
+        guard let expenses = try? JSONDecoder().decode([Expense].self, from: data) else { return [] }
+        return expenses.map { expense in
+            var normalized = expense
+            normalized.fecha = AppDateCodec.repairedCachedDateOnly(expense.fecha)
+            return normalized
+        }
+    }
+
+    /// La red ya trae la lista completa: la caché que siga en camino sobra.
+    private func finishCacheRestore() {
+        isRestoringCache = false
+        removedBeforeCacheRestore = []
     }
 
     var hasBaseURLConfigured: Bool {
@@ -153,7 +214,7 @@ final class ExpenseStore {
 
     func refreshSessionActivityWindow() {
         guard isAuthenticated else { return }
-        guard let session: PersistedAuthSession = AuthSessionStore.load(for: Self.authSessionKey) else {
+        guard let session: PersistedAuthSession = try? AuthSessionStore.load(for: Self.authSessionKey) else {
             touchSessionActivity()
             return
         }
@@ -194,7 +255,18 @@ final class ExpenseStore {
 
         var restoredExpiredSession = false
 
-        if let session: PersistedAuthSession = AuthSessionStore.load(for: Self.authSessionKey) {
+        let storedSession: PersistedAuthSession?
+        do {
+            storedSession = try AuthSessionStore.load(for: Self.authSessionKey)
+        } catch {
+            // Arranque en segundo plano antes del primer desbloqueo: se deja
+            // sin resolver y se reintenta al abrir la app, en lugar de quedar
+            // marcado como "sin sesión" hasta que el sistema cierre la app.
+            hasBootstrappedSession = false
+            return
+        }
+
+        if let session = storedSession {
             guard !isSessionExpiredByInactivity(session) else {
                 clearExpiredInactiveSession()
                 isAuthResolved = true
@@ -269,9 +341,11 @@ final class ExpenseStore {
             currentUser = response.user
             authErrorMessage = nil
 
-            await loadCatalogs(force: true)
+            // loadExpenses espera esta misma carga de catálogos en vez de pedir otra.
+            let catalogs = Task { await loadCatalogs(force: true) }
             await syncPendingExpensesIfPossible()
             await loadExpenses(force: true)
+            await catalogs.value
             return true
         } catch {
             guard !isCancellationError(error) else { return false }
@@ -352,12 +426,22 @@ final class ExpenseStore {
     }
 
     func loadCatalogsIfNeeded(force: Bool = false) async {
+        // Si ya hay una carga en curso se espera a ella: quien llama necesita
+        // las categorías ya puestas, no sólo pedidas.
+        if !force, let catalogsTask { await catalogsTask.value; return }
         guard force || !hasLoadedCatalogsOnce else { return }
         await loadCatalogs(force: force)
     }
 
     func loadCatalogs(force: Bool = false) async {
-        guard force || !isLoadingCatalogs else { return }
+        if !force, let catalogsTask { await catalogsTask.value; return }
+        let task = Task { await fetchCatalogs() }
+        catalogsTask = task
+        await task.value
+        if catalogsTask == task { catalogsTask = nil }
+    }
+
+    private func fetchCatalogs() async {
         guard hasBaseURLConfigured else {
             catalogErrorMessage = "Configura la URL del backend para cargar categorías y métodos."
             return
@@ -417,7 +501,9 @@ final class ExpenseStore {
             return
         }
 
-        await loadCatalogsIfNeeded()
+        // Categorías y gastos se piden a la vez; las categorías sólo hacen
+        // falta al convertir los gastos, así que se esperan justo ahí.
+        let catalogs = Task { await loadCatalogsIfNeeded() }
         await syncPendingExpensesIfPossible()
 
         isLoadingExpenses = true
@@ -429,22 +515,24 @@ final class ExpenseStore {
                 path: "/api/gastos",
                 requiresAuth: true
             )
+            await catalogs.value
 
-            let pendingDeletionIDs = Set(pendingExpenseDeletions.map(\.id))
-            let syncedExpenses = remoteExpenses
-                .map { $0.asExpense(categorias: categorias, metodosPago: metodosPago) }
-                .filter { !pendingDeletionIDs.contains($0.id) }
-            let pendingExpenses = pendingExpenseDrafts.map { $0.asExpense(categorias: categorias, metodosPago: metodosPago) }
-
-            gastos = (syncedExpenses + pendingExpenses)
-                .sorted { $0.fecha > $1.fecha }
+            let built = await Self.buildExpenses(
+                remote: remoteExpenses,
+                pending: pendingExpenseDrafts,
+                excluding: Set(pendingExpenseDeletions.map(\.id)),
+                categorias: categorias,
+                metodosPago: metodosPago
+            )
+            finishCacheRestore()
+            gastos = built
             persistCachedExpenses()
             expensesErrorMessage = nil
             hasLoadedExpensesOnce = true
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
         } catch {
             guard !isCancellationError(error) else { return }
-            if isConnectivityError(error), !gastos.isEmpty {
+            if isConnectivityError(error), !gastos.isEmpty || isRestoringCache {
                 expensesErrorMessage = nil
                 hasLoadedExpensesOnce = true
             } else {
@@ -817,11 +905,8 @@ final class ExpenseStore {
         do {
             try await deleteRemoteExpense(id: id)
             expensesErrorMessage = nil
-            await loadExpenses(force: true)
-            if gastos.contains(where: { $0.id == id }) {
-                expensesErrorMessage = "La API respondio OK, pero el gasto sigue existiendo. Revisa que el id pertenezca al usuario autenticado."
-                return false
-            }
+            // Ya se quitó de la lista local antes de llamar a la API: no hace
+            // falta volver a bajar todo el historial para confirmarlo.
             showSyncStatus("Gasto eliminado")
             await LocalNotificationManager.prepareWeeklySummary(expenses: gastos)
             return true
@@ -931,6 +1016,7 @@ final class ExpenseStore {
         refreshToken = ""
         tokenType = "bearer"
         expiresAt = nil
+        finishCacheRestore()
         gastos = []
         recurringExpenses = []
         hasLoadedExpensesOnce = false
@@ -1036,10 +1122,32 @@ final class ExpenseStore {
         )
 
         do {
-            return try JSONDecoder().decode(type, from: data)
+            return try await Self.decode(type, from: data)
         } catch {
             throw ExpenseStoreError.decoding(error)
         }
+    }
+
+    /// `nonisolated async`: se ejecuta fuera del hilo principal, así que
+    /// decodificar un historial grande no traba la interfaz.
+    private nonisolated static func decode<T: Decodable>(_ type: T.Type, from data: Data) async throws -> T {
+        try JSONDecoder().decode(type, from: data)
+    }
+
+    /// Convierte, filtra y ordena los gastos fuera del hilo principal.
+    nonisolated static func buildExpenses(
+        remote: [RemoteExpense],
+        pending: [PendingExpenseDraft],
+        excluding deletedIDs: Set<Int>,
+        categorias: [Categoria],
+        metodosPago: [ExpensePaymentMethod]
+    ) async -> [Expense] {
+        let synced = remote
+            .lazy
+            .filter { !deletedIDs.contains($0.id) }
+            .map { $0.asExpense(categorias: categorias, metodosPago: metodosPago) }
+        let local = pending.map { $0.asExpense(categorias: categorias, metodosPago: metodosPago) }
+        return (Array(synced) + local).sorted { $0.fecha > $1.fecha }
     }
 
     private func rawRequest(
@@ -1232,6 +1340,7 @@ final class ExpenseStore {
 
     private func removeExpenseLocally(id: Int) {
         deletingExpenseIDs.insert(id)
+        if isRestoringCache { removedBeforeCacheRestore.insert(id) }
         gastos.removeAll { $0.id == id }
         persistCachedExpenses()
         hasLoadedExpensesOnce = true
@@ -1319,6 +1428,9 @@ final class ExpenseStore {
     }
 
     private func persistCachedExpenses() {
+        // Con la caché aún en camino la lista está incompleta; al llegar se
+        // fusiona y se guarda entera.
+        guard !isRestoringCache else { return }
         let syncedExpenses = gastos.filter { $0.id >= 0 }.map(Self.normalizedExpense)
         persistCachedValue(syncedExpenses, key: Self.cachedExpensesKey)
     }
@@ -1362,14 +1474,6 @@ final class ExpenseStore {
     private static func loadCachedValue<T: Decodable>(_ type: T.Type, key: String) -> T? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
-    }
-
-    private static func normalizedCachedExpenses(_ expenses: [Expense]) -> [Expense] {
-        expenses.map { expense in
-            var normalized = expense
-            normalized.fecha = AppDateCodec.repairedCachedDateOnly(expense.fecha)
-            return normalized
-        }
     }
 
     private static func normalizedExpense(_ expense: Expense) -> Expense {

@@ -116,7 +116,7 @@ struct ExpenseExtrasFields: View {
                     .foregroundStyle(AppTheme.negative)
             }
         }
-        .onChange(of: store.gastos, initial: true) {
+        .onChange(of: store.expensesRevision, initial: true) {
             var usage: [String: Int] = [:]
             for tag in store.gastos.lazy.flatMap({ $0.tags ?? [] }) { usage[tag, default: 0] += 1 }
             tagUsage = usage

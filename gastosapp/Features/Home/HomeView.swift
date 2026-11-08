@@ -167,7 +167,7 @@ struct HomeView: View {
             emailReview.tab = "nuevos"
             await emailReview.load(using: store)
         }
-        .onChange(of: store.gastos) {
+        .onChange(of: store.expensesRevision) {
             rebuildDashboardSnapshot()
         }
         .onChange(of: store.recurringExpenses) {
@@ -295,7 +295,7 @@ struct HomeView: View {
     private func summaryContent(_ snapshot: HomeDashboardSnapshot) -> some View {
         // Mientras carga, esqueleto: el resumen vacío diría «no hay gastos»
         // antes de saberlo.
-        if (isLoadingHomeData || store.isLoadingExpenses) && snapshot.monthExpenses.isEmpty {
+        if (isLoadingHomeData || store.isLoadingExpenses || store.isRestoringCache) && snapshot.monthExpenses.isEmpty {
             HomeLoadingSkeleton()
         } else if snapshot.monthExpenses.isEmpty {
             if pendingEmailCount > 0 {

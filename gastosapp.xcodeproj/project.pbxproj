@@ -504,7 +504,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Zenlor-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_CFBundleDisplayName = BethaSpend;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -543,7 +543,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Zenlor-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_CFBundleDisplayName = BethaSpend;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -657,7 +657,7 @@
 				DEVELOPMENT_TEAM = 2CUL7U32ZF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ZenlorWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_CFBundleDisplayName = BethaSpend;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -688,7 +688,7 @@
 				DEVELOPMENT_TEAM = 2CUL7U32ZF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ZenlorWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Zenlor;
+				INFOPLIST_KEY_CFBundleDisplayName = BethaSpend;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (

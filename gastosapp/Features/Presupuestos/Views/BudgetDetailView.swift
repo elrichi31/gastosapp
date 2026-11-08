@@ -51,7 +51,7 @@ struct BudgetDetailView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onChange(of: session.gastos, initial: true) { cachedSpending = makeSpendingSnapshot() }
+        .onChange(of: session.expensesRevision, initial: true) { cachedSpending = makeSpendingSnapshot() }
         .onChange(of: detailStore.categories) { cachedSpending = makeSpendingSnapshot() }
         .swipeBackBehavior()
         .environment(detailStore)

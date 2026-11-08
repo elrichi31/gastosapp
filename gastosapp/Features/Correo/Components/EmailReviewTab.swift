@@ -13,15 +13,15 @@ enum EmailReviewTab: String, CaseIterable, Identifiable {
     var emptyTitle: String {
         switch self {
         case .nuevos: "Todo al día"
-        case .duplicados: "Sin duplicados por revisar"
-        case .recibidos: "Sin devoluciones pendientes"
+        case .duplicados: "Sin duplicados"
+        case .recibidos: "Sin devoluciones"
         }
     }
-    var help: String {
+    var emptyMessage: String {
         switch self {
-        case .nuevos: "Revisa los consumos antes de guardarlos en tus gastos."
-        case .duplicados: "Comprueba si estos consumos ya están registrados."
-        case .recibidos: "Vincula una devolución para descontarla del gasto original."
+        case .nuevos: "Te avisaremos cuando llegue un movimiento nuevo."
+        case .duplicados: "Aquí verás movimientos que ya registraste."
+        case .recibidos: "Aquí verás reembolsos y transferencias recibidas."
         }
     }
 }

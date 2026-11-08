@@ -202,9 +202,9 @@ private struct MonthChangeLabel: View {
 private struct EmptySpendingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            WidgetEyebrow(text: "Zenlor")
+            WidgetEyebrow(text: "BethaSpend")
             Spacer(minLength: 0)
-            Text("Abre Zenlor para ver tus gastos aquí.")
+            Text("Abre BethaSpend para ver tus gastos aquí.")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(WidgetTheme.primaryText)
         }

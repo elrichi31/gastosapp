@@ -14,6 +14,15 @@ final class BudgetStore {
     var saveStatusMessage: String?
 
     private var hasLoadedBudgetsOnce = false
+    /// Año cuya carga ya terminó (bien o mal). Al cambiar de año, `budgets`
+    /// sigue teniendo los del anterior hasta que llega la respuesta.
+    private(set) var loadedYear: Int?
+    /// Plan muestra el esqueleto y no «sin presupuestos» mientras el año
+    /// elegido aún no ha terminado de cargarse.
+    var isLoadingSelectedYear: Bool { isLoadingBudgets || loadedYear != selectedYear }
+    /// Presupuestos de años que no son el elegido en Plan, pedidos sólo para
+    /// consultar un mes (p. ej. el aviso al registrar un gasto).
+    private var budgetsByOtherYear: [Int: [BudgetMonthly]] = [:]
     private static let cachedBudgetsKey = "budget.cache.monthlyBudgets"
     init() {
         budgets = Self.loadCachedBudgets()
@@ -22,6 +31,8 @@ final class BudgetStore {
     func loadBudgets(using session: ExpenseStore, force: Bool = false) async {
         guard force || !hasLoadedBudgetsOnce else { return }
         guard !isLoadingBudgets else { return }
+        let year = selectedYear
+        defer { loadedYear = year }
         guard session.hasBaseURLConfigured else {
             errorMessage = budgets.isEmpty ? "Configura la URL del backend para ver tus presupuestos." : nil
             return
@@ -35,7 +46,7 @@ final class BudgetStore {
         defer { isLoadingBudgets = false }
 
         do {
-            let path = "/api/presupuestos?anio=\(selectedYear)&include_expense_count=true"
+            let path = "/api/presupuestos?anio=\(year)&include_expense_count=true"
             let remote: [BudgetMonthly] = try await request([BudgetMonthly].self, path: path, baseURL: session.apiBaseURL, authHeader: authHeader)
             budgets = remote.sorted { lhs, rhs in
                 if lhs.anio != rhs.anio { return lhs.anio < rhs.anio }
@@ -44,6 +55,7 @@ final class BudgetStore {
             persistCachedBudgets()
             errorMessage = nil
             hasLoadedBudgetsOnce = true
+            budgetsByOtherYear[year] = nil
         } catch {
             guard !isCancellationError(error) else { return }
             if isConnectivityError(error), !budgets.isEmpty {
@@ -53,6 +65,33 @@ final class BudgetStore {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Si se eligió otro año mientras llegaba la respuesta, la carga de ese
+    /// año se había descartado (`isLoadingBudgets`); se pide ahora.
+    func loadBudgetsForSelectedYearIfStale(using session: ExpenseStore) async {
+        guard !isLoadingBudgets, loadedYear != selectedYear else { return }
+        await loadBudgets(using: session, force: true)
+    }
+
+    /// El presupuesto de un mes cualquiera, sin cambiar el año elegido en Plan:
+    /// `budgets` sólo guarda ese año, y quien registra un gasto necesita el
+    /// del mes del gasto.
+    func budget(year: Int, month: Int, using session: ExpenseStore) async -> BudgetMonthly? {
+        if let budget = budgets.first(where: { $0.anio == year && $0.mes == month }) { return budget }
+        // Año elegido ya cargado y sin ese mes: no existe.
+        if year == selectedYear, hasLoadedBudgetsOnce { return nil }
+        if budgetsByOtherYear[year] == nil {
+            guard
+                session.hasBaseURLConfigured,
+                let authHeader = await session.authorizationHeaderValueRefreshingIfNeeded(),
+                let remote = try? await request(
+                    [BudgetMonthly].self, path: "/api/presupuestos?anio=\(year)",
+                    baseURL: session.apiBaseURL, authHeader: authHeader)
+            else { return nil }
+            budgetsByOtherYear[year] = remote
+        }
+        return budgetsByOtherYear[year]?.first { $0.mes == month }
     }
 
     func createBudget(using session: ExpenseStore, year: Int, month: Int) async -> Bool {

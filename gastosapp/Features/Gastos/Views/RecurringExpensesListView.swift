@@ -114,11 +114,6 @@ struct RecurringExpensesListView: View {
                 await store.loadRecurringExpenses(force: true)
             }
         }
-        .confirmationDialog("¿Saltar el próximo cobro?", isPresented: Binding(get: { recurringToSkip != nil }, set: { if !$0 { recurringToSkip = nil } }), titleVisibility: .visible) {
-            if let item = recurringToSkip {
-                Button("Saltar cobro de " + item.descripcion) { Task { _ = await store.skipRecurringCharge(item); recurringToSkip = nil } }
-            }
-        } message: { Text("La regla seguirá activa para los siguientes cobros.") }
         .task {
             await store.loadCatalogsIfNeeded()
             await store.loadRecurringExpensesIfNeeded()
@@ -357,6 +352,14 @@ struct RecurringExpensesListView: View {
                         recurringToSkip = item
                     }
                     .accessibilityLabel("Saltar el próximo cobro de \(item.descripcion)")
+                    // Colgado del botón y no de la pantalla: en iOS 26 el
+                    // diálogo es un popover anclado a la vista que lo presenta.
+                    .confirmationDialog("¿Saltar el próximo cobro?", isPresented: Binding(
+                        get: { recurringToSkip?.id == item.id },
+                        set: { if !$0 { recurringToSkip = nil } }
+                    ), titleVisibility: .visible) {
+                        Button("Saltar cobro de " + item.descripcion) { Task { _ = await store.skipRecurringCharge(item); recurringToSkip = nil } }
+                    } message: { Text("La regla seguirá activa para los siguientes cobros.") }
                 }
                 actionButton("Editar", icon: "pencil", tint: AppTheme.primaryText, fill: AppTheme.popoverSurface) {
                     recurringToEdit = item

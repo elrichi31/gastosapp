@@ -21,6 +21,9 @@ struct BudgetsView: View {
     @State private var presentedSheet: PresentedSheet?
     @State private var budgetToDelete: BudgetMonthly?
     @State private var path: [Route] = []
+    /// Gasto por mes del año elegido. Se recalcula sólo cuando cambian los
+    /// gastos o el año, no en cada redibujo de la pantalla.
+    @State private var monthlySpending = Self.emptySpending
 
     private static let cal = Calendar.current
     private static let monthSymbols = SpanishCalendar.monthSymbols.map(\.capitalized)
@@ -85,6 +88,14 @@ struct BudgetsView: View {
                     }
             }
             .task { await loadAnnualData() }
+            .onChange(of: session.expensesRevision, initial: true) { monthlySpending = makeMonthlySpending() }
+            .onChange(of: budgets.selectedYear) { monthlySpending = makeMonthlySpending() }
+            // Si se cambió de año con otra carga en curso, al terminar esa se
+            // pide la del año elegido.
+            .onChange(of: budgets.isLoadingBudgets) { _, loading in
+                guard !loading else { return }
+                Task { await budgets.loadBudgetsForSelectedYearIfStale(using: session) }
+            }
         }
         .alert("Quitar mes", isPresented: deleteAlertBinding) {
             Button("Cancelar", role: .cancel) { budgetToDelete = nil }
@@ -161,7 +172,9 @@ struct BudgetsView: View {
 
     @ViewBuilder
     private var content: some View {
-        if budgets.isLoadingBudgets && budgets.budgets.isEmpty {
+        // Mientras se carga el año elegido, sus meses aún no están: sin esto
+        // se veía un momento «No puedes crear presupuestos para años anteriores».
+        if yearBudgets.isEmpty && budgets.isLoadingSelectedYear {
             ListRowsSkeleton(label: "Cargando presupuestos")
                 .transition(.opacity)
         } else if yearBudgets.isEmpty {
@@ -499,15 +512,23 @@ struct BudgetsView: View {
     }
 
     /// Gasto y número de gastos por mes del año elegido, de enero a diciembre.
-    private var monthlySpending: [MonthSpending] {
-        let year = budgets.selectedYear
-        let grouped = Dictionary(grouping: session.gastos.filter { Self.cal.component(.year, from: $0.fecha) == year }) {
-            Self.cal.component(.month, from: $0.fecha)
+    private static let emptySpending = Array(repeating: MonthSpending(total: 0, count: 0), count: 12)
+
+    private func makeMonthlySpending() -> [MonthSpending] {
+        // Los límites del año se calculan una vez y luego sólo se comparan
+        // fechas; el mes sólo se saca de los gastos de ese año.
+        guard
+            let start = Self.cal.date(from: DateComponents(year: budgets.selectedYear, month: 1, day: 1)),
+            let end = Self.cal.date(byAdding: .year, value: 1, to: start)
+        else { return Self.emptySpending }
+        var totals = [Double](repeating: 0, count: 12)
+        var counts = [Int](repeating: 0, count: 12)
+        for expense in session.gastos where expense.fecha >= start && expense.fecha < end {
+            let index = Self.cal.component(.month, from: expense.fecha) - 1
+            totals[index] += expense.monto
+            counts[index] += 1
         }
-        return (1...12).map { month in
-            let items = grouped[month] ?? []
-            return MonthSpending(total: items.reduce(0) { $0 + $1.monto }, count: items.count)
-        }
+        return (0..<12).map { MonthSpending(total: totals[$0], count: counts[$0]) }
     }
 
     private typealias YearStats = (total: Double, count: Int, average: Double, monthsWithSpending: Int, highest: (month: Int, total: Double)?)
@@ -612,6 +633,7 @@ struct BudgetsView: View {
 
     private func loadAnnualData(force: Bool = false) async {
         await budgets.loadBudgets(using: session, force: force)
+        await budgets.loadBudgetsForSelectedYearIfStale(using: session)
         if force {
             await session.loadExpenses(force: true)
         } else {

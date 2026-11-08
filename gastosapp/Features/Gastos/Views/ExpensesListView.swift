@@ -116,7 +116,7 @@ struct ExpensesListView: View {
                 // al usuario sin forma de volver.
                 sectionRow { totalBlock }
 
-                if (!hasLoaded || store.isLoadingExpenses) && snapshot.monthExpensesBase.isEmpty {
+                if (!hasLoaded || store.isLoadingExpenses || store.isRestoringCache) && snapshot.monthExpensesBase.isEmpty {
                     sectionRow { loadingState }
                 } else if snapshot.monthExpensesBase.isEmpty {
                     sectionRow { emptyMonthState }
@@ -170,7 +170,7 @@ struct ExpensesListView: View {
             rebuildSnapshot()
             hasLoaded = true
         }
-        .onChange(of: store.gastos) { rebuildSnapshot() }
+        .onChange(of: store.expensesRevision) { rebuildSnapshot() }
         .onChange(of: mesActual) {
             selectedCategoryID = nil
             rebuildSnapshot()

@@ -86,7 +86,7 @@ struct StatsView: View {
                 await forecastModel.load(using: expenses)
             }
         }
-        .onChange(of: expenses.gastos) {
+        .onChange(of: expenses.expensesRevision) {
             availablePeriods = StatsPeriodAnalysis.availablePeriods(from: expenses.gastos)
             rebuild()
         }

@@ -34,6 +34,8 @@ struct ContentView: View {
             guard phase == .active else { return }
             store.refreshSessionActivityWindow()
             Task {
+                // Por si el arranque fue en segundo plano y no pudo leer la sesión.
+                await store.bootstrapSessionIfNeeded()
                 await store.renewMobileSessionWindowIfPossible()
             }
         }

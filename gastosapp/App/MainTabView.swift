@@ -126,7 +126,7 @@ struct MainTabView: View {
             await inbox.refresh(store: store, budgets: budgets)
         }
         .onChange(of: budgets.budgets) { Task { await inbox.refresh(store: store, budgets: budgets) } }
-        .onChange(of: store.gastos) { inbox.rebuild(store: store) }
+        .onChange(of: store.expensesRevision) { inbox.rebuild(store: store) }
         .onChange(of: store.recurringExpenses) { inbox.rebuild(store: store) }
 
     }

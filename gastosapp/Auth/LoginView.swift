@@ -72,10 +72,12 @@ struct LoginView: View {
                 .frame(width: 40, height: 40)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityHidden(true)
-            Text("Zenlor")
-                .font(.system(size: 20, weight: .bold))
-                .tracking(-0.3)
-                .foregroundStyle(AppTheme.primaryText)
+            // Logotipo del manual de marca: "Betha" en negrita y "Spend" en
+            // peso normal y color de acento, pegados.
+            Text("\(Text("Betha").fontWeight(.bold).foregroundStyle(AppTheme.primaryText))\(Text("Spend").fontWeight(.regular).foregroundStyle(AppTheme.accent))")
+                .font(.system(size: 20))
+                .tracking(-0.5)
+                .accessibilityLabel("BethaSpend")
         }
     }
 

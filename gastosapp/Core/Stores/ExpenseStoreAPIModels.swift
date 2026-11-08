@@ -73,7 +73,6 @@ struct RemoteExpense: Decodable {
         case metodoPago = "metodo_pago"
     }
 
-    @MainActor
     func asExpense(categorias: [Categoria], metodosPago: [ExpensePaymentMethod]) -> Expense {
         let resolvedCategoria = categoria
             ?? categorias.first(where: { $0.id == categoriaId })

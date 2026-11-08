@@ -33,6 +33,12 @@ struct AddExpenseView: View {
     @State private var userPickedCategory = false
     @State private var userPickedPaymentMethod = false
     @State private var activeSuggestion: ExpenseSmartSuggestion?
+    /// Lo ya gastado en la categoría y mes elegidos. Es una clase para poder
+    /// guardarlo mientras se dibuja sin provocar otro redibujo.
+    @State private var spentMemo = SpentMemo()
+    /// Mes (año·100 + mes) cuyo presupuesto está cargado en `budgetDetail`.
+    /// El aviso sólo se muestra si coincide con el mes de la fecha elegida.
+    @State private var loadedBudgetMonth: Int?
     @FocusState private var focusedField: FocusField?
 
     init(editingExpense: Expense? = nil, onSaved: @escaping () -> Void = {}) {
@@ -150,6 +156,9 @@ struct AddExpenseView: View {
         .onChange(of: budgetStore.budgets) {
             Task { await loadBudgetDetail() }
         }
+        .onChange(of: Self.monthKey(fecha)) {
+            Task { await loadBudgetDetail() }
+        }
     }
 
     private var registeredTotal: Double {
@@ -174,21 +183,16 @@ struct AddExpenseView: View {
             return ("Ingresa un monto para ver el efecto en tu presupuesto", AppTheme.placeholderText)
         }
         guard
+            loadedBudgetMonth == Self.monthKey(fecha),
             let category = categoriaSeleccionada,
             let line = budgetDetail.categories.first(where: { $0.categoriaId == category.id }),
             line.budgetedAmount > 0
         else { return nil }
 
-        // Se recalcula a cada tecla del monto: el mes se resuelve una vez y
-        // luego sólo se comparan fechas.
+        // Se dibuja a cada tecla del monto, pero lo ya gastado sólo cambia con
+        // la categoría, el mes o los gastos: se recorre el historial una vez.
         guard let month = Calendar.current.dateInterval(of: .month, for: fecha) else { return nil }
-        let editingID = editingExpense?.id
-        let spent = store.gastos.reduce(0) { total, expense in
-            expense.categoriaId == category.id && expense.id != editingID
-                && expense.fecha >= month.start && expense.fecha < month.end
-                ? total + expense.monto : total
-        }
-        let after = spent + registeredTotal
+        let after = spentInMonth(category: category.id, month: month) + registeredTotal
         let limit = line.budgetedAmount
         let amounts = "\(money(after)) / \(money(limit))"
         let ratio = after / limit
@@ -197,16 +201,52 @@ struct AddExpenseView: View {
         return ("\(category.nombre) quedaría en \(amounts)", AppTheme.accent)
     }
 
+    private func spentInMonth(category: Int, month: DateInterval) -> Double {
+        let editingID = editingExpense?.id
+        let key = SpentMemo.Key(category: category, monthStart: month.start, editingID: editingID,
+                                revision: store.expensesRevision)
+        if spentMemo.key == key { return spentMemo.value }
+        let spent = store.gastos.reduce(0) { total, expense in
+            expense.categoriaId == category && expense.id != editingID
+                && expense.fecha >= month.start && expense.fecha < month.end
+                ? total + expense.monto : total
+        }
+        spentMemo.key = key
+        spentMemo.value = spent
+        return spent
+    }
+
+    private final class SpentMemo {
+        struct Key: Equatable {
+            let category: Int
+            let monthStart: Date
+            let editingID: Int?
+            let revision: Int
+        }
+        var key: Key?
+        var value: Double = 0
+    }
+
     private func money(_ value: Double) -> String {
         value.formatted(.currency(code: "USD").precision(.fractionLength(2)))
     }
 
     private func loadBudgetDetail() async {
-        let cal = Calendar.current
-        guard let budget = budgetStore.budgets.first(where: {
-            $0.anio == cal.component(.year, from: fecha) && $0.mes == cal.component(.month, from: fecha)
-        }) else { return }
+        let key = Self.monthKey(fecha)
+        // No se mira sólo `budgetStore.budgets`: guarda el año elegido en Plan,
+        // y si ahí había otro año el aviso no aparecía.
+        guard let budget = await budgetStore.budget(year: key / 100, month: key % 100, using: store) else {
+            if Self.monthKey(fecha) == key { loadedBudgetMonth = nil }
+            return
+        }
         await budgetDetail.loadDetail(using: store, budgetID: budget.id)
+        // Si mientras tanto se eligió otro mes, esa otra carga manda.
+        if Self.monthKey(fecha) == key { loadedBudgetMonth = key }
+    }
+
+    private static func monthKey(_ date: Date) -> Int {
+        let parts = Calendar.current.dateComponents([.year, .month], from: date)
+        return (parts.year ?? 0) * 100 + (parts.month ?? 0)
     }
 
     @ViewBuilder

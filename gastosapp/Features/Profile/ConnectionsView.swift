@@ -23,6 +23,13 @@ struct ConnectionsView: View {
                                 Text("Vence: " + connection.expires_at.prefix(10)).font(.caption)
                                 Text((connection.scopes ?? []).joined(separator: ", ")).font(.caption)
                                 Button("Revocar acceso", role: .destructive) { revoke = connection }
+                                    // Anclado al botón: en iOS 26 el diálogo es un popover.
+                                    .confirmationDialog("¿Revocar el acceso de ChatGPT?", isPresented: Binding(
+                                        get: { revoke?.id == connection.id },
+                                        set: { if !$0 { revoke = nil } }
+                                    ), titleVisibility: .visible) {
+                                        Button("Revocar acceso", role: .destructive) { Task { await mutate(["action": "revoke_connection", "grant_id": connection.id]); revoke = nil } }
+                                    }
                             }
                         }
                     }
@@ -31,18 +38,15 @@ struct ConnectionsView: View {
                     Section("Sesiones") {
                         Text("Cierra todas las sesiones de la web y de la app. Tendrás que iniciar sesión otra vez.")
                         Button("Cerrar todas las sesiones", role: .destructive) { revokeSessions = true }
+                            .confirmationDialog("¿Cerrar todas las sesiones?", isPresented: $revokeSessions, titleVisibility: .visible) {
+                                Button("Cerrar todas", role: .destructive) { Task { await mutate(["action": "revoke_sessions"]) } }
+                            }
                     }
                 }
                 if let error { Section { Text(error).foregroundStyle(AppTheme.negative); Button("Reintentar") { Task { await load() } } } }
             }.navigationTitle("Conexiones y seguridad")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } } }
                 .task { await load() }.refreshable { await load() }.disabled(working)
-                .confirmationDialog("¿Revocar el acceso de ChatGPT?", isPresented: Binding(get: { revoke != nil }, set: { if !$0 { revoke = nil } }), titleVisibility: .visible) {
-                    if let grant = revoke { Button("Revocar acceso", role: .destructive) { Task { await mutate(["action": "revoke_connection", "grant_id": grant.id]); revoke = nil } } }
-                }
-                .confirmationDialog("¿Cerrar todas las sesiones?", isPresented: $revokeSessions, titleVisibility: .visible) {
-                    Button("Cerrar todas", role: .destructive) { Task { await mutate(["action": "revoke_sessions"]) } }
-                }
         }
     }
     private func load() async {

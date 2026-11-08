@@ -91,7 +91,10 @@ final class EmailReviewStore {
         }
     }
 
-    func apply(_ payload: [String: Any], using session: ExpenseStore, method: String = "PATCH") async -> Bool {
+    /// `reloadsExpenses` en falso cuando la acción no crea ni cambia gastos
+    /// (descartar, ignorar): así no se vuelve a bajar todo el historial.
+    func apply(_ payload: [String: Any], using session: ExpenseStore, method: String = "PATCH", success: String? = nil,
+               reloadsExpenses: Bool = true) async -> Bool {
         guard !isWorking else { return false }
         isWorking = true; error = nil
         defer { isWorking = false }
@@ -100,9 +103,11 @@ final class EmailReviewStore {
             let previousExpenses = session.gastos
             let body = try JSONSerialization.data(withJSONObject: payload)
             _ = try await session.request(Result.self, path: "/api/email-import/yahoo", method: method, requiresAuth: true, body: body)
-            message = method == "PUT" ? "Alias guardado" : "Movimiento revisado"
-            await session.loadExpenses(force: true)
-            if let alert = await session.budgetCrossingMessage(before: previousExpenses) { message = alert }
+            message = success ?? (method == "PUT" ? "Alias guardado" : "Movimiento revisado")
+            if reloadsExpenses {
+                await session.loadExpenses(force: true)
+                if let alert = await session.budgetCrossingMessage(before: previousExpenses) { message = alert }
+            }
             await load(using: session, keepsRows: true)
             return true
         } catch { if !isCancellationError(error) { self.error = error.localizedDescription }; return false }
