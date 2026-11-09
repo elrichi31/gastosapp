@@ -15,6 +15,13 @@ final class BudgetDetailStore {
     private var loadedBudgetID: Int?
     private var activeLoadRequestID: UUID?
 
+    /// Pone al momento lo guardado en el dispositivo, sin esperar a la red.
+    func showCachedDetail(budgetID: Int) {
+        guard loadedBudgetID != budgetID || categories.isEmpty else { return }
+        loadedBudgetID = budgetID
+        categories = Self.loadCachedDetail(budgetID: budgetID)
+    }
+
     func loadDetail(using session: ExpenseStore, budgetID: Int) async {
         let requestID = UUID()
         activeLoadRequestID = requestID

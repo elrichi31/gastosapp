@@ -534,7 +534,12 @@ struct HomeView: View {
         isLoadingHomeData = true
         defer { isLoadingHomeData = false }
         // Lo que ya está en el dispositivo se ve al momento; el servidor lo
-        // actualiza después.
+        // actualiza después. El detalle del presupuesto también: sin él,
+        // Resumen mostraba «Define un presupuesto» hasta que acababan todas
+        // las cargas de abajo.
+        if let presupuestoActual {
+            budgetDetailStore.showCachedDetail(budgetID: presupuestoActual.id)
+        }
         rebuildDashboardSnapshot()
 
         await store.loadExpensesIfNeeded()

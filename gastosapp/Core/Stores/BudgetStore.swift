@@ -25,7 +25,9 @@ final class BudgetStore {
     private var budgetsByOtherYear: [Int: [BudgetMonthly]] = [:]
     private static let cachedBudgetsKey = "budget.cache.monthlyBudgets"
     init() {
-        budgets = Self.loadCachedBudgets()
+        // Sólo el año en curso: es el que Resumen necesita nada más abrir.
+        // Cachés antiguas podían tener el último año mirado en Plan.
+        budgets = Self.loadCachedBudgets().filter { $0.anio == selectedYear }
     }
 
     func loadBudgets(using session: ExpenseStore, force: Bool = false) async {
@@ -52,7 +54,7 @@ final class BudgetStore {
                 if lhs.anio != rhs.anio { return lhs.anio < rhs.anio }
                 return lhs.mes < rhs.mes
             }
-            persistCachedBudgets()
+            persistCachedBudgets(year: year)
             errorMessage = nil
             hasLoadedBudgetsOnce = true
             budgetsByOtherYear[year] = nil
@@ -135,7 +137,7 @@ final class BudgetStore {
             )
             selectedYear = year
             budgets = merge(budgets: budgets, with: created)
-            persistCachedBudgets()
+            persistCachedBudgets(year: year)
             saveErrorMessage = nil
             errorMessage = nil
             hasLoadedBudgetsOnce = true
@@ -166,7 +168,7 @@ final class BudgetStore {
             let path = "/api/presupuestos?anio=\(budget.anio)&mes=\(budget.mes)"
             _ = try await rawRequest(path: path, method: "DELETE", baseURL: session.apiBaseURL, authHeader: authHeader)
             budgets.removeAll { $0.id == budget.id }
-            persistCachedBudgets()
+            persistCachedBudgets(year: budget.anio)
             errorMessage = nil
             return true
         } catch {
@@ -224,8 +226,14 @@ final class BudgetStore {
         }
     }
 
-    private func persistCachedBudgets() {
-        guard let data = try? JSONEncoder().encode(budgets) else { return }
+    /// La caché guarda sólo el año en curso. Antes guardaba el año que se
+    /// estuviera mirando en Plan, y si era otro, Resumen abría sin el
+    /// presupuesto del mes («Define un presupuesto») hasta que llegaba la red.
+    private func persistCachedBudgets(year: Int) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        guard year == currentYear else { return }
+        let ofYear = budgets.filter { $0.anio == currentYear }
+        guard let data = try? JSONEncoder().encode(ofYear) else { return }
         UserDefaults.standard.set(data, forKey: Self.cachedBudgetsKey)
     }
 

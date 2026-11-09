@@ -276,14 +276,22 @@ private struct NotificationsScreenContainer: View {
                         .frame(width: 24)
                         .contentShape(.rect)
                         .gesture(
-                            DragGesture(minimumDistance: 10)
+                            // En coordenadas globales: la franja se mueve con la
+                            // pantalla, y medido en sus propias coordenadas el
+                            // desplazamiento se restaba a sí mismo. La pantalla
+                            // temblaba bajo el dedo y casi nunca llegaba a cerrarse.
+                            DragGesture(minimumDistance: 10, coordinateSpace: .global)
                                 .onChanged { dragOffset = max(0, $0.translation.width) }
                                 .onEnded { value in
                                     let width = proxy.size.width
                                     if value.translation.width > width / 3 || value.predictedEndTranslation.width > width / 2 {
+                                        // Sin devolver el desplazamiento a 0: la salida
+                                        // sigue desde donde la dejó el dedo. Antes las dos
+                                        // animaciones tiraban en sentidos opuestos.
                                         onClose()
+                                    } else {
+                                        withAnimation(AppMotion.expand) { dragOffset = 0 }
                                     }
-                                    withAnimation(AppMotion.expand) { dragOffset = 0 }
                                 }
                         )
                 }
