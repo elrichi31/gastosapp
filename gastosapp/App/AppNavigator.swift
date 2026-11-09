@@ -147,9 +147,11 @@ final class AppInbox {
 
         let cal = Calendar.current
         let now = Date()
-        if let budget = budgets.budgets.first(where: {
-            $0.anio == cal.component(.year, from: now) && $0.mes == cal.component(.month, from: now)
-        }) {
+        // `budget(year:month:)` y no `budgets.budgets`: esa lista es la del año
+        // elegido en Plan, y con otro año el aviso de presupuesto desaparecía.
+        if let budget = await budgets.budget(
+            year: cal.component(.year, from: now), month: cal.component(.month, from: now), using: store
+        ) {
             await budgetDetail.loadDetail(using: store, budgetID: budget.id)
         }
         rebuild(store: store)

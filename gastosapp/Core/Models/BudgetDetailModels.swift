@@ -84,6 +84,11 @@ struct BudgetMonthlyMetrics: Hashable {
     let budgeted: Double
     let spent: Double
 
+    init(budgeted: Double, spent: Double) {
+        self.budgeted = budgeted
+        self.spent = spent
+    }
+
     init(categories: [BudgetCategoryDetail], expenses: [Expense], year: Int, month: Int) {
         budgeted = categories.reduce(0) { $0 + $1.budgetedAmount }
         let range = Date.budgetMonthRange(year: year, month: month)

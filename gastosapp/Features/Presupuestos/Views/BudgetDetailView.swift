@@ -5,6 +5,8 @@ import SwiftUI
 struct BudgetDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ExpenseStore.self) private var session
+    /// Hasta que termina la primera carga no se dice «sin categorías».
+    @State private var hasLoadedDetail = false
     @State private var detailStore = BudgetDetailStore()
     @State private var presentedSheet: BudgetDetailSheet?
     @State private var movementToDelete: BudgetMovement?
@@ -19,6 +21,14 @@ struct BudgetDetailView: View {
 
     private var spendingSnapshot: BudgetMonthSpendingSnapshot {
         cachedSpending ?? makeSpendingSnapshot()
+    }
+
+    /// Mientras llegan las categorías, el plan del mes sale del total que ya
+    /// trae la tarjeta de Plan: antes se veía «$0,00 · Sin presupuesto».
+    private var statusMetrics: BudgetMonthlyMetrics {
+        let metrics = spendingSnapshot.monthlyMetrics
+        guard detailStore.categories.isEmpty, !hasLoadedDetail else { return metrics }
+        return BudgetMonthlyMetrics(budgeted: budget.total, spent: metrics.spent)
     }
 
     private func makeSpendingSnapshot() -> BudgetMonthSpendingSnapshot {
@@ -36,7 +46,7 @@ struct BudgetDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
-                    statusCard(spendingSnapshot.monthlyMetrics)
+                    statusCard(statusMetrics)
                     content
                         .animation(AppMotion.fade, value: detailStore.isLoading)
                 }
@@ -56,9 +66,13 @@ struct BudgetDetailView: View {
         .swipeBackBehavior()
         .environment(detailStore)
         .task {
+            // Lo guardado se ve al momento: antes, mientras cargaban catálogos y
+            // gastos, salía «sin categorías» aunque el mes sí las tuviera.
+            detailStore.showCachedDetail(budgetID: budget.id)
             await session.loadCatalogsIfNeeded()
             await session.loadExpensesIfNeeded()
             await detailStore.loadDetail(using: session, budgetID: budget.id)
+            hasLoadedDetail = true
             await checkBudgetNotification()
         }
         .sheet(item: $presentedSheet) { sheet in
@@ -230,7 +244,7 @@ struct BudgetDetailView: View {
 
     @ViewBuilder
     private var content: some View {
-        if detailStore.isLoading && detailStore.categories.isEmpty {
+        if (detailStore.isLoading || !hasLoadedDetail) && detailStore.categories.isEmpty {
             ListRowsSkeleton(rows: 5, label: "Cargando categorías")
                 .transition(.opacity)
         } else if detailStore.categories.isEmpty {

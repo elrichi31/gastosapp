@@ -154,7 +154,11 @@ struct StatsView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        if analysis.expenses.isEmpty {
+        if analysis.expenses.isEmpty && (expenses.isRestoringCache || expenses.isLoadingExpenses) {
+            // Los gastos aún llegan (caché al arrancar o primera descarga): no es
+            // que el período esté vacío.
+            ListRowsSkeleton(label: "Cargando gastos")
+        } else if analysis.expenses.isEmpty {
             VStack(spacing: 6) {
                 Text("No hay gastos en este período")
                     .font(.system(size: 17, weight: .semibold))
